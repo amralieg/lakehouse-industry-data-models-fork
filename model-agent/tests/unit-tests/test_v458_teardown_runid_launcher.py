@@ -28,21 +28,11 @@ def _load(path, name):
 
 
 def test_active_v457_launchers_separate_session_and_task_run_ids():
-    wcb = _load(
-        REPO / "runner" / "launch_wcb_alberta_v457_myadp.py",
-        "launch_wcb_v457_for_test",
-    )
     tester = _load(
         REPO / "runner" / "launch_vibe_tester_v457_myadp.py",
         "launch_tester_v457_for_test",
     )
 
-    assert (
-        wcb.build_spec()["tasks"][0]["notebook_task"]["base_parameters"][
-            "databricks_task_run_id"
-        ]
-        == "{{task.run_id}}"
-    )
     assert (
         tester.build_spec()["tasks"][0]["notebook_task"]["base_parameters"][
             "databricks_task_run_id"

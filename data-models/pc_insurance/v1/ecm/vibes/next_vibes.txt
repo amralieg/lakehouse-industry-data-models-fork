@@ -1,0 +1,158 @@
+**Model Quality Score: 87.22/100**
+
+**Static Analysis Findings (2 actionable):**
+  - [SA:duplicate_product_pair] Domain 'policy' has both 'insured' and 'policy_insured' — SSOT violation. Merge into 'insured'.
+  - [SA:duplicate_product_pair] Domain 'coverage' has both 'peril' and 'coverage_peril' — SSOT violation. Merge into 'peril'.
+
+**PRIORITY 1 — connect_table: claims.attorney** — add column party_id (BIGINT) with FK to shared.party.party_id — attorney must resolve to a party for contact/identity lineage and cross-domain reuse.
+**PRIORITY 2 — connect_table: claims.attorney** — add column state_id (BIGINT) with FK to shared.state.state_id — attorneys are licensed by state and must be geo-anchored.
+**PRIORITY 3 — connect_table: claims.tpa** — add column party_id (BIGINT) with FK to shared.party.party_id — TPA is a legal entity and must link to the party master.
+**PRIORITY 4 — connect_table: claims.tpa** — add column country_id (BIGINT) with FK to shared.country.country_id — TPA needs jurisdictional anchor.
+**PRIORITY 5 — connect_table: claims.tpa** — add column state_id (BIGINT) with FK to shared.state.state_id — TPA operates within specific states.
+**PRIORITY 6 — connect_table: coverage.coverage_form** — add column lob_code_id (BIGINT) with FK to shared.lob_code.lob_code_id — coverage forms are line-of-business specific and need LOB linkage.
+**PRIORITY 7 — connect_table: coverage.coverage_form** — add column state_id (BIGINT) with FK to shared.state.state_id — forms are state-filed and must anchor to the filing state.
+**PRIORITY 8 — connect_table: coverage.product** — add column lob_code_id (BIGINT) with FK to shared.lob_code.lob_code_id — insurance product must resolve to a line of business.
+**PRIORITY 9 — connect_table: coverage.product** — add column org_unit_id (BIGINT) with FK to shared.org_unit.org_unit_id — products are owned by a business unit for governance.
+**PRIORITY 10 — connect_table: coverage.peril** — add column lob_code_id (BIGINT) with FK to shared.lob_code.lob_code_id — perils are LOB-scoped and must reference LOB.
+**PRIORITY 11 — connect_table: policy.underwriter** — add column party_id (BIGINT) with FK to shared.party.party_id — underwriter identity must link to the party master.
+**PRIORITY 12 — connect_table: policy.underwriter** — add column user_account_id (BIGINT) with FK to shared.user_account.user_account_id — underwriter must connect to system user for auditability.
+**PRIORITY 13 — connect_table: policy.underwriter** — add column org_unit_id (BIGINT) with FK to shared.org_unit.org_unit_id — underwriters belong to underwriting units.
+**PRIORITY 14 — connect_table: policy.insured** — add column party_id (BIGINT) with FK to shared.party.party_id — insured must resolve to canonical party master.
+**PRIORITY 15 — connect_table: policy.insured** — add column country_id (BIGINT) with FK to shared.country.country_id — insured must have jurisdiction of domicile.
+**PRIORITY 16 — connect_table: policy.insured** — add column state_id (BIGINT) with FK to shared.state.state_id — insured jurisdictional anchor for licensing/tax.
+**PRIORITY 17 — connect_table: policy.policy_form** — add column lob_code_id (BIGINT) with FK to shared.lob_code.lob_code_id — policy forms are LOB-specific.
+**PRIORITY 18 — connect_table: policy.policy_form** — add column state_id (BIGINT) with FK to shared.state.state_id — policy forms are state-filed regulatory artifacts.
+**PRIORITY 19 — connect_table: policy.document_template** — add column lob_code_id (BIGINT) with FK to shared.lob_code.lob_code_id — templates are LOB-scoped.
+**PRIORITY 20 — connect_table: policy.document_template** — add column state_id (BIGINT) with FK to shared.state.state_id — templates are state-specific for regulatory compliance.
+**PRIORITY 21 — connect_table: reinsurance.reinsurer** — add column party_id (BIGINT) with FK to shared.party.party_id — reinsurer is a party requiring master data linkage.
+**PRIORITY 22 — connect_table: reinsurance.reinsurer** — add column country_id (BIGINT) with FK to shared.country.country_id — reinsurer jurisdictional domicile for credit/regulatory tracking.
+**PRIORITY 23 — connect_table: reinsurance.reinsurer** — add column currency_id (BIGINT) with FK to shared.currency.currency_id — reinsurer reporting currency.
+**PRIORITY 24 — connect_table: reinsurance.ri_broker** — add column party_id (BIGINT) with FK to shared.party.party_id — RI broker resolves to canonical party.
+**PRIORITY 25 — connect_table: reinsurance.ri_broker** — add column country_id (BIGINT) with FK to shared.country.country_id — RI broker jurisdictional anchor.
+**PRIORITY 26 — connect_table: reinsurance.ri_broker** — add column state_id (BIGINT) with FK to shared.state.state_id — RI broker licensing state.
+**PRIORITY 27 — connect_table: reservespayments.reserve_study** — add column lob_code_id (BIGINT) with FK to shared.lob_code.lob_code_id — reserve studies are performed per line of business.
+**PRIORITY 28 — connect_table: reservespayments.reserve_study** — add column currency_id (BIGINT) with FK to shared.currency.currency_id — reserve study amounts denominated in currency.
+**PRIORITY 29 — connect_table: reservespayments.reserve_study** — add column actuarial_analyst_id (BIGINT) with FK to reservespayments.actuarial_analyst.actuarial_analyst_id — studies are authored by an actuary.
+**PRIORITY 30 — connect_table: reservespayments.reserve_study** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — reserve studies have evaluation dates.
+**PRIORITY 31 — connect_table: riskexposure.cat_zone** — add column country_id (BIGINT) with FK to shared.country.country_id — CAT zones span jurisdictions and need country anchor.
+**PRIORITY 32 — connect_table: shared.calendar** — add column country_id (BIGINT) with FK to shared.country.country_id — calendar days are holiday/business-day specific per country.
+**PRIORITY 33 — connect_table: shared.lob_code** — add column org_unit_id (BIGINT) with FK to shared.org_unit.org_unit_id — LOB is owned by a business unit for accountability.
+**PRIORITY 34 — connect_table: producers.producers_producer** — add column party_id (BIGINT) with FK to shared.party.party_id — producer identity must resolve to canonical party master.
+**PRIORITY 35 — connect_table: producers.agency** — add column country_id (BIGINT) with FK to shared.country.country_id — agencies have a country of domicile.
+**PRIORITY 36 — connect_table: producers.agency** — add column currency_id (BIGINT) with FK to shared.currency.currency_id — agency settlement currency.
+**PRIORITY 37 — connect_table: producers.agency** — add column party_id (BIGINT) with FK to shared.party.party_id — agency resolves to canonical party.
+**PRIORITY 38 — connect_table: policy.policy** — add column policy_form_id (BIGINT) with FK to policy.policy_form.policy_form_id — every policy is issued on a specific form and requires this lineage.
+**PRIORITY 39 — connect_table: policy.policy** — add column lob_code_id (BIGINT) with FK to shared.lob_code.lob_code_id — policy must resolve to a line of business for reporting.
+**PRIORITY 40 — connect_table: policy.policy** — add column underwriter_id (BIGINT) with FK to policy.underwriter.underwriter_id — every policy has an owning underwriter of record.
+**PRIORITY 41 — connect_table: policy.policy** — add column country_id (BIGINT) with FK to shared.country.country_id — policy jurisdiction of issue.
+**PRIORITY 42 — connect_table: policy.policy** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — policy effective/expiry dates need calendar linkage.
+**PRIORITY 43 — connect_table: policy.policy** — add column insured_id (BIGINT) with FK to policy.insured.insured_id — every policy has a primary named insured of record.
+**PRIORITY 44 — connect_table: coverage.coverage_form** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — coverage forms have effective/expiry filing dates.
+**PRIORITY 45 — connect_table: coverage.coverage_form** — add column currency_id (BIGINT) with FK to shared.currency.currency_id — form default limit/premium currency.
+**PRIORITY 46 — connect_table: coverage.limit** — add column currency_id (BIGINT) with FK to shared.currency.currency_id — limits are monetary amounts requiring currency.
+**PRIORITY 47 — connect_table: coverage.limit** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — limits have effective dates.
+**PRIORITY 48 — connect_table: coverage.deductible** — add column currency_id (BIGINT) with FK to shared.currency.currency_id — deductibles are monetary values.
+**PRIORITY 49 — connect_table: coverage.peril** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — perils have effective dates for versioning.
+**PRIORITY 50 — connect_table: coverage.named_insured** — add column policy_insured_id (BIGINT) with FK to policy.policy_insured.policy_insured_id — named insured is a subtype of policy insured relation.
+**PRIORITY 51 — connect_table: coverage.part** — add column lob_code_id (BIGINT) with FK to shared.lob_code.lob_code_id — coverage parts are LOB-scoped.
+**PRIORITY 52 — connect_table: coverage.sir_layer** — add column currency_id (BIGINT) with FK to shared.currency.currency_id — SIR layers are monetary amounts.
+**PRIORITY 53 — connect_table: coverage.additional_insured** — add column party_id (BIGINT) with FK to shared.party.party_id — additional insured must resolve to a party.
+**PRIORITY 54 — connect_table: policy.form_filing** — add column policy_rate_filing_id (BIGINT) with FK to policy.policy_rate_filing.policy_rate_filing_id — form filings often accompany rate filings.
+**PRIORITY 55 — connect_table: policy.form_filing** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — filings have filed/approved dates.
+**PRIORITY 56 — connect_table: policy.policy_rate_filing** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — rate filings have submission/effective dates.
+**PRIORITY 57 — connect_table: policy.policy_rate_filing** — add column lob_code_id (BIGINT) with FK to shared.lob_code.lob_code_id — rate filings are LOB-specific.
+**PRIORITY 58 — connect_table: producers.producer_license** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — licenses have issue/expiry dates.
+**PRIORITY 59 — connect_table: producers.producer_license** — add column lob_code_id (BIGINT) with FK to shared.lob_code.lob_code_id — licenses authorize specific LOBs.
+**PRIORITY 60 — connect_table: producers.producer_compliance** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — compliance events are date-stamped.
+**PRIORITY 61 — connect_table: producers.appointment** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — appointments have effective/termination dates.
+**PRIORITY 62 — connect_table: producers.eno_policy** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — E&O policies have effective/expiration dates.
+**PRIORITY 63 — connect_table: producers.contingent_bonus** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — bonuses accrue over calendar periods.
+**PRIORITY 64 — connect_table: producers.commission_schedule** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — commission schedules have effective dates.
+**PRIORITY 65 — connect_table: producers.commission_statement** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — statements are period-based with dates.
+**PRIORITY 66 — connect_table: producers.commission_transaction** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — commission transactions have accrual dates.
+**PRIORITY 67 — connect_table: producers.commission_transaction** — add column premium_transaction_id (BIGINT) with FK to premium.premium_transaction.premium_transaction_id — commissions are earned on specific premium transactions.
+**PRIORITY 68 — connect_table: producers.termination** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — terminations have effective dates.
+**PRIORITY 69 — connect_table: producers.onboarding_case** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — onboarding has start/complete dates.
+**PRIORITY 70 — connect_table: producers.onboarding_case** — add column agency_id (BIGINT) with FK to producers.agency.agency_id — onboarding attaches producer to an agency.
+**PRIORITY 71 — connect_table: producers.agency_producer** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — producer-agency association has start/end dates.
+**PRIORITY 72 — connect_table: reinsurance.ri_treaty** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — treaties have inception/expiry dates.
+**PRIORITY 73 — connect_table: reinsurance.ri_treaty** — add column ri_broker_id (BIGINT) with FK to reinsurance.ri_broker.ri_broker_id — treaties are placed via a broker of record.
+**PRIORITY 74 — connect_table: reinsurance.ri_placement** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — placements have placement dates.
+**PRIORITY 75 — connect_table: reinsurance.cat_bond** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — CAT bonds have issue/maturity dates.
+**PRIORITY 76 — connect_table: reinsurance.bordereaux** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — bordereaux are period-based reports.
+**PRIORITY 77 — connect_table: reinsurance.ri_settlement** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — settlements have transaction dates.
+**PRIORITY 78 — connect_table: reinsurance.ceded_premium_transaction** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — ceded premium transactions have accounting dates.
+**PRIORITY 79 — connect_table: reinsurance.ceded_loss_transaction** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — ceded loss transactions have accounting dates.
+**PRIORITY 80 — connect_table: reinsurance.claim_ri_recovery** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — recoveries have transaction dates.
+**PRIORITY 81 — connect_table: reinsurance.ri_recoverable** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — recoverable balances are dated evaluations.
+**PRIORITY 82 — connect_table: reinsurance.occurrence_loss** — add column claim_id (BIGINT) with FK to claims.claim.claim_id — occurrence losses aggregate claims and need claim lineage.
+**PRIORITY 83 — connect_table: reinsurance.occurrence_loss** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — occurrences have occurrence dates.
+**PRIORITY 84 — connect_table: reinsurance.reinstatement** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — reinstatements have effective dates.
+**PRIORITY 85 — connect_table: reinsurance.profit_commission** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — profit commissions are period-computed.
+**PRIORITY 86 — connect_table: reinsurance.treaty_layer** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — layers have effective periods.
+**PRIORITY 87 — connect_table: reservespayments.cat_event** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — CAT events have occurrence dates.
+**PRIORITY 88 — connect_table: reservespayments.cat_event** — add column country_id (BIGINT) with FK to shared.country.country_id — CAT events are located in a country.
+**PRIORITY 89 — connect_table: reservespayments.cat_event** — add column state_id (BIGINT) with FK to shared.state.state_id — CAT events are attributed to a state.
+**PRIORITY 90 — connect_table: reservespayments.cat_event** — add column lob_code_id (BIGINT) with FK to shared.lob_code.lob_code_id — CAT events drive LOB-specific losses.
+**PRIORITY 91 — connect_table: reservespayments.payee** — add column party_id (BIGINT) with FK to shared.party.party_id — payees must resolve to canonical party master.
+**PRIORITY 92 — connect_table: claims.service_vendor** — add column party_id (BIGINT) with FK to shared.party.party_id — vendors must resolve to canonical party.
+**PRIORITY 93 — connect_table: claims.adjuster** — add column party_id (BIGINT) with FK to shared.party.party_id — adjuster identity linked to party master.
+**PRIORITY 94 — connect_table: claims.adjuster** — add column user_account_id (BIGINT) with FK to shared.user_account.user_account_id — adjuster resolves to system user.
+**PRIORITY 95 — connect_table: claims.adjuster** — add column org_unit_id (BIGINT) with FK to shared.org_unit.org_unit_id — adjusters belong to claim units.
+**PRIORITY 96 — connect_table: claims.claimant** — add column party_id (BIGINT) with FK to shared.party.party_id — claimant resolves to party master for de-duplication.
+**PRIORITY 97 — connect_table: claims.claimant** — add column state_id (BIGINT) with FK to shared.state.state_id — claimant residence state for jurisdictional handling.
+**PRIORITY 98 — connect_table: reservespayments.actuarial_analyst** — add column user_account_id (BIGINT) with FK to shared.user_account.user_account_id — analyst is a system user.
+**PRIORITY 99 — connect_table: reservespayments.actuarial_analyst** — add column org_unit_id (BIGINT) with FK to shared.org_unit.org_unit_id — analysts belong to actuarial unit.
+**PRIORITY 100 — connect_table: riskexposure.insured_vehicle** — add column insured_entity_id (BIGINT) with FK to riskexposure.insured_entity.insured_entity_id — vehicles are owned by an insured entity.
+**PRIORITY 101 — connect_table: riskexposure.insured_location** — add column insured_entity_id (BIGINT) with FK to riskexposure.insured_entity.insured_entity_id — locations belong to an insured entity.
+**PRIORITY 102 — connect_table: riskexposure.scheduled_item** — add column insured_entity_id (BIGINT) with FK to riskexposure.insured_entity.insured_entity_id — scheduled items are owned by an insured entity.
+**PRIORITY 103 — connect_table: riskexposure.scheduled_equipment** — add column insured_entity_id (BIGINT) with FK to riskexposure.insured_entity.insured_entity_id — equipment is owned by an insured entity.
+**PRIORITY 104 — connect_table: riskexposure.cat_zone** — add column lob_code_id (BIGINT) with FK to shared.lob_code.lob_code_id — CAT zones are LOB-defined.
+**PRIORITY 105 — connect_table: shared.currency** — add column country_id (BIGINT) with FK to shared.country.country_id — each currency has a country of issue.
+**PRIORITY 106 — rename_product: reinsurance.reinsurance_cession** — rename to cession_transaction because the coverage.cession table already exists and creates naming/semantic overlap; distinguish by transactional intent.
+**PRIORITY 107 — connect_table: policy.form_filing** — add column lob_code_id (BIGINT) with FK to shared.lob_code.lob_code_id — form filings are LOB-scoped regulatory artifacts.
+**PRIORITY 108 — connect_table: coverage.exposure** — add column risk_unit_id (BIGINT) with FK to riskexposure.risk_unit.risk_unit_id — exposures roll up to a rated risk unit.
+**PRIORITY 109 — connect_table: coverage.exposure** — add column currency_id (BIGINT) with FK to shared.currency.currency_id — exposure base values may be monetary.
+**PRIORITY 110 — connect_table: policy.policy_form** — add column coverage_form_id (BIGINT) with FK to coverage.coverage_form.coverage_form_id — policy forms bundle coverage forms.
+**PRIORITY 111 — connect_table: producers.territory** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — territory assignments have effective dates.
+**PRIORITY 112 — connect_table: producers.authority_territory** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — authority territories have effective dates.
+**PRIORITY 113 — connect_table: producers.binding_authority** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — binding authority has effective dates.
+**PRIORITY 114 — connect_table: producers.binding_authority** — add column state_id (BIGINT) with FK to shared.state.state_id — binding authority is granted by state.
+**PRIORITY 115 — connect_table: producers.producer_agreement** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — agreements have effective dates.
+**PRIORITY 116 — connect_table: producers.producer_agreement** — add column currency_id (BIGINT) with FK to shared.currency.currency_id — agreements specify commission/settlement currency.
+**PRIORITY 117 — connect_table: reinsurance.treaty_reinsurer** — add column currency_id (BIGINT) with FK to shared.currency.currency_id — participation shares are quantified in currency.
+**PRIORITY 118 — connect_table: reinsurance.treaty_reinsurer** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — reinsurer participation is date-bounded.
+**PRIORITY 119 — connect_table: claims.tpa** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — TPA contracts have effective dates.
+**PRIORITY 120 — connect_table: claims.attorney** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — attorney bar admission/onboarding dates.
+**PRIORITY 121 — connect_table: policy.underwriter** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — underwriter tenure has effective dates.
+**PRIORITY 122 — connect_table: shared.org_unit** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — org units have effective/end dates for reorg tracking.
+**PRIORITY 123 — connect_table: shared.party** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — parties have creation/effective dates for SCD tracking.
+**PRIORITY 124 — connect_table: coverage.product** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — products have launch/sunset dates.
+**PRIORITY 125 — connect_table: coverage.coverage_form** — add column product_id (BIGINT) with FK to coverage.product.product_id — coverage forms are bundled into products.
+**PRIORITY 126 — connect_table: reinsurance.reinsurer** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — reinsurer onboarding/rating dates.
+**PRIORITY 127 — connect_table: reinsurance.ri_broker** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — RI broker onboarding dates.
+**PRIORITY 128 — connect_table: policy.insured** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — insured party has onboarding/effective dates.
+**PRIORITY 129 — connect_table: riskexposure.insured_entity** — add column party_id (BIGINT) with FK to shared.party.party_id — insured entities must resolve to canonical party master.
+**PRIORITY 130 — connect_table: riskexposure.insured_entity** — add column country_id (BIGINT) with FK to shared.country.country_id — insured entities have domicile jurisdiction.
+**PRIORITY 131 — connect_table: riskexposure.insured_entity** — add column state_id (BIGINT) with FK to shared.state.state_id — insured entities have state jurisdiction.
+**PRIORITY 132 — connect_table: reservespayments.payee** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — payee onboarding/tax-form dates.
+**PRIORITY 133 — connect_table: reinsurance.ri_placement** — add column policy_id (BIGINT) with FK to policy.policy.policy_id — facultative placements attach to a specific ceded policy.
+**PRIORITY 134 — connect_table: claims.service_assignment** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — service assignments have start/end dates.
+**PRIORITY 135 — connect_table: claims.service_assignment** — add column adjuster_id (BIGINT) with FK to claims.adjuster.adjuster_id — assignments are made by an adjuster.
+**PRIORITY 136 — connect_table: claims.service_vendor** — add column lob_code_id (BIGINT) with FK to shared.lob_code.lob_code_id — vendors are approved by LOB scope.
+**PRIORITY 137 — connect_table: policy.policy_producer** — add column commission_schedule_id (BIGINT) with FK to producers.commission_schedule.commission_schedule_id — producer-policy assignment carries an applicable commission schedule.
+**PRIORITY 138 — connect_table: policy.policy_producer** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — producer of record has effective dates.
+
+Other known issues from static analysis (10):
+  - Table shared.user_account has self-referencing FK on column 'created_by_user_id' with same name as PK 'user_account_id' — the FK column must have a different name that describes the relationship (the LLM should choose a contextual label)
+  - Table shared.user_account has self-referencing FK on column 'deactivated_by_user_id' with same name as PK 'user_account_id' — the FK column must have a different name that describes the relationship (the LLM should choose a contextual label)
+  - Table shared.user_account has self-referencing FK on column 'last_modified_by_user_id' with same name as PK 'user_account_id' — the FK column must have a different name that describes the relationship (the LLM should choose a contextual label)
+  - Table policy.location_condition has 2 FK columns pointing to policy.condition (condition_id, policy_condition_id) (generic/unlabeled: condition_id) — rename generic columns to describe their business role (e.g., inspector_employee_id, approver_employee_id; origin_plan_id, amendment_plan_id)
+  - Table policy.form_filing has 2 FK columns pointing to policy.policy_form (form_policy_form_id, policy_form_id) (generic/unlabeled: policy_form_id) — rename generic columns to describe their business role (e.g., inspector_employee_id, approver_employee_id; origin_plan_id, amendment_plan_id)
+  - Table claims.litigation has 2 FK columns pointing to claims.adjuster (adjuster_id, assigned_adjuster_id) (generic/unlabeled: adjuster_id) — rename generic columns to describe their business role (e.g., inspector_employee_id, approver_employee_id; origin_plan_id, amendment_plan_id)
+  - Subdomain 'financial_settlement' appears in 2 domains: claims, reinsurance. Consider renaming to qualified form.
+  - 3 attribute(s) contain banned boilerplate phrases (Fortune N, multinational, enterprise-wide, cross-company, group reporting). Clean descriptions.
+  - 43 attribute(s) match person-data patterns but lack pii_ tags
+  - 10 non-PK attributes redundantly prefixed with their product name
+
+Deterministic score: 87.22/100 (LLM assessment: 78/100)

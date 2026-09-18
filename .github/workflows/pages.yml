@@ -72,7 +72,7 @@ jobs:
           python3 -u tools/build_manifest.py \
             --repo . \
             --ref "$GITHUB_SHA" \
-            --source databricks-industry-solutions/lakehouse-industry-data-models \
+            --source amralieg/lakehouse-industry-data-models-fork \
             --strict \
             --out docs/manifest.json
           python3 -m json.tool docs/manifest.json > /dev/null

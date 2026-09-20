@@ -1,45 +1,45 @@
--- Metric views for domain: shared | Business: Pc_Insurance | Version: 1 | Generated on: 2026-09-18 02:41:20
+-- Metric views for domain: shared | Business: Pc_Insurance | Version: 1 | Generated on: 2026-09-20 14:47:38
 
-CREATE OR REPLACE VIEW `vibe_pc_insurance_v499`.`_metrics`.`shared_calendar`
+CREATE OR REPLACE VIEW `vibe_pc_insurance_blog_v499`.`_metrics`.`shared_calendar`
 WITH METRICS
 LANGUAGE YAML
 AS $$
   version: 1.1
   comment: "Calendar business metrics"
-  source: "`vibe_pc_insurance_v499`.`shared`.`calendar`"
+  source: "`vibe_pc_insurance_blog_v499`.`shared`.`calendar`"
   dimensions:
-    - name: "Accounting Period"
-      expr: accounting_period
-    - name: "Calendar Date"
-      expr: calendar_date
-    - name: "Cat Season Indicator"
-      expr: cat_season_indicator
+    - name: "Close Date"
+      expr: close_date
     - name: "Created Timestamp"
       expr: created_timestamp
-    - name: "Day Name"
-      expr: day_name
-    - name: "Effective Date"
-      expr: effective_date
-    - name: "Expiration Date"
-      expr: expiration_date
-    - name: "Fiscal Period End Date"
-      expr: fiscal_period_end_date
-    - name: "Fiscal Period Start Date"
-      expr: fiscal_period_start_date
-    - name: "Holiday Name"
-      expr: holiday_name
-    - name: "Is Business Day"
-      expr: is_business_day
-    - name: "Is Current"
-      expr: is_current
-    - name: "Is Holiday"
-      expr: is_holiday
+    - name: "End Date"
+      expr: end_date
+    - name: "Gaap Period Key"
+      expr: gaap_period_key
+    - name: "Ifrs17 Period Key"
+      expr: ifrs17_period_key
+    - name: "Is Closed"
+      expr: is_closed
+    - name: "Is Current Period"
+      expr: is_current_period
     - name: "Is Leap Year"
       expr: is_leap_year
-    - name: "Is Month End"
-      expr: is_month_end
-    - name: "Is Quarter End"
-      expr: is_quarter_end
+    - name: "Modified Timestamp"
+      expr: modified_timestamp
+    - name: "Period Key"
+      expr: period_key
+    - name: "Period Name"
+      expr: period_name
+    - name: "Period Status"
+      expr: period_status
+    - name: "Period Type"
+      expr: period_type
+    - name: "Reporting Period Key"
+      expr: reporting_period_key
+    - name: "Sap Period Key"
+      expr: sap_period_key
+    - name: "Start Date"
+      expr: start_date
   measures:
     - name: "Row Count"
       expr: COUNT(1)
@@ -49,26 +49,10 @@ AS $$
       expr: SUM(accident_year)
     - name: "Average Accident Year"
       expr: AVG(accident_year)
-    - name: "Total Day Of Month"
-      expr: SUM(day_of_month)
-    - name: "Average Day Of Month"
-      expr: AVG(day_of_month)
-    - name: "Total Day Of Week"
-      expr: SUM(day_of_week)
-    - name: "Average Day Of Week"
-      expr: AVG(day_of_week)
-    - name: "Total Day Of Year"
-      expr: SUM(day_of_year)
-    - name: "Average Day Of Year"
-      expr: AVG(day_of_year)
-    - name: "Total Days In Month"
-      expr: SUM(days_in_month)
-    - name: "Average Days In Month"
-      expr: AVG(days_in_month)
-    - name: "Total Days In Year"
-      expr: SUM(days_in_year)
-    - name: "Average Days In Year"
-      expr: AVG(days_in_year)
+    - name: "Total Day Count"
+      expr: SUM(day_count)
+    - name: "Average Day Count"
+      expr: AVG(day_count)
     - name: "Total Fiscal Month"
       expr: SUM(fiscal_month)
     - name: "Average Fiscal Month"
@@ -77,31 +61,114 @@ AS $$
       expr: SUM(fiscal_quarter)
     - name: "Average Fiscal Quarter"
       expr: AVG(fiscal_quarter)
-    - name: "Total Fiscal Week"
-      expr: SUM(fiscal_week)
-    - name: "Average Fiscal Week"
-      expr: AVG(fiscal_week)
     - name: "Total Fiscal Year"
       expr: SUM(fiscal_year)
     - name: "Average Fiscal Year"
       expr: AVG(fiscal_year)
+    - name: "Total Fiscal Year Start Month"
+      expr: SUM(fiscal_year_start_month)
+    - name: "Average Fiscal Year Start Month"
+      expr: AVG(fiscal_year_start_month)
     - name: "Total Month"
       expr: SUM(month)
     - name: "Average Month"
       expr: AVG(month)
+    - name: "Total Naic Reporting Quarter"
+      expr: SUM(naic_reporting_quarter)
+    - name: "Average Naic Reporting Quarter"
+      expr: AVG(naic_reporting_quarter)
+    - name: "Total Naic Reporting Year"
+      expr: SUM(naic_reporting_year)
+    - name: "Average Naic Reporting Year"
+      expr: AVG(naic_reporting_year)
     - name: "Total Policy Year"
       expr: SUM(policy_year)
     - name: "Average Policy Year"
       expr: AVG(policy_year)
+    - name: "Total Quarter"
+      expr: SUM(quarter)
+    - name: "Average Quarter"
+      expr: AVG(quarter)
+    - name: "Total Week"
+      expr: SUM(week)
+    - name: "Average Week"
+      expr: AVG(week)
 $$;
 
-CREATE OR REPLACE VIEW `vibe_pc_insurance_v499`.`_metrics`.`shared_country`
+CREATE OR REPLACE VIEW `vibe_pc_insurance_blog_v499`.`_metrics`.`shared_classification_code`
+WITH METRICS
+LANGUAGE YAML
+AS $$
+  version: 1.1
+  comment: "Classification Code business metrics"
+  source: "`vibe_pc_insurance_blog_v499`.`shared`.`classification_code`"
+  dimensions:
+    - name: "Appetite Tier"
+      expr: appetite_tier
+    - name: "Classification Code Status"
+      expr: classification_code_status
+    - name: "Classification System"
+      expr: classification_system
+    - name: "Code"
+      expr: classification_code_code
+    - name: "Code Description"
+      expr: code_description
+    - name: "Construction Type"
+      expr: construction_type
+    - name: "Created Timestamp"
+      expr: created_timestamp
+    - name: "Deductible Options"
+      expr: deductible_options
+    - name: "Effective Date"
+      expr: effective_date
+    - name: "Eligibility Flag"
+      expr: eligibility_flag
+    - name: "Expiration Date"
+      expr: expiration_date
+    - name: "Exposure Category"
+      expr: exposure_category
+    - name: "Hazard Group"
+      expr: hazard_group
+    - name: "Industry Group"
+      expr: industry_group
+    - name: "Iso Edition"
+      expr: iso_edition
+    - name: "Iso Gl Class Code"
+      expr: iso_gl_class_code
+  measures:
+    - name: "Row Count"
+      expr: COUNT(1)
+    - name: "Distinct Classification Code"
+      expr: COUNT(DISTINCT classification_code_id)
+    - name: "Total Base Rate"
+      expr: SUM(base_rate)
+    - name: "Average Base Rate"
+      expr: AVG(base_rate)
+    - name: "Total Expense Provision"
+      expr: SUM(expense_provision)
+    - name: "Average Expense Provision"
+      expr: AVG(expense_provision)
+    - name: "Total Increased Limits Factor"
+      expr: SUM(increased_limits_factor)
+    - name: "Average Increased Limits Factor"
+      expr: AVG(increased_limits_factor)
+    - name: "Total Loss Cost"
+      expr: SUM(loss_cost)
+    - name: "Average Loss Cost"
+      expr: AVG(loss_cost)
+    - name: "Total Minimum Premium"
+      expr: SUM(minimum_premium)
+    - name: "Average Minimum Premium"
+      expr: AVG(minimum_premium)
+$$;
+
+CREATE OR REPLACE VIEW `vibe_pc_insurance_blog_v499`.`_metrics`.`shared_currency`
 WITH METRICS
 LANGUAGE YAML
 AS $$
   version: 1.1
   comment: "FALLBACK: original MV failed install, replaced with minimal row-count view"
-  source: "`vibe_pc_insurance_v499`.`shared`.`country`"
+  source: "`vibe_pc_insurance_blog_v499`.`shared`.`currency`"
   dimensions:
     - name: All Records
       expr: "1"
@@ -110,51 +177,32 @@ AS $$
       expr: COUNT(1)
 $$;
 
-CREATE OR REPLACE VIEW `vibe_pc_insurance_v499`.`_metrics`.`shared_currency`
+CREATE OR REPLACE VIEW `vibe_pc_insurance_blog_v499`.`_metrics`.`shared_line_of_business`
 WITH METRICS
 LANGUAGE YAML
 AS $$
   version: 1.1
-  comment: "FALLBACK: original MV failed install, replaced with minimal row-count view"
-  source: "`vibe_pc_insurance_v499`.`shared`.`currency`"
+  comment: "Line Of Business business metrics"
+  source: "`vibe_pc_insurance_blog_v499`.`shared`.`line_of_business`"
   dimensions:
-    - name: All Records
-      expr: "1"
-  measures:
-    - name: Row Count
-      expr: COUNT(1)
-$$;
-
-CREATE OR REPLACE VIEW `vibe_pc_insurance_v499`.`_metrics`.`shared_lob_code`
-WITH METRICS
-LANGUAGE YAML
-AS $$
-  version: 1.1
-  comment: "Lob Code business metrics"
-  source: "`vibe_pc_insurance_v499`.`shared`.`lob_code`"
-  dimensions:
-    - name: "Cat Exposure Flag"
-      expr: cat_exposure_flag
-    - name: "Claims Made Basis Flag"
-      expr: claims_made_basis_flag
+    - name: "Catastrophe Exposed"
+      expr: catastrophe_exposed
     - name: "Created Timestamp"
       expr: created_timestamp
     - name: "Description"
-      expr: lob_code_description
+      expr: line_of_business_description
     - name: "Effective Date"
       expr: effective_date
     - name: "Expiration Date"
       expr: expiration_date
-    - name: "Gaap Accounting Line"
-      expr: gaap_accounting_line
     - name: "Is Admitted"
       expr: is_admitted
-    - name: "Is Monoline"
-      expr: is_monoline
-    - name: "Is Package Eligible"
-      expr: is_package_eligible
+    - name: "Is Surplus Lines"
+      expr: is_surplus_lines
     - name: "Iso Line Code"
       expr: iso_line_code
+    - name: "Line Of Business Status"
+      expr: line_of_business_status
     - name: "Lob Abbreviation"
       expr: lob_abbreviation
     - name: "Lob Category"
@@ -163,267 +211,98 @@ AS $$
       expr: lob_code
     - name: "Lob Name"
       expr: lob_name
-    - name: "Lob Status"
-      expr: lob_status
+    - name: "Lob Type"
+      expr: lob_type
+    - name: "Naic Line Code"
+      expr: naic_line_code
+    - name: "Regulatory Approval Date"
+      expr: regulatory_approval_date
   measures:
     - name: "Row Count"
       expr: COUNT(1)
-    - name: "Distinct Lob Code"
-      expr: COUNT(DISTINCT lob_code_id)
-    - name: "Total Commission Rate Pct"
-      expr: SUM(commission_rate_pct)
-    - name: "Average Commission Rate Pct"
-      expr: AVG(commission_rate_pct)
-    - name: "Total Loss Development Period Months"
-      expr: SUM(loss_development_period_months)
-    - name: "Average Loss Development Period Months"
-      expr: AVG(loss_development_period_months)
-    - name: "Total Reinsurance Ceded Pct"
-      expr: SUM(reinsurance_ceded_pct)
-    - name: "Average Reinsurance Ceded Pct"
-      expr: AVG(reinsurance_ceded_pct)
-    - name: "Total Renewal Commission Rate Pct"
-      expr: SUM(renewal_commission_rate_pct)
-    - name: "Average Renewal Commission Rate Pct"
-      expr: AVG(renewal_commission_rate_pct)
-    - name: "Total Risk Based Capital Factor"
-      expr: SUM(risk_based_capital_factor)
-    - name: "Average Risk Based Capital Factor"
-      expr: AVG(risk_based_capital_factor)
-    - name: "Total Sort Order"
-      expr: SUM(sort_order)
-    - name: "Average Sort Order"
-      expr: AVG(sort_order)
-    - name: "Total Target Combined Ratio Pct"
-      expr: SUM(target_combined_ratio_pct)
-    - name: "Average Target Combined Ratio Pct"
-      expr: AVG(target_combined_ratio_pct)
-    - name: "Total Target Expense Ratio Pct"
-      expr: SUM(target_expense_ratio_pct)
-    - name: "Average Target Expense Ratio Pct"
-      expr: AVG(target_expense_ratio_pct)
-    - name: "Total Target Loss Ratio Pct"
-      expr: SUM(target_loss_ratio_pct)
-    - name: "Average Target Loss Ratio Pct"
-      expr: AVG(target_loss_ratio_pct)
+    - name: "Distinct Line Of Business"
+      expr: COUNT(DISTINCT line_of_business_id)
+    - name: "Total Combined Ratio Target Pct"
+      expr: SUM(combined_ratio_target_pct)
+    - name: "Average Combined Ratio Target Pct"
+      expr: AVG(combined_ratio_target_pct)
+    - name: "Total Default Commission Pct"
+      expr: SUM(default_commission_pct)
+    - name: "Average Default Commission Pct"
+      expr: AVG(default_commission_pct)
+    - name: "Total Default Policy Term Months"
+      expr: SUM(default_policy_term_months)
+    - name: "Average Default Policy Term Months"
+      expr: AVG(default_policy_term_months)
+    - name: "Total Display Order"
+      expr: SUM(display_order)
+    - name: "Average Display Order"
+      expr: AVG(display_order)
+    - name: "Total Expense Ratio Target Pct"
+      expr: SUM(expense_ratio_target_pct)
+    - name: "Average Expense Ratio Target Pct"
+      expr: AVG(expense_ratio_target_pct)
+    - name: "Total Loss Ratio Target Pct"
+      expr: SUM(loss_ratio_target_pct)
+    - name: "Average Loss Ratio Target Pct"
+      expr: AVG(loss_ratio_target_pct)
+    - name: "Total Minimum Premium Amount"
+      expr: SUM(minimum_premium_amount)
+    - name: "Average Minimum Premium Amount"
+      expr: AVG(minimum_premium_amount)
 $$;
 
-CREATE OR REPLACE VIEW `vibe_pc_insurance_v499`.`_metrics`.`shared_org_unit`
+CREATE OR REPLACE VIEW `vibe_pc_insurance_blog_v499`.`_metrics`.`shared_unit_of_measure`
 WITH METRICS
 LANGUAGE YAML
 AS $$
   version: 1.1
-  comment: "Org Unit business metrics"
-  source: "`vibe_pc_insurance_v499`.`shared`.`org_unit`"
+  comment: "Unit Of Measure business metrics"
+  source: "`vibe_pc_insurance_blog_v499`.`shared`.`unit_of_measure`"
   dimensions:
-    - name: "Address Line1"
-      expr: address_line1
-    - name: "Address Line2"
-      expr: address_line2
-    - name: "City"
-      expr: city
-    - name: "Cost Center Code"
-      expr: cost_center_code
+    - name: "Acord Code"
+      expr: acord_code
+    - name: "Audit Required Flag"
+      expr: audit_required_flag
+    - name: "Base Unit Code"
+      expr: base_unit_code
     - name: "Created Timestamp"
       expr: created_timestamp
-    - name: "Description"
-      expr: org_unit_description
+    - name: "Display Format"
+      expr: display_format
     - name: "Effective Date"
       expr: effective_date
     - name: "Expiration Date"
       expr: expiration_date
-    - name: "Fein"
-      expr: fein
-    - name: "Is Licensed"
-      expr: is_licensed
-    - name: "Manager Email"
-      expr: manager_email
-    - name: "Manager Name"
-      expr: manager_name
-    - name: "Modified Timestamp"
-      expr: modified_timestamp
-    - name: "Naic Company Code"
-      expr: naic_company_code
-    - name: "Phone Number"
-      expr: phone_number
-    - name: "Postal Code"
-      expr: postal_code
-  measures:
-    - name: "Row Count"
-      expr: COUNT(1)
-    - name: "Distinct Org Unit"
-      expr: COUNT(DISTINCT org_unit_id)
-    - name: "Total Budget Amount"
-      expr: SUM(budget_amount)
-    - name: "Average Budget Amount"
-      expr: AVG(budget_amount)
-    - name: "Total Headcount"
-      expr: SUM(headcount)
-    - name: "Average Headcount"
-      expr: AVG(headcount)
-    - name: "Total Hierarchy Level"
-      expr: SUM(hierarchy_level)
-    - name: "Average Hierarchy Level"
-      expr: AVG(hierarchy_level)
-$$;
-
-CREATE OR REPLACE VIEW `vibe_pc_insurance_v499`.`_metrics`.`shared_party`
-WITH METRICS
-LANGUAGE YAML
-AS $$
-  version: 1.1
-  comment: "Party business metrics"
-  source: "`vibe_pc_insurance_v499`.`shared`.`party`"
-  dimensions:
-    - name: "Address Line 1"
-      expr: address_line_1
-    - name: "Address Line 2"
-      expr: address_line_2
-    - name: "City"
-      expr: city
-    - name: "Created Timestamp"
-      expr: created_timestamp
-    - name: "Date Of Birth"
-      expr: date_of_birth
-    - name: "Doing Business As Name"
-      expr: doing_business_as_name
-    - name: "Email Address"
-      expr: email_address
-    - name: "Established Date"
-      expr: established_date
-    - name: "Fax Number"
-      expr: fax_number
-    - name: "First Name"
-      expr: first_name
-    - name: "Gender"
-      expr: gender
-    - name: "Industry Code"
-      expr: industry_code
+    - name: "Exposure Basis Flag"
+      expr: exposure_basis_flag
+    - name: "Iso Standard Code"
+      expr: iso_standard_code
     - name: "Last Modified Timestamp"
       expr: last_modified_timestamp
-    - name: "Last Name"
-      expr: last_name
-    - name: "Legal Name"
-      expr: legal_name
-    - name: "License Expiration Date"
-      expr: license_expiration_date
+    - name: "Modified By User"
+      expr: modified_by_user
+    - name: "Naic Code"
+      expr: naic_code
+    - name: "Notes"
+      expr: notes
+    - name: "System Of Measurement"
+      expr: system_of_measurement
+    - name: "Unit Of Measure Status"
+      expr: unit_of_measure_status
+    - name: "Uom Abbreviation"
+      expr: uom_abbreviation
   measures:
     - name: "Row Count"
       expr: COUNT(1)
-    - name: "Distinct Party"
-      expr: COUNT(DISTINCT party_id)
-    - name: "Total Commission Rate"
-      expr: SUM(commission_rate)
-    - name: "Average Commission Rate"
-      expr: AVG(commission_rate)
-    - name: "Total Credit Score"
-      expr: SUM(credit_score)
-    - name: "Average Credit Score"
-      expr: AVG(credit_score)
-$$;
-
-CREATE OR REPLACE VIEW `vibe_pc_insurance_v499`.`_metrics`.`shared_state`
-WITH METRICS
-LANGUAGE YAML
-AS $$
-  version: 1.1
-  comment: "State business metrics"
-  source: "`vibe_pc_insurance_v499`.`shared`.`state`"
-  dimensions:
-    - name: "Active Indicator"
-      expr: active_indicator
-    - name: "Catastrophe Exposure Zone"
-      expr: catastrophe_exposure_zone
-    - name: "Coastal State Indicator"
-      expr: coastal_state_indicator
-    - name: "Code"
-      expr: state_code
-    - name: "Created Timestamp"
-      expr: created_timestamp
-    - name: "Doi Contact Email"
-      expr: doi_contact_email
-    - name: "Doi Contact Phone"
-      expr: doi_contact_phone
-    - name: "Doi Mailing Address"
-      expr: doi_mailing_address
-    - name: "Doi Name"
-      expr: doi_name
-    - name: "Doi Website Url"
-      expr: doi_website_url
-    - name: "Effective Date"
-      expr: effective_date
-    - name: "Expiration Date"
-      expr: expiration_date
-    - name: "Filing System Type"
-      expr: filing_system_type
-    - name: "Fips Code"
-      expr: fips_code
-    - name: "Form Filing Requirement"
-      expr: form_filing_requirement
-    - name: "Guaranty Fund Participation"
-      expr: guaranty_fund_participation
-  measures:
-    - name: "Row Count"
-      expr: COUNT(1)
-    - name: "Distinct State"
-      expr: COUNT(DISTINCT state_id)
-    - name: "Total Premium Tax Rate"
-      expr: SUM(premium_tax_rate)
-    - name: "Average Premium Tax Rate"
-      expr: AVG(premium_tax_rate)
-    - name: "Total Surplus Lines Tax Rate"
-      expr: SUM(surplus_lines_tax_rate)
-    - name: "Average Surplus Lines Tax Rate"
-      expr: AVG(surplus_lines_tax_rate)
-$$;
-
-CREATE OR REPLACE VIEW `vibe_pc_insurance_v499`.`_metrics`.`shared_user_account`
-WITH METRICS
-LANGUAGE YAML
-AS $$
-  version: 1.1
-  comment: "User Account business metrics"
-  source: "`vibe_pc_insurance_v499`.`shared`.`user_account`"
-  dimensions:
-    - name: "Account Expiration Date"
-      expr: account_expiration_date
-    - name: "Account Locked Flag"
-      expr: account_locked_flag
-    - name: "Account Status"
-      expr: account_status
-    - name: "Account Type"
-      expr: account_type
-    - name: "Authentication Method"
-      expr: authentication_method
-    - name: "Created Timestamp"
-      expr: created_timestamp
-    - name: "Deactivated Timestamp"
-      expr: deactivated_timestamp
-    - name: "Deactivation Reason"
-      expr: deactivation_reason
-    - name: "Email Address"
-      expr: email_address
-    - name: "Employee Code"
-      expr: employee_code
-    - name: "First Name"
-      expr: first_name
-    - name: "Full Name"
-      expr: full_name
-    - name: "Job Title"
-      expr: job_title
-    - name: "Language Preference"
-      expr: language_preference
-    - name: "Last Login Timestamp"
-      expr: last_login_timestamp
-    - name: "Last Modified Timestamp"
-      expr: last_modified_timestamp
-  measures:
-    - name: "Row Count"
-      expr: COUNT(1)
-    - name: "Distinct User Account"
-      expr: COUNT(DISTINCT user_account_id)
-    - name: "Total Failed Login Attempts"
-      expr: SUM(failed_login_attempts)
-    - name: "Average Failed Login Attempts"
-      expr: AVG(failed_login_attempts)
+    - name: "Distinct Unit Of Measure"
+      expr: COUNT(DISTINCT unit_of_measure_id)
+    - name: "Total Conversion Factor To Base"
+      expr: SUM(conversion_factor_to_base)
+    - name: "Average Conversion Factor To Base"
+      expr: AVG(conversion_factor_to_base)
+    - name: "Total Decimal Precision"
+      expr: SUM(decimal_precision)
+    - name: "Average Decimal Precision"
+      expr: AVG(decimal_precision)
 $$;

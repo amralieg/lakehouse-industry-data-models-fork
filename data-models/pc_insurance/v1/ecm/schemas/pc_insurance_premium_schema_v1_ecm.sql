@@ -1,1735 +1,1625 @@
 -- Schema for Domain: premium | Business: Pc_Insurance | Version: v1_ecm
--- Generated on: 2026-09-18 02:30:18
+-- Generated on: 2026-09-20 14:33:31
 
 -- ========= DATABASE =========
-CREATE DATABASE IF NOT EXISTS `vibe_pc_insurance_v499`.`premium` COMMENT 'SSOT for premium transactions: GWP, NWP, WP, EP, UEP, DAC, and billing. Owns rate calculations (RPP, ROL), installment schedules, payment applications, and billing events. Links rated risk exposures and premium back to the bound policy.';
+CREATE DATABASE IF NOT EXISTS `vibe_pc_insurance_blog_v499`.`premium` COMMENT 'Transactional ledger for all premium activity. Owns Premium Transaction (one row per financial transaction: Written, Earned, Unearned, Return) tied to Policy, Policy Term, Coverage, Insured Risk, and Accounting Period, with Charge, Tax, Fee, and';
 
 -- ========= TABLES =========
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` (
-    `written_premium_id` BIGINT COMMENT 'Unique identifier for the written premium transaction record.',
-    `agency_id` BIGINT COMMENT 'Reference to the agency responsible for this written premium transaction.',
-    `calendar_id` BIGINT COMMENT 'Foreign key linking to shared.calendar. Business justification: Premium accounting requires calendar reference for fiscal period determination, month-end close processing, statutory reporting deadlines, and financial statement preparation.',
-    `claim_id` BIGINT COMMENT 'Foreign key linking to claims.claim. Business justification: Audit premium adjustments and return premium on total loss claims require tracking which claim triggered the premium write-off.',
-    `country_id` BIGINT COMMENT 'Foreign key linking to shared.country. Business justification: International premium transactions require country reference for currency determination, regulatory regime identification, reinsurance domicile rules, and sanctions compliance.',
-    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Premium transactions in multiple currencies require currency master reference for exchange rate application, rounding rules, display formatting, and financial consolidation.',
-    `lob_code_id` BIGINT COMMENT 'Foreign key linking to shared.lob_code. Business justification: Premium transactions must link to LOB master for statutory line classification, RBC factor application, loss ratio analysis, reinsurance treaty assignment, and regulatory reporting.',
-    `coverage_policy_coverage_id` BIGINT COMMENT 'Reference to the specific coverage for which premium was written, if applicable at coverage level.',
-    `policy_id` BIGINT COMMENT 'Reference to the policy for which this premium was written.',
-    `producers_producer_id` BIGINT COMMENT 'Reference to the producer, agent, or broker who originated this written premium transaction.',
-    `state_id` BIGINT COMMENT 'Foreign key linking to shared.state. Business justification: Premium transactions require state reference for regulatory reporting, rate filing compliance, statutory accounting by jurisdiction, and premium tax calculation.',
-    `ceded_premium_amount` DECIMAL(18,2) COMMENT 'Portion of gross written premium ceded to reinsurers under treaty or facultative agreements.',
-    `commission_amount` DECIMAL(18,2) COMMENT 'Total commission payable to producers, agents, or brokers for this written premium transaction.',
-    `commission_rate` DECIMAL(5,4) COMMENT 'Commission percentage applied to the written premium to calculate commission amount.',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this written premium record was first created in the system.',
-    `experience_mod_factor` DECIMAL(5,4) COMMENT 'Experience modification factor applied to manual premium based on the insureds historical loss experience.',
-    `exposure_basis` STRING COMMENT 'Unit of measure for exposure, such as per $100 payroll, per vehicle, per square foot, or per $1000 insured value.',
-    `exposure_units` DECIMAL(18,4) COMMENT 'Quantity of exposure units used in premium calculation, such as payroll, vehicle count, or square footage.',
-    `gwp_amount` DECIMAL(18,2) COMMENT 'Total premium written before any deductions for reinsurance or commissions.',
-    `installment_count` BIGINT COMMENT 'Total number of installments in the payment plan for this written premium, if applicable.',
-    `installment_fee_amount` DECIMAL(18,2) COMMENT 'Fee charged for installment payment plans, if applicable to this premium transaction.',
-    `is_audit_premium` BOOLEAN COMMENT 'Indicates whether this written premium transaction resulted from a policy audit adjustment.',
-    `is_installment_plan` BOOLEAN COMMENT 'Indicates whether this written premium is part of an installment payment plan.',
-    `last_modified_timestamp` TIMESTAMP COMMENT 'Timestamp when this written premium record was last updated or modified.',
-    `manual_premium_amount` DECIMAL(18,2) COMMENT 'Premium calculated using standard manual rates before application of experience modifications or schedule credits.',
-    `nwp_amount` DECIMAL(18,2) COMMENT 'Net premium retained after ceding to reinsurers; calculated as GWP minus ceded premium.',
-    `policy_fee_amount` DECIMAL(18,2) COMMENT 'Administrative or policy issuance fee charged in addition to premium.',
-    `policy_term_effective_date` DATE COMMENT 'Start date of the policy term to which this written premium applies.',
-    `policy_term_expiration_date` DATE COMMENT 'End date of the policy term to which this written premium applies.',
-    `premium_basis_amount` DECIMAL(18,2) COMMENT 'Base amount used in premium calculation before application of rates, modifiers, and adjustments.',
-    `premium_tax_amount` DECIMAL(18,2) COMMENT 'State or local premium tax assessed on this written premium transaction.',
-    `product_code` STRING COMMENT 'Internal product code identifying the specific insurance product for this written premium.',
-    `rate_effective_date` DATE COMMENT 'Date when the rating plan or rate table became effective for use in premium calculations.',
-    `rate_version` STRING COMMENT 'Version identifier of the rating plan or rate table used for this premium calculation.',
-    `rating_plan_code` STRING COMMENT 'Code identifying the rating plan or algorithm used to calculate this written premium.',
-    `reversal_reason_code` STRING COMMENT 'Code indicating the reason for reversing or voiding this written premium transaction, if applicable.',
-    `schedule_credit_amount` DECIMAL(18,2) COMMENT 'Credit applied to premium for favorable risk characteristics identified during underwriting.',
-    `schedule_debit_amount` DECIMAL(18,2) COMMENT 'Debit applied to premium for unfavorable risk characteristics identified during underwriting.',
-    `statutory_reporting_period` STRING COMMENT 'Quarterly statutory reporting period in YYYY-Q# format for NAIC annual statement reporting.. Valid values are `^d{4}-Q[1-4]$`',
-    `total_billed_amount` DECIMAL(18,2) COMMENT 'Total amount billed to the policyholder including premium, taxes, and fees.',
-    `transaction_booking_date` DATE COMMENT 'Date when this premium transaction was recorded in the financial system.',
-    `transaction_effective_date` DATE COMMENT 'Date when this premium transaction becomes effective for accounting and coverage purposes.',
-    `transaction_type` STRING COMMENT 'Type of premium transaction: new business, renewal, endorsement, cancellation, reinstatement, or audit adjustment.. Valid values are `new_business|renewal|endorsement|cancellation|reinstatement|audit_adjustment`',
-    `underwriter_code` BIGINT COMMENT 'Reference to the underwriter who approved the policy and premium for this transaction.',
-    `written_premium_status` STRING COMMENT 'Current lifecycle status of this written premium transaction in the premium ledger.. Valid values are `booked|pending|reversed|adjusted|voided`',
-    CONSTRAINT pk_written_premium PRIMARY KEY(`written_premium_id`)
-) COMMENT 'SSOT for gross written premium (GWP) transactions per policy term. Captures WP, NWP, ceded premium, and net retained amounts at policy/coverage level. Anchors the premium ledger for statutory and GAAP reporting.';
-
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` (
-    `earned_premium_id` BIGINT COMMENT 'Unique identifier for the earned premium transaction record.',
-    `calendar_id` BIGINT COMMENT 'Foreign key linking to shared.calendar. Business justification: Earned premium accounting requires calendar reference for fiscal period close, revenue recognition timing, and financial statement preparation. Accounting_period denormalized, replace with FK.',
-    `claim_id` BIGINT COMMENT 'Foreign key linking to claims.claim. Business justification: Loss ratio analysis and profitability reporting require matching earned premium to incurred losses at the policy-coverage level.',
-    `country_id` BIGINT COMMENT 'Foreign key linking to shared.country. Business justification: Cross-border earned premium must reference country for IFRS17 revenue recognition, regulatory jurisdiction determination, and reinsurance domicile rules.',
-    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Earned premium in multiple currencies requires currency reference for exchange rate application, GAAP/IFRS revenue recognition, and financial consolidation.',
-    `lob_code_id` BIGINT COMMENT 'Foreign key linking to shared.lob_code. Business justification: Earned premium accounting requires LOB reference for loss ratio analysis, combined ratio calculation, statutory line reporting, and reinsurance cession determination.',
-    `original_earned_premium_id` BIGINT COMMENT 'Reference to the original earned premium record if this is a reversal or adjustment.',
-    `coverage_policy_coverage_id` BIGINT COMMENT 'Reference to the specific coverage under which premium is earned.',
-    `policy_id` BIGINT COMMENT 'Reference to the policy for which premium is being earned.',
-    `premium_transaction_id` BIGINT COMMENT 'Unique identifier of the transaction in the source system.',
-    `state_id` BIGINT COMMENT 'Foreign key linking to shared.state. Business justification: Earned premium accounting requires state jurisdiction reference for statutory reporting periods, guaranty fund assessments, premium tax accrual, and regulatory compliance.',
-    `adjustment_description` STRING COMMENT 'Detailed explanation of any adjustment made to the earned premium calculation.',
-    `adjustment_reason_code` STRING COMMENT 'Code indicating the reason for any adjustment to the earned premium calculation.',
-    `calculation_timestamp` TIMESTAMP COMMENT 'Date and time when the earned premium calculation was performed.',
-    `ceded_ep_amount` DECIMAL(18,2) COMMENT 'Portion of earned premium ceded to reinsurers during this period.',
-    `commission_amount` DECIMAL(18,2) COMMENT 'Commission expense allocated to this earned premium transaction.',
-    `commission_rate` DECIMAL(5,2) COMMENT 'Commission rate percentage applied to earned premium for producer compensation.',
-    `created_timestamp` TIMESTAMP COMMENT 'Date and time when this earned premium record was first created in the system.',
-    `dac_amount` DECIMAL(18,2) COMMENT 'Deferred acquisition costs amortized in proportion to earned premium.',
-    `earned_premium_status` STRING COMMENT 'Current processing status of the earned premium record.. Valid values are `draft|posted|reversed|adjusted|final`',
-    `earning_method` STRING COMMENT 'Method used to calculate earned premium over the exposure period.. Valid values are `pro_rata|short_rate|daily|monthly|custom`',
-    `earning_percentage` DECIMAL(5,2) COMMENT 'Percentage of total premium earned during this accounting period.',
-    `effective_date` DATE COMMENT 'Start date of the earning period for this premium transaction.',
-    `ep_amount` DECIMAL(18,2) COMMENT 'Amount of premium earned during the accounting period.',
-    `exchange_rate` DECIMAL(12,6) COMMENT 'Exchange rate applied to convert foreign currency premium to reporting currency.',
-    `expiration_date` DATE COMMENT 'End date of the earning period for this premium transaction.',
-    `exposure_days` BIGINT COMMENT 'Number of days of exposure covered by this earned premium transaction.',
-    `gaap_revenue_amount` DECIMAL(18,2) COMMENT 'Earned premium recognized as revenue under GAAP accounting standards.',
-    `gl_account_code` STRING COMMENT 'General ledger account code to which this earned premium is posted.',
-    `gwp_amount` DECIMAL(18,2) COMMENT 'Total premium written before reinsurance cessions for this earning record.',
-    `ifrs17_revenue_amount` DECIMAL(18,2) COMMENT 'Earned premium recognized under IFRS 17 premium allocation approach.',
-    `naic_company_code` STRING COMMENT 'Five-digit NAIC company code identifying the insurer earning the premium.. Valid values are `^[0-9]{5}$`',
-    `net_ep_amount` DECIMAL(18,2) COMMENT 'Earned premium retained by the insurer after reinsurance cessions.',
-    `nwp_amount` DECIMAL(18,2) COMMENT 'Written premium after reinsurance cessions for this earning record.',
-    `policy_term_months` BIGINT COMMENT 'Total duration of the policy term in months for earning calculation.',
-    `posting_date` DATE COMMENT 'Date when the earned premium was posted to the general ledger.',
-    `premium_tax_amount` DECIMAL(18,2) COMMENT 'Premium tax expense allocated to this earned premium transaction.',
-    `premium_tax_rate` DECIMAL(5,2) COMMENT 'State premium tax rate applied to earned premium.',
-    `reversal_flag` BOOLEAN COMMENT 'Indicates whether this earned premium entry is a reversal of a prior transaction.',
-    `statutory_line_code` STRING COMMENT 'NAIC statutory line of business code for regulatory reporting.',
-    `transaction_type` STRING COMMENT 'Type of policy transaction that generated this earned premium entry.. Valid values are `new_business|renewal|endorsement|cancellation|reinstatement|audit`',
-    `uep_amount` DECIMAL(18,2) COMMENT 'Remaining unearned premium balance after this earning transaction.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Date and time when this earned premium record was last modified.',
-    CONSTRAINT pk_earned_premium PRIMARY KEY(`earned_premium_id`)
-) COMMENT 'Tracks EP recognized over the policy exposure period via pro-rata or short-rate earning methods. Supports UEP calculation, GAAP revenue recognition, and IFRS 17 premium allocation approach.';
-
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` (
-    `premium_transaction_id` BIGINT COMMENT 'Unique identifier for the premium transaction record. Primary key.',
-    `calendar_id` BIGINT COMMENT 'Foreign key linking to shared.calendar. Business justification: Premium transactions must reference calendar for proper accounting period assignment, GL posting, and financial statement preparation. Accounting_period denormalized, replace with FK.',
-    `claim_id` BIGINT COMMENT 'Foreign key linking to claims.claim. Business justification: Return premium transactions on total loss claims require linking the premium adjustment back to the claim.',
-    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Premium transactions must reference currency master for exchange rate application, payment processing, bank reconciliation, and multi-currency financial reporting.',
-    `endorsement_id` BIGINT COMMENT 'Reference to the policy endorsement that triggered this premium transaction, if applicable.',
-    `installment_schedule_id` BIGINT COMMENT 'Reference to the billing installment plan under which this premium transaction is scheduled for payment.',
-    `lob_code_id` BIGINT COMMENT 'Foreign key linking to shared.lob_code. Business justification: Premium transactions require LOB classification for accounting, reinsurance treaty assignment, commission calculation, and regulatory reporting. Lob_code denormalized, replace with FK.',
-    `coverage_policy_coverage_id` BIGINT COMMENT 'Foreign key linking to coverage.coverage_policy_coverage. Business justification: Premium transactions allocate to coverages for general ledger accounting, loss ratio tracking by coverage, reinsurance cession calculations, and statutory reporting.',
-    `policy_id` BIGINT COMMENT 'Reference to the policy to which this premium transaction applies.',
-    `policy_transaction_id` BIGINT COMMENT 'Reference to the policy cancellation event that triggered this premium transaction, if applicable.',
-    `producers_producer_id` BIGINT COMMENT 'Reference to the agent, broker, or producer responsible for this premium transaction and entitled to commission.',
-    `reversed_transaction_premium_transaction_id` BIGINT COMMENT 'Reference to the original premium transaction that this transaction reverses, if applicable.',
-    `ri_treaty_id` BIGINT COMMENT 'Reference to the reinsurance treaty under which premium is ceded for this transaction, if applicable.',
-    `risk_state_id` BIGINT COMMENT 'Foreign key linking to shared.state. Business justification: Risk location state drives rate filing compliance, surplus lines tax calculation, regulatory jurisdiction determination, and catastrophe exposure tracking.',
-    `audit_code` BIGINT COMMENT 'Reference to the premium audit that resulted in this additional or return premium transaction, if applicable.',
-    `booking_date` DATE COMMENT 'Date on which the premium transaction was recorded in the financial ledger and accounting system.',
-    `ceded_premium_amount` DECIMAL(18,2) COMMENT 'Portion of the gross written premium ceded to reinsurers under treaty or facultative agreements.',
-    `commission_amount` DECIMAL(18,2) COMMENT 'Total commission payable to producers, agents, or brokers for this premium transaction.',
-    `commission_rate` DECIMAL(5,4) COMMENT 'Percentage rate applied to calculate the commission amount payable to the producer for this transaction.',
-    `coverage_part_code` STRING COMMENT 'Code identifying the specific coverage part or section of the policy to which this premium applies.',
-    `created_timestamp` TIMESTAMP COMMENT 'Date and time when this premium transaction record was first created in the system.',
-    `dac_amount` DECIMAL(18,2) COMMENT 'Acquisition costs deferred and amortized over the policy term in accordance with GAAP accounting.',
-    `due_date` DATE COMMENT 'Date by which the premium payment is due from the policyholder.',
-    `earned_premium_amount` DECIMAL(18,2) COMMENT 'Portion of the written premium that has been earned as of the transaction date based on policy exposure period.',
-    `effective_date` DATE COMMENT 'Date on which the premium transaction becomes effective for policy coverage and accounting purposes.',
-    `exchange_rate` DECIMAL(12,6) COMMENT 'Foreign exchange rate applied to convert transaction amounts to the reporting currency, if applicable.',
-    `exposure_units` DECIMAL(18,4) COMMENT 'Number of exposure units used to calculate the premium for this transaction, such as payroll, sales, or vehicle count.',
-    `fee_amount` DECIMAL(18,2) COMMENT 'Administrative fees, policy fees, or service charges included in this premium transaction.',
-    `gl_account_code` STRING COMMENT 'General ledger account code to which this premium transaction is posted in the financial accounting system.',
-    `gwp_amount` DECIMAL(18,2) COMMENT 'Total premium amount written before any deductions for reinsurance cessions or commissions.',
-    `installment_number` BIGINT COMMENT 'Sequential number of the installment within the billing plan, if this transaction is part of an installment schedule.',
-    `modified_timestamp` TIMESTAMP COMMENT 'Date and time when this premium transaction record was last modified or updated.',
-    `nwp_amount` DECIMAL(18,2) COMMENT 'Net premium retained by the insurer after deducting ceded reinsurance premium from gross written premium.',
-    `payment_method` STRING COMMENT 'Method or instrument used by the policyholder to remit payment for this premium transaction. [ENUM-REF-CANDIDATE: check|credit_card|debit_card|ach|wire_transfer|cash|payroll_deduction — 7 candidates stripped; promote to reference product]',
-    `payment_received_date` DATE COMMENT 'Date on which payment for this premium transaction was received from the policyholder or producer.',
-    `rate_per_unit` DECIMAL(12,6) COMMENT 'Premium rate applied per unit of exposure to calculate the transaction premium amount.',
-    `reason_code` STRING COMMENT 'Standardized code indicating the specific reason for the premium transaction, such as policy change, coverage adjustment, or billing correction.',
-    `reversal_flag` BOOLEAN COMMENT 'Indicates whether this transaction is a reversal or correction of a previously posted premium transaction.',
-    `statutory_line_code` STRING COMMENT 'NAIC statutory line of business code for regulatory annual statement reporting.',
-    `tax_amount` DECIMAL(18,2) COMMENT 'Total premium taxes, fees, and surcharges assessed on this transaction by state or federal authorities.',
-    `total_billed_amount` DECIMAL(18,2) COMMENT 'Total amount billed to the policyholder including premium, taxes, and fees.',
-    `transaction_description` STRING COMMENT 'Free-text description providing additional context or explanation for this premium transaction.',
-    `transaction_number` STRING COMMENT 'Business-facing unique identifier for this premium transaction, often displayed on billing statements and invoices.',
-    `transaction_status` STRING COMMENT 'Current lifecycle status of the premium transaction in the billing and accounting system.. Valid values are `pending|posted|reversed|voided|cancelled`',
-    `transaction_type` STRING COMMENT 'Classification of the premium transaction indicating the business event that triggered it. [ENUM-REF-CANDIDATE: new_business|endorsement|cancellation|reinstatement|renewal|audit_premium|return_premium|refund|write_off — 9 candidates stripped; promote to',
-    `unearned_premium_amount` DECIMAL(18,2) COMMENT 'Portion of the written premium that remains unearned and represents future coverage obligation.',
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` (
+    `premium_transaction_id` BIGINT COMMENT 'Unique surrogate identifier for each premium financial movement record. Grain: one row per financial premium movement (Written, Earned, Unearned, Return). Primary key.',
+    `calendar_id` BIGINT COMMENT 'Foreign key linking to shared.calendar. Business justification: Premium transactions posted to accounting periods require calendar dimensions for fiscal/accident/policy year reporting.',
+    `cat_model_version_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.cat_model_version. Business justification: Premium transactions link to catastrophe model versions for pricing validation, rate adequacy monitoring, actuarial review of catastrophe loads, and regulatory filing',
+    `cat_zone_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.cat_zone. Business justification: Premium transactions require catastrophe zone assignment for exposure aggregation, PML calculations, concentration monitoring, and rate adequacy analysis.',
+    `catastrophe_event_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.catastrophe_event. Business justification: Premium transactions must track catastrophe event attribution for loss ratio analysis, reinsurance bordereaux reporting, regulatory Schedule P filings, and post-event',
+    `catastrophegeography_peril_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.peril. Business justification: Premium transactions must identify covered peril for statutory line-of-business reporting, reinsurance treaty allocation, actuarial loss triangles, and Schedule P development.',
+    `claim_id` BIGINT COMMENT 'Foreign key linking to claims.claim. Business justification: Retrospectively-rated policies (workers comp, general liability) adjust premium based on actual claim experience during the policy term.',
+    `claimfinancials_accounting_period_id` BIGINT COMMENT 'Reference to the accounting period in which this premium transaction is recognized for statutory and GAAP reporting purposes.',
+    `coverage_id` BIGINT COMMENT 'Reference to the specific coverage line within the policy term to which this premium transaction is allocated. Enables per-coverage premium analytics.',
+    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Premium transactions record amounts in specific currencies. Multi-currency operations require proper FK for FX validation, conversion, and regulatory reporting.',
+    `geography_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.geography. Business justification: Premium transactions require geographic attribution for statutory state pages, territorial profitability analysis, regulatory reporting, and geographic concentration',
+    `insured_risk_id` BIGINT COMMENT 'Reference to the insured risk or exposure unit (property, vehicle, driver) to which this premium transaction is allocated.',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Normalize lob_code string to FK reference to shared.line_of_business master data. Premium transaction currently stores lob_code as string; replacing with FK enables consistent LOB',
+    `original_transaction_id` BIGINT COMMENT 'Reference to the original premium transaction that this record reverses or corrects. Populated only when reversal_indicator is True. Supports audit trail.',
+    `policy_id` BIGINT COMMENT 'Reference to the policy under which this premium transaction was generated. Links the premium ledger entry to the master policy record.',
+    `policy_term_id` BIGINT COMMENT 'Reference to the specific policy term (time-bounded period) to which this premium transaction belongs. Enables reconstruction of premium in force at any date.',
+    `policy_transaction_id` BIGINT COMMENT 'Reference to the policy transaction (New Business, Renewal, Endorsement, Cancellation, Reinstatement) that triggered this premium movement.',
+    `producers_producer_id` BIGINT COMMENT 'Reference to the producer (agent or broker) associated with this premium transaction for commission settlement and distribution channel reporting.',
+    `quote_id` BIGINT COMMENT 'Foreign key linking to coverage.quote. Business justification: Premium transactions originate from bound quotes; accounting audit trail requires quote reference for rate reconciliation, variance analysis between quoted and booked premium, and',
+    `rating_worksheet_id` BIGINT COMMENT 'Foreign key linking to coverage.rating_worksheet. Business justification: Premium transactions reference rating worksheets for rate reconciliation, audit defense of filed rates, and regulatory compliance verification.',
+    `submission_id` BIGINT COMMENT 'Foreign key linking to coverage.submission. Business justification: Premium transactions trace to originating submission for source-of-business reporting, producer commission attribution by submission channel, and new-business vs renewal premium',
+    `unit_of_measure_id` BIGINT COMMENT 'Foreign key linking to shared.unit_of_measure. Business justification: Premium transactions record exposure amounts measured in units (vehicles, payroll, sales).',
+    `coverage_transaction_id` BIGINT COMMENT '',
+    `audit_basis` STRING COMMENT 'Exposure basis used for auditable policies (e.g., WC, CGL) to determine final earned premium: Payroll, Revenue, Units, Receipts, or None for non-auditable policies.. Valid values are `Payroll|Revenue|Units|Receipts|None`',
+    `ceded_written_premium` DECIMAL(18,4) COMMENT 'Portion of gross written premium ceded to reinsurers under treaty or facultative agreements. Used for Schedule F and reinsurance bordereaux reporting.',
+    `cost_center_code` STRING COMMENT 'Internal cost center or profit center code to which this premium transaction is allocated for management accounting and segment reporting purposes.',
+    `created_timestamp` TIMESTAMP COMMENT 'Date and time when this premium transaction record was first created in the source system. Used for audit trail and data lineage.',
+    `days_in_force` BIGINT COMMENT 'Number of days the coverage was in force during the accounting period for this premium transaction. Used in pro-rata earning and exposure calculations.',
+    `direct_billed_indicator` BOOLEAN COMMENT 'Indicates whether this premium is billed directly to the policyholder (True) or through the producer/agency (False = agency billed). Drives billing workflow routing.',
+    `earned_premium` DECIMAL(18,4) COMMENT 'Portion of written premium recognized as earned for the accounting period based on pro-rata or other earning methodology. Core input to loss ratio (LR) calculation.',
+    `earning_method` STRING COMMENT 'Method used to recognize written premium as earned over the policy period: Pro-Rata (daily), 1/365, 1/24 (monthly), Flat (fully earned at inception), or Other.. Valid values are `Pro-Rata|1/365|1/24|Flat|Other`',
+    `effective_date` DATE COMMENT 'Date from which this premium transaction takes effect for coverage and financial recognition purposes. Used to reconstruct premium in force at any given date.',
+    `endorsement_type` STRING COMMENT 'Type of endorsement premium adjustment: Additional (increase), Return (decrease/credit), Flat (no change), Audit (audit-based adjustment), or None for non-endorsement transactions.. Valid values are `Additional|Return|Flat|Audit|None`',
+    `expiration_date` DATE COMMENT 'Date on which the premium coverage period ends for this transaction. Used for unearned premium (UEP) calculation and pro-rata earning.',
+    `exposure_amount` DECIMAL(18,4) COMMENT 'Quantitative exposure measure (e.g., payroll dollars, vehicle count, property TIV) underlying the premium calculation. Used for rate adequacy and actuarial analysis.',
+    `gl_account_code` STRING COMMENT 'General ledger account code to which this premium transaction is posted in the statutory and GAAP accounting systems. Required for financial close and SOX compliance.',
+    `gross_written_premium` DECIMAL(18,4) COMMENT 'Total gross written premium amount for this transaction before cessions, taxes, fees, and commissions. Core ledger amount for statutory and GAAP reporting.',
+    `net_written_premium` DECIMAL(18,4) COMMENT 'Written premium net of reinsurance cessions. NWP = GWP minus ceded written premium. Used for net retention reporting and RBC calculations.',
+    `notes` STRING COMMENT 'Free-text notes or comments entered by underwriters, billing staff, or system processes to explain the reason for or context of this premium transaction.',
+    `payment_plan_code` STRING COMMENT 'Code identifying the installment or payment plan under which this premium is billed (e.g., Annual, Semi-Annual, Quarterly, Monthly, Pay-As-You-Go).',
+    `posted_timestamp` TIMESTAMP COMMENT 'Date and time when this premium transaction was posted to the general ledger and accounting system. Distinct from the business event date.',
+    `pro_rata_factor` DECIMAL(10,6) COMMENT 'Decimal factor (0.0 to 1.0) representing the proportion of the policy period elapsed as of the accounting period end date. Used to compute earned premium.',
+    `rate` DECIMAL(18,6) COMMENT 'The rate applied to the exposure base to calculate the premium for this transaction. Expressed per unit of exposure (e.g., per $100 payroll, per $1000 TIV).',
+    `rate_effective_date` DATE COMMENT 'Date on which the rate used for this premium transaction became effective. Required for rate adequacy monitoring and DOI rate filing compliance.',
+    `return_premium` DECIMAL(18,4) COMMENT 'Premium amount returned to the policyholder due to cancellation, mid-term endorsement reduction, or audit adjustment. Negative financial movement in the ledger.',
+    `reversal_indicator` BOOLEAN COMMENT 'Flag indicating whether this premium transaction is a reversal of a previously posted transaction. True = reversal entry; False = original entry.',
+    `source_system_code` STRING COMMENT 'Code identifying the operational system of record that originated this premium transaction (e.g., PAS for PolicyCenter, BILLING for BillingCenter, RATING for rating engine).. Valid values are `PAS|BILLING|RATING|MANUAL|REINSURANCE`',
+    `state_code` STRING COMMENT 'Two-letter US state code where the risk is located or the policy is written. Required for state-level statutory reporting and DOI filings.. Valid values are `^[A-Z]{2}$`',
+    `transaction_date` DATE COMMENT 'The business event date on which this premium movement was generated or triggered (e.g., policy effective date, endorsement effective date, cancellation date).',
+    `transaction_number` STRING COMMENT 'Externally visible, human-readable identifier for this premium transaction as assigned by the Policy Administration System or billing system. Used in bordereaux and reconciliation.',
+    `transaction_status` STRING COMMENT 'Current lifecycle state of the premium transaction in the accounting ledger: Pending (awaiting posting), Posted (booked to GL), Reversed, Voided, or Error.. Valid values are `Pending|Posted|Reversed|Voided|Error`',
+    `transaction_type` STRING COMMENT 'Classification of the premium financial movement: Written (new/renewed/endorsed), Earned (pro-rata recognition), Unearned (UEP reserve), Return (cancellation/endorsement credit), or Adjustment.. Valid values are `Written|Earned|Unearned|Return|Adjustment`',
+    `unearned_premium` DECIMAL(18,4) COMMENT 'Portion of written premium not yet earned as of the accounting period end date. Represents the UEP reserve liability on the balance sheet.',
+    `updated_timestamp` TIMESTAMP COMMENT 'Date and time when this premium transaction record was last modified. Supports audit trail, change detection, and incremental data loading.',
     CONSTRAINT pk_premium_transaction PRIMARY KEY(`premium_transaction_id`)
-) COMMENT 'Atomic premium ledger entry and single SSOT for every premium movement: new business, endorsement AP/RP, cancellation, reinstatement, audit, return premium, refund disbursement, and write-off.';
+) COMMENT 'Premium Transaction: A financial transaction recording premium movements (Written, Earned, Unearned, Return). GRAIN: One row per financial transaction. Grain: one row per financial transaction.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` (
-    `rate_element_id` BIGINT COMMENT 'Unique identifier for the rate element. Primary key.',
-    `coverage_form_id` BIGINT COMMENT 'Reference to the insurance product to which this rate element applies.',
-    `lob_code_id` BIGINT COMMENT 'Foreign key linking to shared.lob_code. Business justification: Rate elements are LOB-specific for underwriting, actuarial rating, loss cost determination, and rate filing organization. Lob denormalized, replace with FK.',
-    `state_id` BIGINT COMMENT 'Foreign key linking to shared.state. Business justification: Rate elements are state-specific due to regulatory filing requirements, DOI approval processes, and jurisdiction-specific rating rules. State_code denormalized, replace with FK.',
-    `calculation_formula` STRING COMMENT 'Mathematical formula or expression defining how this rate element is applied in premium computation.',
-    `cat_loading_factor` DECIMAL(10,6) COMMENT 'Factor applied to load premium for catastrophe exposure, reflecting probable maximum loss and reinsurance costs.',
-    `rate_element_category` STRING COMMENT 'Broader grouping of the rate element for reporting and rate filing purposes.. Valid values are `manual_rate|experience_rating|schedule_rating|catastrophe_loading|expense_provision|profit_margin`',
-    `class_code` STRING COMMENT 'Risk classification code to which this rate element applies, such as NCCI class codes or ISO class codes.. Valid values are `^[A-Z0-9]{4,10}$`',
-    `rate_element_code` STRING COMMENT 'Business identifier code for the rate element used in rating calculations and external references.. Valid values are `^[A-Z0-9_-]{3,20}$`',
-    `coverage_code` STRING COMMENT 'ISO or proprietary coverage code to which this rate element applies.. Valid values are `^[A-Z0-9]{2,10}$`',
-    `created_timestamp` TIMESTAMP COMMENT 'Date and time when this rate element record was first created in the system.',
-    `credibility_factor` DECIMAL(10,6) COMMENT 'Statistical credibility weight applied to experience-based rate elements, ranging from 0 to 1.',
-    `deductible_credit_factor` DECIMAL(10,6) COMMENT 'Factor applied to reduce premium when a deductible is selected, reflecting reduced insurer exposure.',
-    `default_value` DECIMAL(18,6) COMMENT 'Default value applied when no specific rate element value is determined during rating.',
-    `rate_element_description` STRING COMMENT 'Detailed business description of the rate element, its purpose, and how it is applied in premium calculations.',
-    `effective_date` DATE COMMENT 'Date from which this rate element becomes active and applicable to new and renewal policies.',
-    `expense_provision` DECIMAL(10,6) COMMENT 'Percentage or factor representing underwriting expenses, commissions, and overhead included in the rate element.',
-    `expiration_date` DATE COMMENT 'Date on which this rate element ceases to be active and is no longer applicable to policies.',
-    `filing_approval_date` DATE COMMENT 'Date on which the regulatory authority approved the rate filing containing this rate element.',
-    `increased_limits_factor` DECIMAL(10,6) COMMENT 'Factor applied to adjust premium when policy limits exceed the base limit, reflecting increased exposure.',
-    `is_filed` BOOLEAN COMMENT 'Indicates whether this rate element has been filed with and approved by the regulatory authority.',
-    `is_mandatory` BOOLEAN COMMENT 'Indicates whether this rate element must be applied in all rating scenarios or is optional based on underwriting discretion.',
-    `loss_cost` DECIMAL(18,6) COMMENT 'Pure premium or expected loss per unit of exposure, excluding expenses and profit, used as the foundation for rate development.',
-    `maximum_value` DECIMAL(18,6) COMMENT 'Maximum allowable value for this rate element as defined by regulatory or underwriting guidelines.',
-    `minimum_value` DECIMAL(18,6) COMMENT 'Minimum allowable value for this rate element as defined by regulatory or underwriting guidelines.',
-    `naics_code` STRING COMMENT 'Six-digit NAICS code representing the industry classification to which this rate element applies.. Valid values are `^[0-9]{6}$`',
-    `rate_element_name` STRING COMMENT 'Human-readable name of the rate element describing its purpose in premium computation.',
-    `notes` STRING COMMENT 'Additional notes, comments, or special instructions related to the application or interpretation of this rate element.',
-    `profit_margin` DECIMAL(10,6) COMMENT 'Percentage or factor representing the profit and contingency margin included in the rate element.',
-    `rate_basis` STRING COMMENT 'Unit of measure or basis on which the rate element is applied during premium computation. [ENUM-REF-CANDIDATE: per_100_payroll|per_1000_receipts|per_unit|per_vehicle|per_location|flat|percentage — 7 candidates stripped; promote to reference product]',
-    `rate_element_status` STRING COMMENT 'Current lifecycle status of the rate element indicating its availability for use in rating.. Valid values are `active|inactive|pending_approval|superseded|withdrawn`',
-    `rate_element_type` STRING COMMENT 'Classification of the rate element indicating its role in the rating algorithm.. Valid values are `base_rate|class_factor|territory_multiplier|schedule_credit|schedule_debit|experience_modifier`',
-    `rate_filing_number` STRING COMMENT 'Regulatory filing reference number under which this rate element was approved by the state Department of Insurance.. Valid values are `^[A-Z0-9-]{5,30}$`',
-    `rate_source` STRING COMMENT 'Origin of the rate element indicating whether it is from ISO, NCCI, proprietary development, or advisory organization.. Valid values are `ISO|NCCI|PROPRIETARY|ADVISORY|BUREAU`',
-    `rate_table_name` STRING COMMENT 'Name of the rate table or rating manual section from which this rate element is derived.',
-    `rate_value` DECIMAL(18,6) COMMENT 'Numeric value of the rate element used in premium calculation, expressed as a factor, multiplier, or absolute rate.',
-    `rate_version` STRING COMMENT 'Version identifier for the rate element used to track changes and updates over time.. Valid values are `^[A-Z0-9.]{1,20}$`',
-    `rating_tier` STRING COMMENT 'Underwriting tier or risk segment to which this rate element applies, reflecting risk quality.. Valid values are `preferred|standard|substandard|declined`',
-    `rol_value` DECIMAL(10,6) COMMENT 'Rate on line value expressed as a percentage of limit, commonly used in reinsurance and catastrophe pricing.',
-    `rpp_value` DECIMAL(18,6) COMMENT 'Rate per point value used in experience rating calculations, particularly for workers compensation.',
-    `sic_code` STRING COMMENT 'Four-digit SIC code representing the industry classification to which this rate element applies.. Valid values are `^[0-9]{4}$`',
-    `territory_code` STRING COMMENT 'Geographic territory code to which this rate element applies, used for territory-based rating.. Valid values are `^[A-Z0-9]{1,10}$`',
-    `trend_factor` DECIMAL(10,6) COMMENT 'Factor applied to adjust historical loss costs for inflation, frequency, and severity trends.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Date and time when this rate element record was last modified in the system.',
-    CONSTRAINT pk_rate_element PRIMARY KEY(`rate_element_id`)
-) COMMENT 'Master catalog of individual rating factors and their values used in premium computation: base rates, class factors, territory multipliers, schedule credits/debits, and ISO RPP elements. SSOT for rate content.';
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` (
+    `premium_accounting_period_id` BIGINT COMMENT 'Unique surrogate identifier for the accounting period record. Role: REFERENCE_LOOKUP — this is a calendar reference table; canonical minimums for transactional roles do not apply.',
+    `prior_period_premium_accounting_period_id` BIGINT COMMENT 'Reference to the immediately preceding accounting period of the same type. Supports period-over-period comparisons and loss development triangle chaining.',
+    `parent_period_id` BIGINT COMMENT 'Reference to the parent period in the hierarchy, e.g., a monthly periods parent is its quarter, a quarterly periods parent is its annual period.',
+    `accident_year_ay` BIGINT COMMENT 'Accident Year (AY) associated with this period for loss development and IBNR reserving. Losses are assigned to the AY in which the loss event occurred.',
+    `actuarial_reserve_cutoff_date` DATE COMMENT 'Date through which loss and IBNR reserve data is included in the actuarial reserve study for this period. Aligns with the loss triangle evaluation date.',
+    `bordereaux_due_date` DATE COMMENT 'Date by which the reinsurance premium and loss bordereaux for this period must be submitted to reinsurers, per treaty and facultative agreement terms.',
+    `calendar_year_cy` BIGINT COMMENT 'Calendar Year (CY) in which this period falls. Used for CY loss ratio, CY written premium, and Schedule P CY diagonal reporting.',
+    `close_date` DATE COMMENT 'Date on which the accounting period was officially closed for premium, loss, and expense transaction posting. Null if the period has not yet been closed.',
+    `currency_code` STRING COMMENT 'ISO 4217 three-letter currency code for premium and financial transactions posted in this period, e.g., USD. Supports multi-currency statutory reporting.. Valid values are `^[A-Z]{3}$`',
+    `days_in_period` BIGINT COMMENT 'Total number of calendar days in this accounting period. Used as the denominator in pro-rata Earned Premium (EP) and Unearned Premium (UEP) calculations.',
+    `earned_premium_basis` STRING COMMENT 'Method used to calculate Earned Premium (EP) within this period: PRO_RATA (proportional to days), DAILY (day-by-day), or MONTHLY (full-month convention).. Valid values are `PRO_RATA|DAILY|MONTHLY`',
+    `end_date` DATE COMMENT 'Last calendar date of the accounting period (inclusive). Defines the upper bound for bucketing premium, loss, and expense transactions into this period.',
+    `filing_status` STRING COMMENT 'Status of the statutory filing associated with this period: NOT_FILED, FILED, ACCEPTED, REJECTED, or AMENDED. Tracks compliance with NAIC and State DOI submission requirements.. Valid values are `NOT_FILED|FILED|ACCEPTED|REJECTED|AMENDED`',
+    `fiscal_month` BIGINT COMMENT 'Month number (1–12) within the fiscal year. Null for QUARTERLY or ANNUAL period types. Used for monthly premium booking and earned premium calculations.',
+    `fiscal_quarter` BIGINT COMMENT 'Quarter number (1–4) within the fiscal year. Null for MONTHLY or ANNUAL period types. Used for quarterly statutory and GAAP reporting.',
+    `fiscal_year` BIGINT COMMENT 'Four-digit fiscal year to which this period belongs, e.g., 2024. Aligns with the statutory reporting year for NAIC Annual Statement filing.',
+    `gl_period_code` STRING COMMENT 'Corresponding period code in the General Ledger (GL) system (Oracle/SAP), used to reconcile premium transactions to the statutory and GAAP trial balance.',
+    `is_current_period` BOOLEAN COMMENT 'Indicates whether this is the currently active accounting period for premium transaction posting. True for exactly one OPEN period at any given time.',
+    `is_ifrs17_reporting_period` BOOLEAN COMMENT 'Indicates whether this period is used for IFRS 17 Insurance Contracts reporting, including Contractual Service Margin (CSM) and Loss Component calculations.',
+    `is_statutory_filing_period` BOOLEAN COMMENT 'Indicates whether this period corresponds to a statutory filing deadline (quarterly or annual NAIC statement). Drives automated Schedule P and Schedule F generation.',
+    `lock_date` DATE COMMENT 'Date on which the period was hard-locked, preventing any further journal entries or premium transaction postings. Null if not yet locked.',
+    `notes` STRING COMMENT 'Free-text notes or commentary about this accounting period, such as restatement explanations, special adjustments, or regulatory correspondence references.',
+    `period_code` STRING COMMENT 'Business-facing unique code identifying the period, e.g., 2024-01 for January 2024, 2024-Q1 for first quarter, or 2024-ANNUAL for full year.. Valid values are `^[0-9]{4}-(0[1-9]|1[0-2]|Q[1-4]|ANNUAL)$`',
+    `period_name` STRING COMMENT 'Human-readable label for the period, e.g., January 2024, Q1 2024, or Full Year 2024, used in reports and dashboards.',
+    `period_status` STRING COMMENT 'Current state of the period in the financial close cycle: OPEN (transactions may post), CLOSED (soft close), LOCKED (hard close, no further postings), REOPENED (unlocked for adjustment).. Valid values are `OPEN|CLOSED|LOCKED|REOPENED`',
+    `period_type` STRING COMMENT 'Granularity of the period: MONTHLY for a single calendar month, QUARTERLY for a three-month quarter, ANNUAL for a full calendar year.. Valid values are `MONTHLY|QUARTERLY|ANNUAL`',
+    `policy_year_py` BIGINT COMMENT 'Policy Year (PY) associated with this period. Groups premium and losses by the year in which the policy was written, used for PY loss development triangles.',
+    `regulatory_filing_deadline` DATE COMMENT 'Statutory deadline by which the NAIC Annual or Quarterly Statement covering this period must be filed with the applicable State Department of Insurance (DOI).',
+    `reopen_date` DATE COMMENT 'Date on which a previously closed or locked period was reopened for corrective adjustments. Null if the period has never been reopened.',
+    `reopen_reason` STRING COMMENT 'Free-text explanation for why a closed or locked period was reopened, e.g., audit adjustment, restatement, or regulatory correction. Null if never reopened.',
+    `reporting_basis` STRING COMMENT 'Accounting basis under which this period is used: SAP (Statutory Accounting Principles), GAAP (US Generally Accepted Accounting Principles), or IFRS17 (IFRS 17 Insurance Contracts).. Valid values are `SAP|GAAP|IFRS17`',
+    `schedule_p_year_type` STRING COMMENT 'Designates which Schedule P year-type view this period supports: CY (Calendar Year), AY (Accident Year), or PY (Policy Year), per NAIC Annual Statement Part 2 requirements.. Valid values are `CY|AY|PY`',
+    `start_date` DATE COMMENT 'First calendar date of the accounting period (inclusive). Defines the lower bound for bucketing premium, loss, and expense transactions into this period.',
+    CONSTRAINT pk_premium_accounting_period PRIMARY KEY(`premium_accounting_period_id`)
+) COMMENT 'Reference calendar period (month, quarter, year) used to bucket premium, loss, and expense transactions for statutory and GAAP reporting. Supports CY, AY, and PY views required by Schedule P and IFRS 17.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` (
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` (
+    `charge_id` BIGINT COMMENT 'Unique identifier for the charge component within a premium transaction.',
+    `calendar_id` BIGINT COMMENT 'Foreign key linking to shared.calendar. Business justification: Charges posted to accounting periods. FK enables period-based charge analysis, fiscal year reporting, and ensures charges align with calendar dimensions for financial statements.',
+    `catastrophe_event_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.catastrophe_event. Business justification: Individual rating charges (wind surcharges, earthquake deductible buybacks) are event-specific for post-catastrophe pricing adjustments, experience rating, and',
+    `catastrophegeography_peril_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.peril. Business justification: Individual charges (earthquake coverage, flood buyback, wind deductible) are peril-specific for pricing transparency, regulatory compliance, coverage verification, and claims',
+    `claimfinancials_accounting_period_id` BIGINT COMMENT 'Foreign key to the accounting period in which this charge is recognized.',
+    `coverage_id` BIGINT COMMENT 'Foreign key to the coverage to which this charge applies, if coverage-specific.',
+    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Charges have amounts denominated in currency. FK enables currency validation, FX conversion for consolidated reporting, and ensures charge amounts reference valid active currencies for',
+    `geography_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.geography. Business justification: Individual charges require geographic assignment for tax calculation, surplus lines allocation, territorial rating factors, and jurisdictional compliance.',
+    `insured_risk_id` BIGINT COMMENT 'Foreign key to the insured risk to which this charge applies, if risk-specific.',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Charges apply to specific lines of business. FK enables LOB-specific charge analysis, regulatory reporting by line, and ensures charges reference valid active LOBs.',
+    `policy_id` BIGINT COMMENT 'Foreign key to the policy to which this charge applies.',
+    `policy_term_id` BIGINT COMMENT 'Foreign key to the policy term during which this charge is effective.',
+    `premium_transaction_id` BIGINT COMMENT 'Foreign key to the parent premium transaction that contains this charge.',
+    `rating_worksheet_id` BIGINT COMMENT 'Foreign key linking to coverage.rating_worksheet. Business justification: Individual premium charges reference rating worksheets that calculated them for audit trail, rate justification to regulators, and insured disputes.',
+    `amount` DECIMAL(18,2) COMMENT 'Monetary value of the charge component in the policy currency.',
+    `basis_amount` DECIMAL(18,2) COMMENT 'Base amount to which the charge rate is applied to derive the charge amount.',
+    `charge_category` STRING COMMENT 'High-level category of the charge: premium, fee, penalty, refund, or adjustment.. Valid values are `premium|fee|penalty|refund|adjustment`',
+    `ceded_amount` DECIMAL(18,2) COMMENT 'Portion of the charge amount ceded to reinsurers under applicable reinsurance agreements.',
+    `charge_status` STRING COMMENT 'Current lifecycle status of the charge: active, voided, reversed, adjusted, or pending.. Valid values are `active|voided|reversed|adjusted|pending`',
+    `charge_type` STRING COMMENT 'Classification of the charge component: base premium, surcharge, credit, discount, minimum premium, flat charge, or adjustment. [ENUM-REF-CANDIDATE: base_premium|surcharge|credit|discount|minimum_premium|flat_charge|adjustment — 7 candidates stripped',
+    `commission_amount` DECIMAL(18,2) COMMENT 'Commission amount payable to the producer based on this charge, if commissionable.',
+    `commission_rate` DECIMAL(5,2) COMMENT 'Percentage rate applied to this charge to calculate producer commission, if commissionable.',
+    `created_timestamp` TIMESTAMP COMMENT 'Date and time when this charge record was first created in the system.',
+    `charge_description` STRING COMMENT 'Detailed business description of the charge component and its purpose.',
+    `earned_amount` DECIMAL(18,2) COMMENT 'Portion of the charge amount that has been earned as of the accounting period date.',
+    `effective_date` DATE COMMENT 'Date from which this charge becomes effective and applies to the policy or coverage.',
+    `expiration_date` DATE COMMENT 'Date on which this charge expires and no longer applies to the policy or coverage.',
+    `gl_account_code` STRING COMMENT 'General ledger account code to which this charge is posted for financial reporting.',
+    `is_ceded` BOOLEAN COMMENT 'Indicates whether this charge is subject to reinsurance cession under a treaty or facultative agreement.',
+    `is_commissionable` BOOLEAN COMMENT 'Indicates whether this charge is subject to producer commission calculation.',
+    `is_earned` BOOLEAN COMMENT 'Indicates whether this charge has been earned as of the accounting period date.',
+    `is_minimum_premium` BOOLEAN COMMENT 'Indicates whether this charge represents a minimum premium requirement for the policy or coverage.',
+    `is_prorated` BOOLEAN COMMENT 'Indicates whether the charge amount has been prorated for a partial term or endorsement period.',
+    `net_amount` DECIMAL(18,2) COMMENT 'Net charge amount retained by the insurer after reinsurance cession, calculated as charge amount minus ceded amount.',
+    `number` STRING COMMENT 'Business identifier for the charge, unique within the premium transaction context.',
+    `percentage` DECIMAL(5,2) COMMENT 'Percentage applied to the basis amount to calculate the charge, if applicable.',
+    `proration_factor` DECIMAL(8,6) COMMENT 'Factor applied to prorate the charge for a partial term, typically a fraction of the full term.',
+    `rate` DECIMAL(12,6) COMMENT 'Rate or factor applied to calculate the charge amount, if applicable.',
+    `rating_element_code` STRING COMMENT 'Code identifying the rating element or factor that generated this charge, per the rating engine.',
+    `rating_element_description` STRING COMMENT 'Human-readable description of the rating element or factor that generated this charge.',
+    `reversal_reason_code` STRING COMMENT 'Code indicating the reason for voiding or reversing this charge, if applicable.',
+    `reversal_reason_description` STRING COMMENT 'Human-readable description of the reason for voiding or reversing this charge.',
+    `sequence` BIGINT COMMENT 'Ordering sequence of this charge within the premium transaction for display and calculation purposes.',
+    `statutory_line_code` STRING COMMENT 'NAIC statutory line of business code for regulatory reporting and Schedule P aggregation.',
+    `unearned_amount` DECIMAL(18,2) COMMENT 'Portion of the charge amount that remains unearned as of the accounting period date.',
+    `updated_timestamp` TIMESTAMP COMMENT 'Date and time when this charge record was last modified in the system.',
+    CONSTRAINT pk_charge PRIMARY KEY(`charge_id`)
+) COMMENT 'Child of Premium Transaction. One row per charge component (base premium, surcharge, credit, minimum premium) within a transaction. Enables granular decomposition of gross written premium by rating element and LOB.';
+
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` (
+    `tax_levy_id` BIGINT COMMENT 'Unique identifier for the tax levy record. Primary key.',
+    `calendar_id` BIGINT COMMENT 'Foreign key linking to shared.calendar. Business justification: Taxes posted to accounting periods. FK enables period-based tax reporting, fiscal year tax remittance analysis, and ensures taxes align with calendar dimensions for regulatory reporting.',
+    `cat_zone_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.cat_zone. Business justification: Catastrophe-related taxes (wind pool assessments, FAIR plan surcharges, beach plan levies) require zone attribution for proper levy calculation, regulatory reporting, and',
+    `claimfinancials_accounting_period_id` BIGINT COMMENT 'Foreign key to the accounting period in which this tax levy is recognized for statutory and financial reporting.',
+    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Tax amounts recorded in specific currencies. Multi-currency tax remittance requires proper FK for currency validation, FX conversion, and regulatory tax reporting across jurisdictions with',
+    `geography_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.geography. Business justification: Tax jurisdiction mapping requires geographic hierarchy for proper remittance, surplus lines stamping office allocation, multi-state tax apportionment, and regulatory',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Tax rates and remittance vary by line of business. FK enables LOB-specific tax reporting, regulatory compliance by line, and ensures taxes reference valid LOBs for statutory reporting.',
+    `original_tax_levy_id` BIGINT COMMENT 'Foreign key to the original tax levy record being adjusted or corrected, if this is an adjustment transaction. Null for original levies.',
+    `policy_id` BIGINT COMMENT 'Foreign key to the policy associated with this tax levy for direct policy-level aggregation.',
+    `policy_term_id` BIGINT COMMENT 'Foreign key to the policy term during which this tax levy was assessed.',
+    `premium_transaction_id` BIGINT COMMENT 'Foreign key to the parent premium transaction to which this tax levy applies.',
+    `amount` DECIMAL(15,2) COMMENT 'The computed tax amount due, calculated as taxable premium amount multiplied by tax rate, in US dollars.',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when the tax levy record was first created in the data platform.',
+    `tax_levy_description` STRING COMMENT 'Free-text description providing additional context or detail about the tax levy, such as special assessments or regulatory notes.',
+    `naic_company_code` STRING COMMENT 'Five-digit NAIC company code of the insurer responsible for remitting the tax, used for statutory reporting and reconciliation.',
+    `policy_transaction_type_code` STRING COMMENT 'Type of policy transaction that triggered the premium and associated tax levy: new business, renewal, endorsement, cancellation, or reinstatement.. Valid values are `NEW_BUSINESS|RENEWAL|ENDORSEMENT|CANCELLATION|REINSTATEMENT`',
+    `source_system_code` STRING COMMENT 'Code identifying the source system that originated the tax levy record, such as billing system or policy administration system.',
+    `stamping_office_code` STRING COMMENT 'Code identifying the surplus lines stamping office responsible for processing and collecting the tax, if applicable.',
+    `surplus_lines_flag` BOOLEAN COMMENT 'Indicates whether this tax levy applies to a surplus lines policy, subject to surplus lines tax and stamping requirements.',
+    `tax_adjustment_flag` BOOLEAN COMMENT 'Indicates whether this tax levy record represents an adjustment or correction to a previously recorded tax levy.',
+    `tax_authority_name` STRING COMMENT 'Name of the regulatory or governmental authority to which the tax is remitted, such as State Department of Insurance or Surplus Lines Stamping Office.',
+    `tax_calculation_method_code` STRING COMMENT 'Method used to calculate the tax levy: statutory rate, flat fee, tiered rate schedule, or minimum tax threshold.. Valid values are `STATUTORY_RATE|FLAT_FEE|TIERED_RATE|MINIMUM_TAX`',
+    `tax_effective_date` DATE COMMENT 'The date on which the tax levy becomes effective, typically aligned with the premium transaction effective date.',
+    `tax_exemption_flag` BOOLEAN COMMENT 'Indicates whether the premium transaction qualifies for a tax exemption under statutory or regulatory provisions.',
+    `tax_exemption_reason_code` STRING COMMENT 'Code indicating the reason for tax exemption: exempt entity, reinsurance, export, federal program, or other statutory exemption.. Valid values are `EXEMPT_ENTITY|REINSURANCE|EXPORT|FEDERAL_PROGRAM|OTHER`',
+    `tax_rate` DECIMAL(10,6) COMMENT 'The statutory tax rate applied to the taxable premium base, expressed as a decimal (e.g., 0.025 for 2.5 percent).',
+    `tax_remittance_batch_code` STRING COMMENT 'Identifier of the remittance batch or payment run in which this tax levy was included for payment to the authority.',
+    `tax_remittance_date` DATE COMMENT 'The actual date on which the tax was remitted to the taxing authority. Null if not yet remitted.',
+    `tax_remittance_due_date` DATE COMMENT 'The statutory due date by which the tax must be remitted to the taxing authority to avoid penalties.',
+    `tax_remittance_status` STRING COMMENT 'Current remittance status of the tax levy: pending, remitted, overdue, waived, or adjusted.. Valid values are `PENDING|REMITTED|OVERDUE|WAIVED|ADJUSTED`',
+    `tax_reporting_category_code` STRING COMMENT 'Reporting category for statutory and regulatory tax filings: direct written premium, assumed reinsurance, or ceded reinsurance.. Valid values are `DIRECT_WRITTEN|ASSUMED_REINSURANCE|CEDED_REINSURANCE`',
+    `tax_type_code` STRING COMMENT 'Classification of the tax levy: state premium tax, surplus lines tax, stamping fee, municipal tax, fire marshal tax, or guaranty fund assessment.. Valid values are `STATE_PREMIUM_TAX|SURPLUS_LINES_TAX|STAMPING_FEE|MUNICIPAL_TAX|FIRE_MARSHAL_TAX|GUARANTY_FUND_ASSESSMENT`',
+    `taxable_premium_amount` DECIMAL(15,2) COMMENT 'The base premium amount subject to tax, after any exemptions or adjustments, in US dollars.',
+    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp when the tax levy record was last modified in the data platform.',
+    CONSTRAINT pk_tax_levy PRIMARY KEY(`tax_levy_id`)
+) COMMENT 'Child of Premium Transaction. One row per state or surplus-lines tax, stamping fee, or regulatory assessment applied to a premium transaction. Tracks tax type, jurisdiction, rate, and computed amount for statutory remittance.';
+
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` (
+    `policy_fee_id` BIGINT COMMENT 'Unique identifier for the policy fee transaction record.',
+    `calendar_id` BIGINT COMMENT 'Foreign key linking to shared.calendar. Business justification: Fees posted to accounting periods. FK enables period-based fee analysis, fiscal year fee revenue reporting, and ensures fees align with calendar dimensions for financial statements.',
+    `claimfinancials_accounting_period_id` BIGINT COMMENT 'Foreign key to the accounting period in which this fee transaction is recognized for statutory and financial reporting.',
+    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Policy fees denominated in currency. FK enables currency validation, FX conversion for consolidated fee revenue reporting, and ensures fee amounts reference valid active currencies for',
+    `invoice_id` BIGINT COMMENT 'Foreign key to the billing invoice on which this fee appears; null if not yet invoiced.',
+    `original_fee_id` BIGINT COMMENT 'Foreign key to the original policy fee record if this is a reversal or adjustment; null for original charges.',
+    `payment_plan_id` BIGINT COMMENT 'Foreign key to the payment plan under which this fee is financed; null for full-pay policies.',
+    `policy_id` BIGINT COMMENT 'Foreign key to the policy to which this fee applies.',
+    `policy_term_id` BIGINT COMMENT 'Foreign key to the policy term during which this fee was charged.',
+    `premium_transaction_id` BIGINT COMMENT 'Foreign key to the parent premium transaction that this fee is attached to.',
+    `source_transaction_id` BIGINT COMMENT 'Unique identifier of the fee transaction in the source operational system for audit and reconciliation.',
+    `billing_method` STRING COMMENT 'Method by which the fee is billed: direct bill to insured, agency bill through producer, list bill, or account current.. Valid values are `direct_bill|agency_bill|list_bill|account_current`',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this policy fee record was first created in the source system.',
+    `fee_amount` DECIMAL(15,2) COMMENT 'Monetary amount of the fee charged, in the policy currency.',
+    `fee_basis` STRING COMMENT 'Basis on which the fee is calculated: flat amount, per policy, per vehicle, per location, per driver, per installment, or percentage of premium. [ENUM-REF-CANDIDATE: flat|per_policy|per_vehicle|per_location|per_driver|per_installment|percentage_of_premium',
+    `fee_code` STRING COMMENT 'Standardized code identifying the type of fee charged, aligned with rating engine and billing system fee schedules.',
+    `fee_description` STRING COMMENT 'Human-readable description of the fee, displayed on declarations pages and billing statements.',
+    `fee_quantity` DECIMAL(10,2) COMMENT 'Quantity or count used to calculate the fee when charged on a per-unit basis; null for flat or percentage fees.',
+    `fee_rate` DECIMAL(10,6) COMMENT 'Rate applied when fee is calculated as a percentage or per-unit charge; null for flat fees.',
+    `fee_status` STRING COMMENT 'Current lifecycle status of the fee transaction: pending, posted, reversed, refunded, or written off.. Valid values are `pending|posted|reversed|refunded|written_off`',
+    `fee_type` STRING COMMENT 'Classification of the fee by business purpose: policy fee, inspection fee, installment fee, service fee, late fee, reinstatement fee, endorsement fee, or cancellation fee.',
+    `gl_account_code` STRING COMMENT 'General ledger account code to which this fee is posted for financial reporting.',
+    `is_commission_bearing` BOOLEAN COMMENT 'Indicates whether producer commission is calculated on this fee; typically false for most policy fees.',
+    `is_refundable` BOOLEAN COMMENT 'Indicates whether this fee is refundable upon policy cancellation or endorsement reversal.',
+    `is_taxable` BOOLEAN COMMENT 'Indicates whether this fee is subject to state or local taxes; most policy fees are non-taxable.',
+    `jurisdiction_code` STRING COMMENT 'Regulatory jurisdiction code for fee compliance and reporting, may include county or municipal codes.',
+    `last_modified_timestamp` TIMESTAMP COMMENT 'Timestamp when this policy fee record was last updated in the source system.',
+    `lob_code` STRING COMMENT 'Internal line of business code for management reporting and analytics.',
+    `notes` STRING COMMENT 'Free-text notes or comments regarding this fee transaction, for audit and customer service reference.',
+    `reversal_date` DATE COMMENT 'Date on which the fee was reversed or refunded; null if not reversed.',
+    `reversal_reason_code` STRING COMMENT 'Code indicating the reason for fee reversal or refund; null if not reversed.',
+    `source_system_code` STRING COMMENT 'Code identifying the operational system that originated this fee transaction.',
+    `state_code` STRING COMMENT 'Two-letter US state or Canadian province code where the fee applies, for regulatory and tax jurisdiction purposes.',
+    `statutory_line_code` STRING COMMENT 'NAIC statutory line of business code for regulatory reporting classification.',
+    `transaction_booking_date` DATE COMMENT 'Date on which the fee transaction was recorded in the financial ledger.',
+    `transaction_effective_date` DATE COMMENT 'Date on which the fee transaction becomes effective for policy accounting purposes.',
+    `transaction_type` STRING COMMENT 'Type of financial movement: charge for new fee, reversal for cancellation, adjustment for correction, or refund for return.. Valid values are `charge|reversal|adjustment|refund`',
+    `waived_flag` BOOLEAN COMMENT 'Indicates whether this fee was waived as part of underwriting discretion or customer service exception.',
+    `waiver_authorized_by` STRING COMMENT 'User ID or name of the underwriter or manager who authorized the fee waiver; null if not waived.',
+    `waiver_reason_code` STRING COMMENT 'Code indicating the reason for fee waiver; null if not waived.',
+    CONSTRAINT pk_policy_fee PRIMARY KEY(`policy_fee_id`)
+) COMMENT 'Child of Premium Transaction. One row per non-premium fee (policy fee, inspection fee, installment fee) charged on a transaction. Fees are non-taxable in most jurisdictions and tracked separately from taxable premium.';
+
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` (
+    `commission_id` BIGINT COMMENT 'Unique identifier for the commission transaction record.',
+    `agency_id` BIGINT COMMENT 'Foreign key to the agency associated with this commission.',
+    `calendar_id` BIGINT COMMENT 'Foreign key linking to shared.calendar. Business justification: Commissions posted to accounting periods. FK enables period-based producer accounting, fiscal year commission expense reporting, and ensures commissions align with calendar dimensions for',
+    `claimfinancials_accounting_period_id` BIGINT COMMENT 'Foreign key to the accounting period in which this commission is recognized.',
+    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Commission amounts in specific currencies. Multi-currency producer accounting requires proper FK for currency validation, FX conversion, and accurate producer compensation reporting across',
+    `disbursement_id` BIGINT COMMENT 'Foreign key linking to billing.disbursement. Business justification: Commission records earned amounts; disbursement records actual payment to producer. Reconciliation of earned vs paid commission is critical for producer accounting, commission payable',
+    `geography_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.geography. Business justification: Producer commissions vary by geography due to market conditions, regulatory constraints, competitive positioning, and state-specific profitability.',
+    `license_id` BIGINT COMMENT 'Foreign key linking to party.license. Business justification: Commission eligibility and payment often depend on active license status at transaction date.',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Commission rates vary by line of business. FK enables LOB-specific producer compensation analysis, commission schedule management by line, and ensures commissions reference valid LOBs.',
+    `original_commission_id` BIGINT COMMENT 'Foreign key to the original commission record that this transaction reverses or adjusts.',
+    `policy_id` BIGINT COMMENT 'Foreign key to the policy associated with this commission.',
+    `policy_term_id` BIGINT COMMENT 'Foreign key to the policy term during which this commission was earned.',
+    `premium_transaction_id` BIGINT COMMENT 'Foreign key to the parent premium transaction that generated this commission.',
+    `producers_producer_id` BIGINT COMMENT 'Foreign key to the producer earning this commission.',
+    `quote_id` BIGINT COMMENT 'Foreign key linking to coverage.quote. Business justification: Commission calculations reference quoted terms for rate structure, producer tier assignment, and override authorization.',
+    `amount` DECIMAL(15,2) COMMENT 'The computed dollar amount of commission payable to the producer, calculated as basis amount multiplied by commission rate.',
+    `basis` STRING COMMENT 'The premium or fee basis on which the commission is calculated: written premium, earned premium, policy fee, or installment fee.. Valid values are `written_premium|earned_premium|policy_fee|installment_fee`',
+    `basis_amount` DECIMAL(15,2) COMMENT 'The dollar amount of premium or fee on which the commission is calculated.',
+    `calculation_method` STRING COMMENT 'The method used to calculate the commission: flat rate, tiered structure, sliding scale, or manual override.. Valid values are `flat_rate|tiered|sliding_scale|manual_override`',
+    `chargeback_indicator` BOOLEAN COMMENT 'Flag indicating whether this commission is a chargeback reversing a previously paid commission due to policy cancellation or return premium.',
+    `chargeback_reason` STRING COMMENT 'Explanation for why the commission was charged back, typically due to policy cancellation, non-payment, or return premium.',
+    `commission_status` STRING COMMENT 'Current lifecycle status of the commission: calculated, approved, pending payment, paid, reversed, or cancelled.. Valid values are `calculated|approved|pending_payment|paid|reversed|cancelled`',
+    `commission_type` STRING COMMENT 'Type of commission: new business, renewal, endorsement, contingent, override, or bonus.. Valid values are `new_business|renewal|endorsement|contingent|override|bonus`',
+    `contingent_indicator` BOOLEAN COMMENT 'Flag indicating whether this is a contingent commission based on volume, profitability, or other performance criteria.',
+    `created_timestamp` TIMESTAMP COMMENT 'The timestamp when this commission record was first created in the system.',
+    `earned_date` DATE COMMENT 'The date on which the commission was earned, typically aligned with premium earning.',
+    `effective_date` DATE COMMENT 'The date from which the commission becomes effective and eligible for payment.',
+    `gl_account_code` STRING COMMENT 'The general ledger account code to which this commission expense is posted.',
+    `modified_timestamp` TIMESTAMP COMMENT 'The timestamp when this commission record was last modified.',
+    `net_payable_amount` DECIMAL(15,2) COMMENT 'The net commission amount payable to the producer after deductions, offsets, and withholdings.',
+    `notes` STRING COMMENT 'Free-text notes or comments regarding this commission transaction, including manual adjustments or special circumstances.',
+    `override_indicator` BOOLEAN COMMENT 'Flag indicating whether this commission is an override commission paid to a managing or supervising producer.',
+    `payment_date` DATE COMMENT 'The date on which the commission was paid to the producer.',
+    `payment_method` STRING COMMENT 'The method used to pay the commission: ACH, wire transfer, check, offset against debit balance, or direct deposit.. Valid values are `ach|wire|check|offset|direct_deposit`',
+    `payment_status` STRING COMMENT 'Payment status indicating whether the commission has been paid to the producer.. Valid values are `unpaid|paid|partially_paid|withheld|deferred`',
+    `policy_transaction_type` STRING COMMENT 'The type of policy transaction that triggered this commission: new business, renewal, endorsement, cancellation, or reinstatement.. Valid values are `new_business|renewal|endorsement|cancellation|reinstatement`',
+    `rate` DECIMAL(7,5) COMMENT 'The percentage rate applied to the basis to calculate the commission amount, expressed as a decimal.',
+    `reversal_indicator` BOOLEAN COMMENT 'Flag indicating whether this commission transaction is a reversal of a prior commission entry.',
+    `schedule_code` STRING COMMENT 'Code identifying the commission schedule or rate table used to calculate this commission.',
+    `split_percentage` DECIMAL(5,2) COMMENT 'The percentage of the total commission allocated to this producer when commission is split among multiple producers.',
+    `tax_withholding_amount` DECIMAL(15,2) COMMENT 'The amount of tax withheld from the commission payment, if applicable.',
+    `tier_level` STRING COMMENT 'The producer tier or level within a tiered commission structure, affecting the commission rate.',
+    `transaction_date` DATE COMMENT 'The date on which the commission transaction was recorded.',
+    CONSTRAINT pk_commission PRIMARY KEY(`commission_id`)
+) COMMENT 'Child of Premium Transaction. One row per producer commission calculation on a transaction: type (new/renewal/contingent), rate, basis, and computed payable. Calculation-only; commission settlement/payout is owned by the producers domain.';
+
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` (
+    `earned_premium_schedule_id` BIGINT COMMENT 'Unique identifier for the earned premium schedule record. Primary key.',
+    `calendar_id` BIGINT COMMENT 'Foreign key linking to shared.calendar. Business justification: Earning schedules span accounting periods. FK enables period-based earning analysis, GAAP/IFRS17 reporting by period, and ensures schedules align with calendar dimensions for financial',
+    `catastrophegeography_peril_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.peril. Business justification: Earned premium schedules are peril-segregated for Schedule P reporting, loss ratio monitoring by peril, reinsurance accounting, and actuarial analysis.',
+    `claimfinancials_accounting_period_id` BIGINT COMMENT 'Reference to the accounting period for which earned and unearned premium is calculated.',
+    `coverage_id` BIGINT COMMENT 'Reference to the specific coverage for which this earning schedule applies.',
+    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Earning schedules track premium amounts in currency. FK enables FX-adjusted earning calculations, multi-currency GAAP/IFRS17 reporting, and ensures earned amounts reference valid currencies',
+    `geography_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.geography. Business justification: Earned premium schedules are geography-segregated for state-level statutory reporting, territorial profitability analysis, and regulatory compliance.',
+    `insured_risk_id` BIGINT COMMENT 'Reference to the insured risk exposure associated with this earning schedule.',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Earning patterns vary by line of business. FK enables LOB-specific earning analysis, GAAP/IFRS17 reporting by line, and ensures schedules reference valid LOBs for financial statements.',
+    `policy_id` BIGINT COMMENT 'Reference to the policy contract for which premium is being earned.',
+    `policy_term_id` BIGINT COMMENT 'Reference to the specific policy term period during which premium is earned.',
+    `prior_schedule_id` BIGINT COMMENT 'Reference to the previous earning schedule that this schedule supersedes or adjusts.',
+    `quote_id` BIGINT COMMENT 'Foreign key linking to coverage.quote. Business justification: Earned premium schedules are established at quote binding; earning patterns reference quoted term structure, effective dates, and premium allocation.',
+    `adjustment_reason_code` STRING COMMENT 'Code indicating reason for schedule adjustment: endorsement, rate change, correction, audit, etc.',
+    `cancellation_date` DATE COMMENT 'Date on which the policy or coverage was cancelled, affecting earned premium calculation.',
+    `cancellation_reason_code` STRING COMMENT 'Code indicating reason for policy cancellation: non-payment, insured request, underwriting, etc.',
+    `created_timestamp` TIMESTAMP COMMENT 'Date and time when this earning schedule record was first created in the system.',
+    `cumulative_earned_amount` DECIMAL(18,2) COMMENT 'Total premium earned from effective date through the schedule date, cumulative sum.',
+    `daily_earned_amount` DECIMAL(18,2) COMMENT 'Premium amount earned per day, used for daily pro-rata earning calculations.',
+    `days_elapsed` BIGINT COMMENT 'Number of days elapsed from effective date to schedule date, used in pro-rata calculations.',
+    `days_in_period` BIGINT COMMENT 'Total number of days in the coverage period for which premium is being earned.',
+    `days_remaining` BIGINT COMMENT 'Number of days remaining from schedule date to expiration date, representing future coverage period.',
+    `earned_premium_amount` DECIMAL(18,2) COMMENT 'Premium amount earned as of the schedule date, representing coverage provided to date.',
+    `earning_method` STRING COMMENT 'Granularity at which premium is earned: daily, monthly, quarterly, annual, or event-based.. Valid values are `daily|monthly|quarterly|annual|event_based`',
+    `earning_percentage` DECIMAL(5,2) COMMENT 'Percentage of total premium earned as of the schedule date, expressed as decimal.',
+    `effective_date` DATE COMMENT 'Date from which this earning schedule becomes active and premium begins to earn.',
+    `expiration_date` DATE COMMENT 'Date on which this earning schedule ends and premium is fully earned or terminated.',
+    `gl_account_code` STRING COMMENT 'General ledger account code to which earned and unearned premium amounts are posted.',
+    `ifrs17_cohort_code` STRING COMMENT 'IFRS 17 cohort identifier for grouping contracts issued in same period with similar risk characteristics.',
+    `is_minimum_earned` BOOLEAN COMMENT 'Indicates whether minimum earned premium rule applies, ensuring minimum premium is retained regardless of cancellation timing.',
+    `is_prorated` BOOLEAN COMMENT 'Indicates whether premium earning is calculated using pro-rata method based on time elapsed.',
+    `is_short_rate` BOOLEAN COMMENT 'Indicates whether premium earning uses short-rate method with penalty for mid-term cancellation.',
+    `last_updated_timestamp` TIMESTAMP COMMENT 'Date and time when this earning schedule record was last modified or recalculated.',
+    `minimum_earned_amount` DECIMAL(18,2) COMMENT 'Minimum premium amount that must be earned regardless of cancellation date, per policy terms.',
+    `notes` STRING COMMENT 'Free-text notes or comments regarding special earning rules, adjustments, or exceptions for this schedule.',
+    `proration_factor` DECIMAL(10,8) COMMENT 'Decimal factor used to calculate earned premium, typically days elapsed divided by days in period.',
+    `reporting_basis` STRING COMMENT 'Accounting basis for which this earning schedule is prepared: statutory, GAAP, IFRS 17, or tax.. Valid values are `statutory|gaap|ifrs17|tax`',
+    `schedule_date` DATE COMMENT 'Specific date for which earned and unearned premium amounts are calculated in this schedule entry.',
+    `schedule_number` STRING COMMENT 'Business identifier for the earning schedule, typically derived from policy and coverage identifiers.',
+    `schedule_status` STRING COMMENT 'Current lifecycle status of the earning schedule: active, cancelled, expired, suspended, or adjusted.. Valid values are `active|cancelled|expired|suspended|adjusted`',
+    `schedule_type` STRING COMMENT 'Method used to calculate earned premium: pro-rata, short-rate, or custom earning pattern.. Valid values are `pro_rata|short_rate|daily|monthly|annual|custom`',
+    `short_rate_penalty_amount` DECIMAL(18,2) COMMENT 'Penalty amount applied when policy is cancelled mid-term using short-rate method, reducing return premium.',
+    `short_rate_percentage` DECIMAL(5,2) COMMENT 'Percentage applied for short-rate cancellation, typically higher than pro-rata to penalize early termination.',
+    `statutory_line_code` STRING COMMENT 'NAIC statutory accounting line code used for Schedule P and regulatory financial reporting.',
+    `total_premium_amount` DECIMAL(18,2) COMMENT 'Total written premium amount subject to earning over the coverage period.',
+    `unearned_premium_amount` DECIMAL(18,2) COMMENT 'Premium amount not yet earned as of the schedule date, representing future coverage obligation.',
+    CONSTRAINT pk_earned_premium_schedule PRIMARY KEY(`earned_premium_schedule_id`)
+) COMMENT 'Pro-rata or short-rate earning schedule for a Coverage within a Policy Term. Defines daily or monthly earned and unearned premium amounts used to compute EP at any in-force date. Supports IFRS 17 and Schedule P actuarial triangles.';
+
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` (
+    `premium_endorsement_id` BIGINT COMMENT 'Unique identifier for the premium endorsement record.',
+    `calendar_id` BIGINT COMMENT 'Foreign key linking to shared.calendar. Business justification: Endorsements posted to accounting periods. FK enables period-based transaction analysis, fiscal year endorsement reporting, and ensures endorsements align with calendar dimensions for',
+    `catastrophe_event_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.catastrophe_event. Business justification: Mid-term endorsements post-catastrophe (coverage changes, cancellations, reinstatements) must link to triggering events for claims handling coordination, underwriting',
+    `catastrophegeography_peril_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.peril. Business justification: Endorsements adding or removing peril coverage require explicit peril linkage for coverage verification, claims adjudication, underwriting approval, and regulatory compliance.',
+    `claimfinancials_accounting_period_id` BIGINT COMMENT 'Foreign key to the Accounting Period in which this endorsement premium change is booked.',
+    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Endorsement premium changes denominated in currency. FK enables currency validation, FX conversion for consolidated endorsement reporting, and ensures policy change amounts reference valid',
+    `geography_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.geography. Business justification: Endorsements changing risk location require geographic linkage for rate adjustment, territorial rating factor application, tax recalculation, and jurisdictional compliance.',
+    `invoice_id` BIGINT COMMENT 'Foreign key to the Invoice generated for this endorsement, if billable.',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Endorsements categorized by line of business. FK enables LOB-specific transaction analysis, regulatory reporting by line, and ensures endorsements reference valid LOBs for statutory',
+    `party_id` BIGINT COMMENT 'Foreign key to the Underwriter who approved this endorsement.',
+    `policy_id` BIGINT COMMENT 'Foreign key to the Policy being endorsed.',
+    `policy_term_id` BIGINT COMMENT 'Foreign key to the Policy Term affected by this endorsement.',
+    `policy_transaction_id` BIGINT COMMENT 'Foreign key to the Policy Transaction that triggered this premium endorsement (endorsement, cancellation, reinstatement).',
+    `producers_producer_id` BIGINT COMMENT 'Foreign key to the Producer (agent or broker) of record at the time of endorsement.',
+    `reversed_endorsement_id` BIGINT COMMENT 'Foreign key to the original Premium Endorsement record being reversed, if this is a reversal transaction.',
+    `uw_decision_id` BIGINT COMMENT 'Foreign key linking to coverage.uw_decision. Business justification: Premium endorsements triggered by underwriting decisions (coverage changes, condition fulfillment, risk tier adjustments) require decision reference for audit trail, authority',
+    `billing_status` STRING COMMENT 'Current billing status of the endorsement premium change.. Valid values are `Pending|Billed|Paid|Partially Paid|Refunded|Written Off`',
+    `ceded_premium_change_amount` DECIMAL(18,2) COMMENT 'Portion of the premium change ceded to reinsurers under treaty or facultative agreements.',
+    `commission_change_amount` DECIMAL(18,2) COMMENT 'Change in producer commission payable resulting from the endorsement premium change.',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this premium endorsement record was first created in the data warehouse.',
+    `days_in_term_remaining` BIGINT COMMENT 'Number of days remaining in the policy term from the endorsement effective date to term expiration.',
+    `earned_premium_change_amount` DECIMAL(18,2) COMMENT 'Change in earned premium resulting from the endorsement, calculated based on the earning pattern.',
+    `endorsement_number` STRING COMMENT 'Business identifier for the endorsement transaction, typically sequential within the policy term.',
+    `fee_change_amount` DECIMAL(18,2) COMMENT 'Change in policy fees (policy fee, installment fee, service fee) resulting from the endorsement.',
+    `gl_account_code` STRING COMMENT 'General ledger account code to which the premium change is posted.',
+    `gross_premium_change_amount` DECIMAL(18,2) COMMENT 'Gross premium change before deducting ceded reinsurance amounts.',
+    `is_billable` BOOLEAN COMMENT 'Indicates whether this endorsement generates a billing transaction (true for additional premium, false for return premium credited).',
+    `net_premium_change_amount` DECIMAL(18,2) COMMENT 'Net change in premium resulting from this endorsement; positive for additional premium, negative for return premium.',
+    `notes` STRING COMMENT 'Free-text notes or comments regarding the endorsement transaction.',
+    `proration_factor` DECIMAL(10,6) COMMENT 'Decimal factor applied to calculate the prorated premium change (e.g., 0.5 for half-term).',
+    `proration_method` STRING COMMENT 'Method used to calculate the premium change for mid-term endorsements or cancellations.. Valid values are `Pro-Rata|Short-Rate|Flat|Daily|Monthly`',
+    `reversal_indicator` BOOLEAN COMMENT 'Indicates whether this endorsement record is a reversal of a prior endorsement.',
+    `reversal_reason_code` STRING COMMENT 'Code indicating the reason for reversing the endorsement (e.g., data entry error, policy rescission).',
+    `reversal_reason_description` STRING COMMENT 'Detailed description of why the endorsement was reversed.',
+    `source_system_code` STRING COMMENT 'Code identifying the source system that originated this endorsement record (e.g., PolicyCenter, Duck Creek Policy).',
+    `source_system_transaction_code` STRING COMMENT 'Unique transaction identifier from the source policy administration system.',
+    `statutory_line_code` STRING COMMENT 'NAIC statutory accounting line code for regulatory reporting purposes.',
+    `tax_change_amount` DECIMAL(18,2) COMMENT 'Change in taxes (premium tax, surplus lines tax, stamping fees) resulting from the endorsement.',
+    `total_charge_change_amount` DECIMAL(18,2) COMMENT 'Total change in all charges (premium, taxes, fees) billed to the policyholder.',
+    `transaction_effective_date` DATE COMMENT 'Date the endorsement transaction becomes effective for coverage and premium purposes.',
+    `transaction_reason_code` STRING COMMENT 'Code indicating the business reason for the endorsement (e.g., coverage change, insured risk addition, address correction).',
+    `transaction_reason_description` STRING COMMENT 'Detailed description of why the endorsement was issued.',
+    `transaction_timestamp` TIMESTAMP COMMENT 'Timestamp when the endorsement transaction was processed in the system.',
+    `transaction_type` STRING COMMENT 'Type of policy transaction that generated this premium change.. Valid values are `Endorsement|Cancellation|Reinstatement|Flat Cancellation|Pro-Rata Cancellation|Short-Rate Cancellation`',
+    `unearned_premium_change_amount` DECIMAL(18,2) COMMENT 'Change in unearned premium reserve resulting from the endorsement.',
+    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp when this premium endorsement record was last updated in the data warehouse.',
+    `written_premium_change_amount` DECIMAL(18,2) COMMENT 'Change in written premium booked at the transaction effective date.',
+    CONSTRAINT pk_premium_endorsement PRIMARY KEY(`premium_endorsement_id`)
+) COMMENT 'Records the net premium change (additional or return) generated by a Policy Transaction endorsement, cancellation, or reinstatement. Links the endorsing Policy Transaction to the resulting Premium Transactions and charge breakdown.';
+
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` (
     `rate_table_id` BIGINT COMMENT 'Unique identifier for the rate table version. Primary key.',
-    `lob_code_id` BIGINT COMMENT 'Foreign key linking to shared.lob_code. Business justification: Rate tables are organized by LOB for regulatory filing, rating plan management, and actuarial analysis. Lob denormalized, replace with FK.',
-    `policy_rate_filing_id` BIGINT COMMENT 'Reference to the regulatory rate filing under which this rate table was approved.',
-    `state_id` BIGINT COMMENT 'Foreign key linking to shared.state. Business justification: Rate tables must link to state for regulatory filing tracking, DOI approval verification, jurisdiction-specific rating, and compliance auditing. State_code denormalized, replace with FK.',
-    `actuarial_memo_reference` STRING COMMENT 'Reference to the actuarial memorandum or rate filing documentation supporting this rate table.',
-    `approval_date` DATE COMMENT 'Date the state insurance department approved this rate table for use.',
-    `approved_by_regulator` BOOLEAN COMMENT 'Indicates whether this rate table has received formal approval from the state insurance department.',
-    `class_code` STRING COMMENT 'ISO or NCCI class code for which this rate table provides base rates or factors.',
-    `rate_table_code` STRING COMMENT 'Unique business code identifying the rate table across systems and filings.',
-    `coverage_code` STRING COMMENT 'ISO or company coverage code this rate table applies to, such as BI, PD, COLL, COMP.',
-    `created_by_user` STRING COMMENT 'User identifier of the person who created this rate table version.',
-    `created_timestamp` TIMESTAMP COMMENT 'Date and time when this rate table version was first created in the system.',
+    `cat_model_version_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.cat_model_version. Business justification: Rating tables reference specific catastrophe model versions for catastrophe load factors, territorial relativities, regulatory filing support, and actuarial',
+    `cat_zone_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.cat_zone. Business justification: Rating tables are zone-specific with different base rates, territorial factors, and catastrophe loadings by geographic hazard.',
+    `catastrophegeography_peril_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.peril. Business justification: Rate tables are peril-specific (wind vs. earthquake vs. flood) with distinct actuarial bases, loss costs, regulatory filings, and coverage definitions.',
+    `classification_code_id` BIGINT COMMENT 'Foreign key linking to shared.classification_code. Business justification: Rate tables vary by classification code (NCCI, ISO GL class). FK enables class-specific rating, regulatory filing validation, and ensures class_code_range references valid',
+    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Rate tables denominated in specific currencies. FK enables currency-specific rating, FX conversion for international rating, and ensures rates reference valid currencies for underwriting and',
+    `filing_organization_id` BIGINT COMMENT 'Foreign key linking to party.organization. Business justification: Rate tables are filed by or on behalf of specific carrier organizations or MGAs. Linking rate_table to organization supports regulatory compliance (which entity filed this rate)',
+    `geography_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.geography. Business justification: Rating tables are geography-specific with territorial base rates, protection class adjustments, jurisdiction-specific factors, and regulatory filing requirements.',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Rate tables specific to line of business. FK enables LOB-specific rating, regulatory filing management by line, and ensures rates reference valid LOBs for underwriting and pricing.',
+    `unit_of_measure_id` BIGINT COMMENT 'Foreign key linking to shared.unit_of_measure. Business justification: Rate tables specify rating basis measured in units (per vehicle, per $1000 payroll).',
+    `actuarial_memo_reference` STRING COMMENT 'Reference number or document identifier for the actuarial memorandum supporting this rate table filing.',
+    `approval_date` DATE COMMENT 'Date when the state regulator approved this rate table for use.',
+    `approval_status` STRING COMMENT 'Current regulatory approval status of this rate table version.. Valid values are `draft|filed|approved|rejected|withdrawn|superseded`',
+    `base_rate_amount` DECIMAL(15,4) COMMENT 'Primary rate value or starting premium amount before application of factors and adjustments.',
+    `rate_table_code` STRING COMMENT 'Business identifier for the rate table, typically combining LOB, state, and version components for external reference.',
+    `coverage_code` STRING COMMENT 'Specific coverage or peril this rate table applies to, such as liability, collision, comprehensive, or property.',
+    `created_timestamp` TIMESTAMP COMMENT 'System timestamp when this rate table record was first created in the data platform.',
+    `credibility_factor` DECIMAL(5,4) COMMENT 'Actuarial credibility weight applied to experience data used to develop this rate table, ranging from 0 to 1.',
+    `deductible_amount` DECIMAL(15,2) COMMENT 'Standard deductible level this rate table is designed for, if rate varies by deductible.',
     `effective_date` DATE COMMENT 'Date when this rate table version becomes active and available for policy rating.',
-    `expense_provision` DECIMAL(18,6) COMMENT 'Expense loading component included in the rate to cover underwriting, acquisition, and administrative costs.',
-    `expiration_date` DATE COMMENT 'Date when this rate table version is no longer valid for new business or renewals. Null if still active.',
-    `filing_number` STRING COMMENT 'State insurance department filing number or SERFF tracking number for this rate table submission.',
-    `iso_content_flag` BOOLEAN COMMENT 'Indicates whether this rate table contains ISO-licensed rating content or proprietary company rates.',
-    `iso_edition` STRING COMMENT 'ISO manual edition identifier if this rate table is based on ISO content.',
-    `loss_cost` DECIMAL(18,6) COMMENT 'Pure premium or loss cost component of the rate, excluding expense and profit loads.',
-    `maximum_rate` DECIMAL(18,6) COMMENT 'Maximum allowable rate value after all factors and modifiers are applied.',
-    `minimum_rate` DECIMAL(18,6) COMMENT 'Minimum allowable rate value after all factors and modifiers are applied.',
-    `rate_table_name` STRING COMMENT 'Business name of the rate table for identification and reference purposes.',
-    `ncci_content_flag` BOOLEAN COMMENT 'Indicates whether this rate table contains NCCI-licensed workers compensation rating content.',
-    `owner` STRING COMMENT 'Business unit or department responsible for maintaining and updating this rate table.',
-    `profit_provision` DECIMAL(18,6) COMMENT 'Profit and contingency loading component included in the rate.',
-    `rate_basis` STRING COMMENT 'Unit basis for rate application: per unit, per hundred exposure, per thousand, flat fee, or percentage.. Valid values are `per_unit|per_hundred|per_thousand|flat|percentage`',
-    `rate_change_percent` DECIMAL(5,2) COMMENT 'Percentage change from the prior rate table version, used for regulatory filing documentation.',
-    `rate_description` STRING COMMENT 'Detailed business description of what this rate table row represents and how it is applied in rating.',
-    `rate_footnote` STRING COMMENT 'Additional notes, exceptions, or special instructions for applying this rate.',
-    `rate_source` STRING COMMENT 'Origin of the rate content: ISO, NCCI, company proprietary, state manual, or advisory organization.. Valid values are `iso|ncci|company_proprietary|state_manual|advisory_organization`',
-    `rate_table_status` STRING COMMENT 'Current lifecycle status of the rate table in the filing and approval workflow.. Valid values are `draft|pending_approval|approved|active|superseded|withdrawn`',
-    `rate_table_type` STRING COMMENT 'Classification of rate content: base rates, factors, credits, debits, or modifiers. [ENUM-REF-CANDIDATE: base_rate|class_factor|territory_factor|schedule_credit|schedule_debit|experience_mod|increased_limit — 7 candidates stripped; promote to reference',
-    `rate_unit_of_measure` STRING COMMENT 'Unit of measure for the rate value, defining how the rate is applied to exposure. [ENUM-REF-CANDIDATE: per_unit|per_hundred|per_thousand|per_vehicle|per_location|per_employee|flat — 7 candidates stripped; promote to reference product]',
-    `rate_value` DECIMAL(18,6) COMMENT 'Numeric rate value, factor, credit, or debit stored in this rate table row.',
-    `rate_version` BIGINT COMMENT 'Sequential version number for this rate table iteration within the same filing and effective period.',
-    `rating_plan` STRING COMMENT 'Name or code of the rating plan or program this rate table supports, such as tiered or preferred programs.',
-    `rating_tier` STRING COMMENT 'Tier level within a multi-tier rating plan, such as standard, preferred, or elite.',
-    `rol_value` DECIMAL(18,6) COMMENT 'Rate on Line value used in excess and reinsurance pricing, expressed as premium divided by limit.',
-    `rpp_value` DECIMAL(18,6) COMMENT 'ISO Rate Per Point value used in commercial lines rating calculations.',
-    `territory_code` STRING COMMENT 'Geographic territory code for which this rate table provides territory-specific rates or factors.',
-    `updated_by_user` STRING COMMENT 'User identifier of the person who last modified this rate table version.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Date and time when this rate table version was last modified.',
+    `expense_provision_percentage` DECIMAL(5,2) COMMENT 'Percentage load for underwriting expenses, commissions, and overhead included in the rate.',
+    `expiration_date` DATE COMMENT 'Date when this rate table version is superseded or withdrawn from use. Null indicates currently active.',
+    `filing_date` DATE COMMENT 'Date when this rate table was submitted to the state regulator for approval.',
+    `filing_number` STRING COMMENT 'State Department of Insurance filing reference number for regulatory approval of this rate table.',
+    `is_file_and_use` BOOLEAN COMMENT 'Indicates whether this rate table was implemented under file-and-use regulatory framework, requiring filing before use but not prior approval.',
+    `is_prior_approval` BOOLEAN COMMENT 'Indicates whether this rate table required prior regulatory approval before implementation.',
+    `is_use_and_file` BOOLEAN COMMENT 'Indicates whether this rate table was implemented under use-and-file regulatory framework, allowing immediate use before approval.',
+    `iso_program_code` STRING COMMENT 'ISO program or form edition code if this rate table is based on ISO advisory rates or forms.',
+    `limit_amount` DECIMAL(15,2) COMMENT 'Standard coverage limit this rate table is designed for, if rate varies by limit.',
+    `loss_cost_basis` DECIMAL(15,4) COMMENT 'Actuarial loss cost per exposure unit underlying this rate table, before expense and profit loads.',
+    `maximum_premium_amount` DECIMAL(15,2) COMMENT 'Ceiling premium amount that cannot be exceeded for this rate table, if applicable.',
+    `minimum_premium_amount` DECIMAL(15,2) COMMENT 'Floor premium amount that must be charged regardless of calculated premium for this rate table.',
+    `modified_timestamp` TIMESTAMP COMMENT 'System timestamp when this rate table record was last updated in the data platform.',
+    `rate_table_name` STRING COMMENT 'Human-readable name describing the rate table purpose and scope.',
+    `notes` STRING COMMENT 'Free-text field for additional comments, special instructions, or context about this rate table version.',
+    `profit_provision_percentage` DECIMAL(5,2) COMMENT 'Percentage load for underwriting profit and contingencies included in the rate.',
+    `published_date` DATE COMMENT 'Date when this rate table version was released to the rating engine and made available for policy transactions.',
+    `rate_change_percentage` DECIMAL(5,2) COMMENT 'Overall percentage increase or decrease from the prior rate table version, used for regulatory filing disclosure.',
+    `rate_manual_edition` STRING COMMENT 'Edition or publication date of the rate manual or rating guide this table is published in.',
+    `rate_source` STRING COMMENT 'Origin of the rate data: proprietary company rates, ISO advisory, NCCI, state-mandated manual, or competitor benchmark.. Valid values are `proprietary|iso_advisory|ncci|state_manual|competitor_benchmark`',
+    `rate_table_status` STRING COMMENT 'Current operational status of this rate table version in the rating engine.. Valid values are `active|inactive|pending|superseded|withdrawn`',
+    `rate_type` STRING COMMENT 'Classification of rate content: base rates, rating factors, minimum premiums, surcharges, discounts, or credits.. Valid values are `base|factor|minimum|surcharge|discount|credit`',
+    `rating_algorithm_code` STRING COMMENT 'Identifier for the calculation method or formula used to apply this rate table during policy rating.',
+    `state_code` STRING COMMENT 'Two-letter US state or territory code where this rate table is filed and approved for use.',
+    `territory_definition` STRING COMMENT 'Geographic territory or rating zone structure this rate table applies to, such as county groups or ZIP code ranges.',
+    `trend_factor` DECIMAL(5,4) COMMENT 'Actuarial trend adjustment factor applied to historical loss data to project future losses for this rate table.',
+    `version_number` STRING COMMENT 'Sequential version identifier for this rate table edition, incremented with each filing or update.',
+    `withdrawn_date` DATE COMMENT 'Date when this rate table version was removed from active use in the rating engine.',
     CONSTRAINT pk_rate_table PRIMARY KEY(`rate_table_id`)
-) COMMENT 'Versioned rate table and single SSOT for all rate content: base rates, class/territory factors, schedule credits/debits, and ISO RPP elements, held as rows grouped by LOB, state, effective date, and filing across multi-tier plans.';
+) COMMENT 'Versioned rate table published by the rating engine for a specific LOB, state, and effective date. Stores base rates, factors, and minimum premiums. Provides the authoritative rate version used to price each Policy Term.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` (
-    `rating_worksheet_id` BIGINT COMMENT 'Unique identifier for the rating worksheet record. Primary key.',
-    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Rating calculations in multiple currencies require currency reference for proper premium calculation, display formatting, and quote presentation. Currency_code denormalized, replace with FK.',
-    `lob_code_id` BIGINT COMMENT 'Foreign key linking to shared.lob_code. Business justification: Rating worksheets must reference LOB for proper rating plan selection, premium calculation rules, and underwriting guidelines. Lob denormalized, replace with FK.',
-    `coverage_policy_coverage_id` BIGINT COMMENT 'Foreign key linking to coverage.coverage_policy_coverage. Business justification: Rating worksheets must trace to specific coverages for audit trail, quote reconstruction, underwriting review, and regulatory rate verification.',
-    `policy_id` BIGINT COMMENT 'Reference to the policy being rated or quoted.',
-    `quote_id` BIGINT COMMENT 'Reference to the quote for which this rating worksheet was generated.',
-    `approval_timestamp` TIMESTAMP COMMENT 'Date and time when the rating worksheet was approved.',
-    `approved_by` STRING COMMENT 'Name or identifier of the person who approved the rating worksheet.',
-    `base_rate` DECIMAL(18,6) COMMENT 'The foundational rate per unit of exposure before application of modifiers and factors.',
-    `calculation_notes` STRING COMMENT 'Free-text notes or comments regarding the rating calculation, exceptions, or underwriter rationale.',
-    `calculation_timestamp` TIMESTAMP COMMENT 'Date and time when the rating calculation was executed.',
-    `class_code` STRING COMMENT 'Risk classification code used in rating, such as NAICS, SIC, or ISO class code.',
-    `created_timestamp` TIMESTAMP COMMENT 'Date and time when the rating worksheet record was first created in the system.',
-    `cumulative_premium` DECIMAL(18,2) COMMENT 'Running total premium amount after applying all rating steps up to and including this step.',
-    `deductible_credit` DECIMAL(18,2) COMMENT 'Premium credit applied for selection of higher deductibles.',
-    `effective_date` DATE COMMENT 'Date from which the rated premium becomes effective for the policy or quote.',
-    `experience_mod` DECIMAL(5,3) COMMENT 'Experience modification factor applied to adjust premium based on historical loss experience.',
-    `expiration_date` DATE COMMENT 'Date on which the rated premium period ends.',
-    `exposure_units` DECIMAL(18,2) COMMENT 'Quantity of exposure units used in the rating calculation, such as payroll amount or square footage.',
-    `gwp` DECIMAL(18,2) COMMENT 'Total premium charged before any reinsurance cessions or adjustments.',
-    `intermediate_premium` DECIMAL(18,2) COMMENT 'Premium amount calculated at this step before subsequent factors are applied.',
-    `minimum_premium` DECIMAL(18,2) COMMENT 'Minimum premium amount required for this policy or coverage, regardless of calculated premium.',
-    `minimum_premium_applied_flag` BOOLEAN COMMENT 'Indicates whether the minimum premium override was applied in the final calculation.',
-    `modified_timestamp` TIMESTAMP COMMENT 'Date and time when the rating worksheet record was last modified.',
-    `nwp` DECIMAL(18,2) COMMENT 'Premium retained after reinsurance cessions.',
-    `product_code` STRING COMMENT 'Code identifying the insurance product being rated.',
-    `rate_effective_date` DATE COMMENT 'Date on which the rating plan or rate table became effective.',
-    `rate_source` STRING COMMENT 'Source of the rating data used, such as ISO, Verisk, proprietary, or state manual.. Valid values are `iso|verisk|proprietary|state_manual|ncci`',
-    `rating_basis` STRING COMMENT 'The exposure basis used for rating, such as payroll, sales, area, number of vehicles, or TIV.',
-    `rating_factor_code` STRING COMMENT 'Code identifying the specific rating factor or variable used in this step.',
-    `rating_factor_type` STRING COMMENT 'Type of rating factor applied in this step, indicating how it modifies the premium. [ENUM-REF-CANDIDATE: base_rate|multiplier|additive|discount|surcharge|credit|debit — 7 candidates stripped; promote to reference product]',
-    `rating_factor_value` DECIMAL(18,6) COMMENT 'Numeric value of the rating factor applied in this calculation step.',
-    `rating_plan_code` STRING COMMENT 'Code identifying the rating plan or algorithm used for premium calculation.',
-    `rating_plan_version` STRING COMMENT 'Version of the rating plan applied, ensuring rate adequacy and regulatory compliance.',
-    `rating_status` STRING COMMENT 'Current lifecycle status of the rating worksheet in the underwriting workflow.. Valid values are `draft|calculated|approved|rejected|superseded`',
-    `rating_step_name` STRING COMMENT 'Descriptive name of the rating step, such as Base Rate, Territory Factor, Experience Mod.',
-    `rating_step_sequence` BIGINT COMMENT 'Sequential order of this rating step within the overall calculation workflow.',
-    `schedule_credit_debit` DECIMAL(18,2) COMMENT 'Discretionary premium adjustment applied by underwriter based on risk characteristics.',
-    `step_premium_adjustment` DECIMAL(18,2) COMMENT 'The incremental premium change resulting from this rating step.',
-    `taxes_and_fees` DECIMAL(18,2) COMMENT 'Total amount of taxes, surcharges, and regulatory fees applied to the premium.',
-    `territory_code` STRING COMMENT 'Geographic territory code used for rating purposes.',
-    `total_charged_premium` DECIMAL(18,2) COMMENT 'Final premium amount charged to the policyholder, including all taxes and fees.',
-    `underwriter_code` BIGINT COMMENT 'Reference to the underwriter who reviewed or approved this rating worksheet.',
-    `worksheet_number` STRING COMMENT 'Business-facing unique identifier for the rating worksheet, used for audit and reference purposes.',
-    `worksheet_version` BIGINT COMMENT 'Version number of the rating worksheet, incremented when recalculations occur.',
-    CONSTRAINT pk_rating_worksheet PRIMARY KEY(`rating_worksheet_id`)
-) COMMENT 'Step-by-step premium calculation audit trail for a quoted or bound risk. Captures each rating step, applied factor, intermediate result, and final charged premium. Supports UW review and rate adequacy audits.';
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` (
+    `audit_id` BIGINT COMMENT 'Unique identifier for the premium_audit data product (auto-inserted during validation).',
+    `auditor_individual_id` BIGINT COMMENT 'Foreign key linking to party.individual. Business justification: Premium auditors are individuals. Linking premium_audit to individual (rather than just storing auditor_name as text) enables operational reporting (auditor workload, quality metrics)',
+    `calendar_id` BIGINT COMMENT 'Foreign key linking to shared.calendar. Business justification: Audits completed in accounting periods. FK enables period-based audit reporting, fiscal year audit analysis, and ensures audits align with calendar dimensions for premium reconciliation.',
+    `claim_expense_id` BIGINT COMMENT 'Foreign key linking to claimfinancials.claim_expense. Business justification: Premium audits often incur adjuster fees, inspection costs, and other LAE that must be allocated to the audited policys claim experience for accurate loss ratio calculation and',
+    `claim_id` BIGINT COMMENT 'Foreign key linking to claims.claim. Business justification: Premium audits frequently discover unreported claims or validate that reported losses align with audited exposure.',
+    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Audit premium amounts in currency. FK enables multi-currency audit reconciliation, FX conversion for consolidated audit reporting, and ensures audited amounts reference valid currencies for',
+    `geography_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.geography. Business justification: Premium audits verify geographic exposure distribution for multi-state accounts, proper rate application, territorial rating factors, and regulatory compliance.',
+    `invoice_id` BIGINT COMMENT 'Foreign key linking to billing.invoice. Business justification: Premium audits generate additional premium invoices for audit adjustments. Billing operations must trace invoices back to the audit that triggered them for dispute resolution, audit',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Audits specific to line of business. FK enables LOB-specific audit analysis, exposure verification by line, and ensures audits reference valid LOBs for premium reconciliation.',
+    `policy_id` BIGINT COMMENT 'Reference to the policy being audited.',
+    `policy_term_id` BIGINT COMMENT 'Reference to the specific policy term under audit.',
+    `producers_producer_id` BIGINT COMMENT 'Foreign key linking to producers.producers_producer. Business justification: Premium audits on commercial policies are often conducted by producers with underwriting authority or by agency staff.',
+    `quote_id` BIGINT COMMENT 'Foreign key linking to coverage.quote. Business justification: Premium audits reconcile actual exposures to original quote estimates; variance analysis requires quote reference for estimated vs audited exposure comparison.',
+    `unit_of_measure_id` BIGINT COMMENT 'Foreign key linking to shared.unit_of_measure. Business justification: Premium audits verify exposure measured in units. FK enables unit-based audit reconciliation, conversion, and ensures exposure_basis_code references valid UOMs for premium adjustment',
+    `additional_premium_amount` DECIMAL(15,2) COMMENT 'Additional premium owed by the policyholder if audited premium exceeds estimated premium.',
+    `audit_number` STRING COMMENT 'Unique business identifier for this premium audit.',
+    `audit_status` STRING COMMENT 'Current lifecycle status of the premium audit.. Valid values are `scheduled|in_progress|completed|cancelled|disputed`',
+    `audit_type` STRING COMMENT 'Type of premium audit being performed.. Valid values are `final|interim|cancellation|reinstatement`',
+    `audited_exposure` DECIMAL(18,2) COMMENT 'Actual exposure basis determined during the audit based on policyholder records.',
+    `audited_premium_amount` DECIMAL(15,2) COMMENT 'Final premium amount calculated based on audited exposure.',
+    `billing_adjustment_status` STRING COMMENT 'Status of billing adjustments triggered by the audit results.. Valid values are `not_required|pending|processed|failed`',
+    `completion_date` DATE COMMENT 'Date when the audit was completed and finalized.',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this audit record was first created in the system.',
+    `deposit_reconciliation_status` STRING COMMENT 'Status of the deposit premium reconciliation process following the audit.. Valid values are `pending|reconciled|disputed|waived`',
+    `dispute_flag` BOOLEAN COMMENT 'Indicates whether the policyholder has disputed the audit findings.',
+    `dispute_reason` STRING COMMENT 'Reason provided by the policyholder for disputing the audit results.',
+    `dispute_resolution_date` DATE COMMENT 'Date when the audit dispute was resolved.',
+    `estimated_exposure` DECIMAL(18,2) COMMENT 'Original estimated exposure basis used to calculate deposit or estimated premium at policy inception.',
+    `estimated_premium_amount` DECIMAL(15,2) COMMENT 'Original estimated or deposit premium amount charged at policy inception.',
+    `exposure_basis_description` STRING COMMENT 'Description of the exposure basis used for premium calculation.',
+    `exposure_variance` DECIMAL(18,2) COMMENT 'Difference between audited exposure and estimated exposure (audited minus estimated).',
+    `exposure_variance_percentage` DECIMAL(5,2) COMMENT 'Percentage variance between audited and estimated exposure.',
+    `is_minimum_premium_applied` BOOLEAN COMMENT 'Indicates whether the minimum premium was applied during the audit.',
+    `last_modified_timestamp` TIMESTAMP COMMENT 'Timestamp when this audit record was last updated.',
+    `method` STRING COMMENT 'Method used to conduct the audit (physical inspection, desk review, mail, phone, electronic).. Valid values are `physical|desk|mail|phone|electronic`',
+    `minimum_premium_amount` DECIMAL(15,2) COMMENT 'Minimum premium threshold applicable to the policy, below which the audited premium cannot fall.',
+    `notes` STRING COMMENT 'Free-text notes and observations recorded by the auditor during the audit process.',
+    `period_end_date` DATE COMMENT 'End date of the policy period being audited.',
+    `period_start_date` DATE COMMENT 'Start date of the policy period being audited.',
+    `policyholder_signature_date` DATE COMMENT 'Date when the policyholder signed the audit acknowledgment or agreement.',
+    `premium_variance_amount` DECIMAL(15,2) COMMENT 'Difference between audited premium and estimated premium (audited minus estimated). Positive indicates additional premium due; negative indicates return premium.',
+    `return_premium_amount` DECIMAL(15,2) COMMENT 'Premium to be returned to the policyholder if audited premium is less than estimated premium.',
+    `scheduled_date` DATE COMMENT 'Date when the audit was scheduled to occur.',
+    `start_date` DATE COMMENT 'Date when the audit fieldwork or review began.',
+    `waiver_flag` BOOLEAN COMMENT 'Indicates whether the audit requirement was waived for this policy.',
+    `waiver_reason` STRING COMMENT 'Reason for waiving the audit requirement.',
+    CONSTRAINT pk_audit PRIMARY KEY(`audit_id`)
+) COMMENT 'Result of a final or interim audit for auditable policies (WC, GL, CGL). Captures audited exposure basis, audited premium, variance from estimated/deposit premium, and deposit reconciliation status. Triggers additional or return premium transactions.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` (
-    `billing_account_id` BIGINT COMMENT 'Unique identifier for the billing account. Primary key.',
-    `billing_country_id` BIGINT COMMENT 'Foreign key linking to shared.country. Business justification: International billing requires country reference for address validation, regulatory jurisdiction, postal code format, and payment processing rules.',
-    `billing_currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Billing in multiple currencies requires currency master for exchange rates, payment processing, and account balance calculation. Billing_currency_code denormalized, replace with FK.',
-    `billing_state_id` BIGINT COMMENT 'Foreign key linking to shared.state. Business justification: Billing accounts need state reference for premium tax calculation, regulatory compliance, and address validation. Billing_state_code denormalized, replace with FK.',
-    `insured_id` BIGINT COMMENT 'Reference to the party responsible for payment on this billing account.',
-    `policy_id` BIGINT COMMENT 'Reference to the primary policy associated with this billing account.',
-    `producers_producer_id` BIGINT COMMENT 'Reference to the agent or broker servicing this billing account, relevant for agency bill arrangements.',
-    `account_name` STRING COMMENT 'Descriptive name for the billing account, typically matching the payer or primary insured name.',
-    `account_number` STRING COMMENT 'Externally visible unique account number used for customer communication and payment reference.. Valid values are `^[A-Z0-9]{8,20}$`',
-    `account_status` STRING COMMENT 'Current lifecycle status of the billing account reflecting payment standing and operational state.. Valid values are `active|suspended|delinquent|closed|cancelled`',
-    `account_type` STRING COMMENT 'Classification of the billing account based on the payer relationship and business segment.. Valid values are `individual|commercial|agency|group`',
-    `autopay_flag` BOOLEAN COMMENT 'Indicates whether automatic payment is enabled for this billing account via bank draft or credit card.',
-    `billing_address_line1` STRING COMMENT 'First line of the billing address to which statements and notices are sent.',
-    `billing_address_line2` STRING COMMENT 'Second line of the billing address for suite, apartment, or additional location details.',
-    `billing_city` STRING COMMENT 'City name for the billing address.',
-    `billing_contact_email` STRING COMMENT 'Primary email address for billing communications, statements, and payment notifications.. Valid values are `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$`',
-    `billing_contact_phone` STRING COMMENT 'Primary phone number for billing inquiries and payment reminders.. Valid values are `^+?[0-9]{10,15}$`',
-    `billing_method` STRING COMMENT 'Method by which premiums are billed: direct to insured, through agent, or other arrangement.. Valid values are `direct_bill|agency_bill|list_bill|account_current`',
-    `billing_postal_code` STRING COMMENT 'Postal or ZIP code for the billing address.. Valid values are `^[0-9]{5}(-[0-9]{4})?$`',
-    `cancellation_date` DATE COMMENT 'Date on which the billing account was cancelled due to non-payment, policy cancellation, or other reason.',
-    `cancellation_reason_code` STRING COMMENT 'Code indicating the reason for billing account cancellation: non-payment, insured request, underwriting, etc.. Valid values are `^[A-Z0-9]{2,6}$`',
-    `commission_rate_percent` DECIMAL(5,2) COMMENT 'Percentage commission rate applicable to premiums billed on this account for agency bill arrangements.',
-    `created_by_user` STRING COMMENT 'User identifier of the person or system that created this billing account record.',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this billing account record was first created in the system.',
-    `current_balance_amount` DECIMAL(15,2) COMMENT 'Current outstanding balance on the billing account, including all billed charges less payments and adjustments.',
-    `delinquency_days` BIGINT COMMENT 'Number of days the account has been past due, calculated from the oldest unpaid invoice due date.',
-    `effective_date` DATE COMMENT 'Date on which the billing account became active and billing commenced.',
-    `expiration_date` DATE COMMENT 'Date on which the billing account is scheduled to expire or terminate, typically aligned with policy term.',
-    `grace_period_days` BIGINT COMMENT 'Number of days after the due date during which payment may be received without penalty or cancellation.',
-    `last_payment_amount` DECIMAL(15,2) COMMENT 'Amount of the most recent payment received and posted to this billing account.',
-    `last_payment_date` DATE COMMENT 'Date on which the most recent payment was received and posted to this billing account.',
-    `last_statement_date` DATE COMMENT 'Date on which the most recent billing statement was generated and sent to the payer.',
-    `next_due_amount` DECIMAL(15,2) COMMENT 'Amount of the next scheduled installment payment due on this billing account.',
-    `next_due_date` DATE COMMENT 'Date on which the next installment payment is due for this billing account.',
-    `paperless_billing_flag` BOOLEAN COMMENT 'Indicates whether the payer has elected to receive billing statements electronically instead of by mail.',
-    `past_due_amount` DECIMAL(15,2) COMMENT 'Portion of the current balance that is past the due date and subject to collection action.',
-    `payment_frequency` STRING COMMENT 'Frequency at which premium installments are due on this billing account.. Valid values are `annual|semi_annual|quarterly|monthly|custom`',
-    `payment_plan_code` STRING COMMENT 'Code identifying the installment payment plan: full pay, monthly, quarterly, or custom schedule.. Valid values are `^[A-Z0-9]{2,10}$`',
-    `total_billed_amount` DECIMAL(15,2) COMMENT 'Cumulative amount billed to this account since inception, including all premium charges and fees.',
-    `total_paid_amount` DECIMAL(15,2) COMMENT 'Cumulative amount paid by the payer on this account since inception, including all applied payments.',
-    `unapplied_payment_amount` DECIMAL(15,2) COMMENT 'Total amount of payments received but not yet applied to specific invoices or charges.',
-    `updated_by_user` STRING COMMENT 'User identifier of the person or system that last modified this billing account record.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp when this billing account record was last modified.',
-    CONSTRAINT pk_billing_account PRIMARY KEY(`billing_account_id`)
-) COMMENT 'Master billing account grouping one or more policies under a single payer relationship. Manages payment plan, billing method (direct bill vs. agency bill), and account-level balance. SSOT for payer identity in billing.';
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` (
+    `bearing_coverage_id` BIGINT COMMENT 'Unique identifier for the bearing coverage allocation record. Primary key.',
+    `calendar_id` BIGINT COMMENT 'Foreign key linking to shared.calendar. Business justification: Coverage allocations posted to accounting periods. FK enables period-based allocation reporting, fiscal year coverage analysis, and ensures allocations align with calendar dimensions for',
+    `coverage_id` BIGINT COMMENT 'Foreign key to the specific coverage that this premium transaction applies to.',
+    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Coverage allocation amounts in currency. FK enables multi-currency allocation reporting, FX conversion for consolidated coverage analysis, and ensures allocated amounts reference valid',
+    `insured_risk_id` BIGINT COMMENT 'Foreign key to the insured risk (property, vehicle, driver, etc.) that this premium transaction applies to.',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Coverage allocations by line of business. FK enables LOB-specific allocation reporting, regulatory reporting by line, and ensures allocations reference valid LOBs for statutory',
+    `original_bearing_coverage_id` BIGINT COMMENT 'Foreign key to the original bearing coverage record that this record reverses or adjusts.',
+    `policy_id` BIGINT COMMENT 'Foreign key to the policy that this bearing coverage allocation is associated with.',
+    `policy_term_id` BIGINT COMMENT 'Foreign key to the policy term that this bearing coverage allocation is associated with.',
+    `primary_premium_transaction_id` BIGINT COMMENT 'Foreign key to the premium transaction that this bearing coverage allocation applies to.',
+    `premium_transaction_id` BIGINT COMMENT 'Unique identifier of this allocation record in the source system for traceability and reconciliation.',
+    `allocated_amount` DECIMAL(15,2) COMMENT 'Dollar amount of premium allocated to this specific coverage from the parent premium transaction.',
+    `allocation_basis` STRING COMMENT 'Basis for premium allocation: Total Insured Value (TIV), exposure units, coverage limit, rate, or manual entry.. Valid values are `tiv|exposure|limit|rate|manual`',
+    `allocation_percentage` DECIMAL(7,4) COMMENT 'Percentage of the premium transaction allocated to this coverage, expressed as a decimal (e.g., 0.2500 for 25%).',
+    `allocation_sequence` BIGINT COMMENT 'Sequence number for ordering multiple coverage allocations within a single premium transaction.',
+    `allocation_status` STRING COMMENT 'Current status of this bearing coverage allocation: active, reversed, adjusted, voided, or pending.. Valid values are `active|reversed|adjusted|voided|pending`',
+    `allocation_type` STRING COMMENT 'Method used to allocate premium to this coverage: direct assignment, proportional split, specific calculation, manual override, or system-calculated.. Valid values are `direct|proportional|specific|manual|system_calculated|override`',
+    `ceded_amount` DECIMAL(15,2) COMMENT 'Dollar amount of the allocated premium that is ceded to reinsurers under treaty or facultative agreements.',
+    `commission_amount` DECIMAL(15,2) COMMENT 'Dollar amount of producer commission calculated on this allocated premium.',
+    `commission_rate` DECIMAL(7,4) COMMENT 'Commission rate applied to this allocated premium, expressed as a decimal (e.g., 0.1500 for 15%).',
+    `coverage_description` STRING COMMENT 'Human-readable description of the coverage to which premium is allocated (e.g., Dwelling, Liability, Collision).',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this bearing coverage allocation record was first created in the data warehouse.',
+    `effective_date` DATE COMMENT 'Date from which this bearing coverage allocation becomes effective.',
+    `expiration_date` DATE COMMENT 'Date on which this bearing coverage allocation expires or is superseded.',
+    `gl_account_code` STRING COMMENT 'General ledger account code to which this allocated premium is posted for financial accounting.',
+    `is_ceded` BOOLEAN COMMENT 'Indicates whether this allocated premium is subject to reinsurance cession (true) or retained net (false).',
+    `is_commissionable` BOOLEAN COMMENT 'Indicates whether this allocated premium is subject to producer commission (true) or non-commissionable (false).',
+    `is_primary_coverage` BOOLEAN COMMENT 'Indicates whether this is the primary coverage allocation for the premium transaction (true) or a secondary/split allocation (false).',
+    `last_modified_timestamp` TIMESTAMP COMMENT 'Timestamp when this bearing coverage allocation record was last updated in the data warehouse.',
+    `net_amount` DECIMAL(15,2) COMMENT 'Net retained premium amount after reinsurance cession (allocated_amount minus ceded_amount).',
+    `notes` STRING COMMENT 'Free-text notes or comments regarding this bearing coverage allocation, including manual override justifications or special handling instructions.',
+    `reversal_date` DATE COMMENT 'Date on which this bearing coverage allocation was reversed or voided.',
+    `reversal_reason_code` STRING COMMENT 'Code indicating the reason this allocation was reversed or voided (e.g., policy cancellation, endorsement correction).',
+    `risk_type` STRING COMMENT 'Type of insured risk this allocation applies to: property, auto, liability, workers compensation, umbrella, inland marine, or other. [ENUM-REF-CANDIDATE: property|auto|liability|workers_comp|umbrella|inland_marine|other — 7 candidates stripped; promote to',
+    `source_system_code` STRING COMMENT 'Code identifying the source system that created this bearing coverage allocation (e.g., PAS, billing system, rating engine).',
+    `statutory_line_code` STRING COMMENT 'NAIC statutory line of business code for regulatory reporting and Schedule P classification.',
+    `transaction_booking_date` DATE COMMENT 'Date on which this bearing coverage allocation was booked in the financial system.',
+    CONSTRAINT pk_bearing_coverage PRIMARY KEY(`bearing_coverage_id`)
+) COMMENT 'Association table linking a Premium Transaction to the specific Coverage and Insured Risk it applies to. Grain: one row per coverage allocation per premium transaction. Prevents fan-out double-counting when premium splits across multiple coverages.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` (
-    `installment_schedule_id` BIGINT COMMENT 'Unique identifier for the installment schedule record.',
-    `billing_account_id` BIGINT COMMENT 'Reference to the billing account associated with this installment schedule.',
-    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Installment payment plans must reference currency for proper billing, payment application, and exchange rate handling. Currency_code denormalized, replace with FK.',
-    `lob_code_id` BIGINT COMMENT 'Foreign key linking to shared.lob_code. Business justification: Payment plan eligibility and terms vary by LOB for risk management and regulatory compliance. Lob_code denormalized, replace with FK.',
-    `policy_id` BIGINT COMMENT 'Reference to the policy for which this installment schedule applies.',
-    `state_id` BIGINT COMMENT 'Foreign key linking to shared.state. Business justification: Installment eligibility rules, cancellation for non-payment periods, and grace period requirements are state-regulated. State_code denormalized, replace with FK.',
-    `autopay_discount_amount` DECIMAL(15,2) COMMENT 'Discount applied to total premium or fees when policyholder enrolls in autopay.',
-    `autopay_enrolled_flag` BOOLEAN COMMENT 'Indicates whether the policyholder is enrolled in automatic payment for this schedule.',
-    `billing_method` STRING COMMENT 'Method by which the policyholder is billed for installments.. Valid values are `direct_bill|agency_bill|list_bill|account_current`',
-    `cancellation_for_nonpayment_days` BIGINT COMMENT 'Number of days after missed payment before policy is subject to cancellation for nonpayment.',
-    `cancellation_reason_code` STRING COMMENT 'Code indicating the reason for schedule cancellation such as nonpayment, policy cancellation, or policyholder request.',
-    `cancelled_timestamp` TIMESTAMP COMMENT 'Date and time when the installment schedule was cancelled.',
-    `created_timestamp` TIMESTAMP COMMENT 'Date and time when the installment schedule record was first created in the system.',
-    `down_payment_amount` DECIMAL(15,2) COMMENT 'Initial payment amount due at policy binding or schedule creation.',
-    `down_payment_due_date` DATE COMMENT 'Date by which the down payment must be received.',
-    `down_payment_percentage` DECIMAL(5,2) COMMENT 'Percentage of total premium required as down payment, typically expressed as a decimal.',
-    `eligibility_criteria` STRING COMMENT 'Business rules or conditions that determine eligibility for this payment plan by LOB and state.',
-    `first_installment_due_date` DATE COMMENT 'Due date for the first regular installment payment after down payment.',
-    `grace_period_days` BIGINT COMMENT 'Number of days after due date during which payment may be received without penalty or cancellation.',
-    `installment_count` BIGINT COMMENT 'Total number of installments in the schedule including down payment if applicable.',
-    `installment_fee_amount` DECIMAL(15,2) COMMENT 'Fee charged per installment for payment plan administration.',
-    `installment_frequency` STRING COMMENT 'Frequency at which installment payments are due.. Valid values are `monthly|quarterly|semi-annual|annual|bi-weekly`',
-    `late_payment_fee_amount` DECIMAL(15,2) COMMENT 'Fee assessed when an installment payment is received after the grace period.',
-    `maximum_premium_threshold` DECIMAL(15,2) COMMENT 'Maximum total premium amount allowed for this installment schedule.',
-    `minimum_premium_threshold` DECIMAL(15,2) COMMENT 'Minimum total premium amount required to qualify for this installment schedule.',
-    `notes` STRING COMMENT 'Free-form text for additional comments or special instructions related to the installment schedule.',
-    `paperless_billing_flag` BOOLEAN COMMENT 'Indicates whether the policyholder has opted for electronic billing statements.',
-    `paperless_discount_amount` DECIMAL(15,2) COMMENT 'Discount applied when policyholder opts for paperless billing.',
-    `payment_method_preference` STRING COMMENT 'Preferred payment instrument for installment payments.. Valid values are `credit_card|debit_card|ach|check|wire_transfer|cash`',
-    `payment_plan_code` STRING COMMENT 'Code identifying the payment plan type such as monthly, quarterly, semi-annual, or annual.',
-    `payment_plan_name` STRING COMMENT 'Descriptive name of the payment plan for business user reference.',
-    `reinstatement_fee_amount` DECIMAL(15,2) COMMENT 'Fee charged to reinstate a policy that was cancelled for nonpayment.',
-    `schedule_effective_date` DATE COMMENT 'Date when the installment schedule becomes active and binding.',
-    `schedule_expiration_date` DATE COMMENT 'Date when the installment schedule ends or final payment is due.',
-    `schedule_number` STRING COMMENT 'Business identifier for the installment schedule, typically system-generated or policy-derived.',
-    `schedule_status` STRING COMMENT 'Current lifecycle status of the installment schedule.. Valid values are `active|suspended|cancelled|completed|defaulted|pending`',
-    `total_amount_due` DECIMAL(15,2) COMMENT 'Total amount due including premium and all fees across the entire schedule.',
-    `total_fees_amount` DECIMAL(15,2) COMMENT 'Total fees to be collected across all installments.',
-    `total_premium_amount` DECIMAL(15,2) COMMENT 'Total premium amount to be collected across all installments including down payment.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Date and time when the installment schedule record was last modified.',
-    CONSTRAINT pk_installment_schedule PRIMARY KEY(`installment_schedule_id`)
-) COMMENT 'Payment-plan definition and instantiated billing schedule for an account or policy: plan code/name, installment count, down payment, due dates, amounts, fees, and eligibility by LOB and state.';
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` (
+    `ceded_premium_id` BIGINT COMMENT 'Unique identifier for the ceded premium transaction record. Primary key.',
+    `calendar_id` BIGINT COMMENT 'Foreign key linking to shared.calendar. Business justification: Cessions posted to accounting periods. FK enables period-based reinsurance reporting, fiscal year cession analysis, and ensures cessions align with calendar dimensions for bordereaux',
+    `cat_model_version_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.cat_model_version. Business justification: Reinsurance cessions reference model versions for treaty pricing validation, exposure aggregation consistency, and reinsurer reporting requirements.',
+    `catastrophe_event_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.catastrophe_event. Business justification: Ceded premium must track catastrophe event attribution for treaty settlement, reinstatement premium calculation, loss corridor analysis, and bordereaux reporting.',
+    `catastrophegeography_peril_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.peril. Business justification: Reinsurance cessions are peril-segregated for treaty-specific coverage (wind-only treaties, earthquake facultative, flood exclusions) and settlement.',
+    `claimfinancials_accounting_period_id` BIGINT COMMENT 'Reference to the accounting period in which the ceded premium transaction is recorded.',
+    `coverage_id` BIGINT COMMENT 'Reference to the specific coverage line for which premium is ceded.',
+    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Ceded premium amounts in currency. Multi-currency reinsurance accounting requires proper FK for currency validation, FX conversion, and accurate bordereaux reporting to international',
+    `fac_agreement_id` BIGINT COMMENT 'Reference to the facultative agreement if cession is facultative placement.',
+    `geography_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.geography. Business justification: Reinsurance cessions require geographic attribution for treaty territory definitions, regulatory reporting, bordereaux preparation, and geographic concentration monitoring.',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Cessions vary by line of business. FK enables LOB-specific reinsurance reporting, treaty management by line, and ensures cessions reference valid LOBs for bordereaux reporting.',
+    `original_ceded_premium_id` BIGINT COMMENT 'Reference to the original ceded premium transaction if this is a reversal or adjustment.',
+    `policy_id` BIGINT COMMENT 'Reference to the policy under which premium is ceded to reinsurers.',
+    `policy_term_id` BIGINT COMMENT 'Reference to the specific policy term period for which premium is ceded.',
+    `rating_worksheet_id` BIGINT COMMENT 'Foreign key linking to coverage.rating_worksheet. Business justification: Ceded premium calculations reference rating worksheets to determine cession basis, validate treaty attachment points, and support reinsurance bordereaux reporting.',
+    `reinsurer_id` BIGINT COMMENT 'Reference to the reinsurer receiving the ceded premium.',
+    `ri_agreement_id` BIGINT COMMENT 'Reference to the reinsurance agreement (treaty or facultative) under which premium is ceded.',
+    `premium_transaction_id` BIGINT COMMENT 'Unique identifier of the transaction in the source system for traceability and reconciliation.',
+    `treaty_id` BIGINT COMMENT 'Reference to the treaty agreement if cession is under a treaty arrangement.',
+    `bordereaux_reporting_flag` BOOLEAN COMMENT 'Indicates whether this ceded premium transaction is included in bordereaux reporting to the reinsurer.',
+    `bordereaux_submission_date` DATE COMMENT 'Date on which the bordereaux report containing this ceded premium was submitted to the reinsurer.',
+    `ceded_earned_premium` DECIMAL(18,2) COMMENT 'Amount of earned premium ceded to the reinsurer, recognized over the coverage period.',
+    `ceded_unearned_premium` DECIMAL(18,2) COMMENT 'Amount of unearned premium ceded to the reinsurer, representing future coverage obligation.',
+    `ceded_written_premium` DECIMAL(18,2) COMMENT 'Amount of written premium ceded to the reinsurer under the agreement.',
+    `ceding_commission_amount` DECIMAL(18,2) COMMENT 'Dollar amount of ceding commission received from the reinsurer on ceded premium.',
+    `ceding_commission_rate` DECIMAL(8,6) COMMENT 'Commission rate paid by the reinsurer to the ceding company on ceded premium.',
+    `cession_basis` STRING COMMENT 'Basis on which premium is ceded: quota share, surplus, excess of loss, stop loss, or facultative.. Valid values are `quota_share|surplus|excess_of_loss|stop_loss|facultative`',
+    `cession_number` STRING COMMENT 'Business identifier for the cession transaction, used for tracking and reconciliation.',
+    `cession_rate` DECIMAL(8,6) COMMENT 'Percentage or rate at which premium is ceded to the reinsurer under the agreement.',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when the ceded premium record was first created in the system.',
+    `effective_date` DATE COMMENT 'Date from which the ceded premium transaction becomes effective for accounting and reporting purposes.',
+    `expiration_date` DATE COMMENT 'Date on which the ceded premium transaction expires or is no longer in force.',
+    `gl_account_code` STRING COMMENT 'General ledger account code to which the ceded premium transaction is posted.',
+    `last_modified_timestamp` TIMESTAMP COMMENT 'Timestamp when the ceded premium record was last modified in the system.',
+    `net_ceded_premium` DECIMAL(18,2) COMMENT 'Net premium ceded after deducting ceding commission and other adjustments.',
+    `notes` STRING COMMENT 'Free-form text notes or comments related to the ceded premium transaction.',
+    `profit_commission_amount` DECIMAL(18,2) COMMENT 'Dollar amount of profit commission earned on the ceded premium under the reinsurance agreement.',
+    `profit_commission_rate` DECIMAL(8,6) COMMENT 'Profit commission rate applicable to the ceded premium under the reinsurance agreement.',
+    `reversal_indicator` BOOLEAN COMMENT 'Indicates whether this ceded premium transaction is a reversal of a prior transaction.',
+    `reversal_reason_code` STRING COMMENT 'Code indicating the reason for reversing the ceded premium transaction.',
+    `settlement_date` DATE COMMENT 'Date on which the ceded premium transaction was settled with the reinsurer.',
+    `settlement_status` STRING COMMENT 'Current settlement status of the ceded premium transaction with the reinsurer.. Valid values are `pending|settled|disputed|reversed`',
+    `source_system_code` STRING COMMENT 'Code identifying the source system from which the ceded premium transaction originated.',
+    `state_code` STRING COMMENT 'Two-letter state code where the underlying policy was issued or risk is located.. Valid values are `^[A-Z]{2}$`',
+    `statutory_line_code` STRING COMMENT 'NAIC statutory line of business code for regulatory reporting purposes.',
+    `transaction_date` DATE COMMENT 'Date on which the ceded premium transaction was recorded in the system.',
+    `transaction_type` STRING COMMENT 'Type of ceded premium transaction: written, earned, unearned, return, adjustment, or reversal.. Valid values are `written|earned|unearned|return|adjustment|reversal`',
+    CONSTRAINT pk_ceded_premium PRIMARY KEY(`ceded_premium_id`)
+) COMMENT 'Records premium ceded to reinsurers under a Treaty or Facultative Agreement per Policy Term and Coverage; ceded written/earned/unearned by accounting period. Candidate for relocation to Reinsurance, which owns the cession ledger.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`premium`.`installment` (
-    `installment_id` BIGINT COMMENT 'Unique identifier for the installment record within the billing schedule.',
-    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Individual installment billing requires currency reference for payment processing, exchange rate application, and account reconciliation. Currency_code denormalized, replace with FK.',
-    `installment_schedule_id` BIGINT COMMENT 'Reference to the parent billing schedule that contains this installment.',
-    `policy_id` BIGINT COMMENT 'Reference to the policy for which this installment is billed.',
-    `autopay_flag` BOOLEAN COMMENT 'Indicates whether this installment is enrolled in automatic payment processing.',
-    `billed_amount` DECIMAL(18,2) COMMENT 'Total amount billed for this installment, including premium and fees.',
-    `billed_date` DATE COMMENT 'Date when the installment invoice was generated and sent to the policyholder.',
-    `billing_notice_sent_flag` BOOLEAN COMMENT 'Indicates whether a billing notice has been sent to the policyholder for this installment.',
-    `cancellation_effective_date` DATE COMMENT 'Date when the policy will be cancelled if this installment remains unpaid.',
-    `cancellation_notice_date` DATE COMMENT 'Date when a cancellation notice was issued due to non-payment of this installment.',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this installment record was first created in the system.',
-    `days_overdue` BIGINT COMMENT 'Number of days the installment payment is past the grace period end date.',
-    `delinquency_status` STRING COMMENT 'Classification of the installment based on payment timeliness and collection status.. Valid values are `current|overdue|in_grace|delinquent|written_off`',
-    `due_date` DATE COMMENT 'Date by which the installment payment is due from the policyholder.',
-    `fee_amount` DECIMAL(18,2) COMMENT 'Total fees charged on this installment (e.g., installment fee, service charge).',
-    `grace_period_days` BIGINT COMMENT 'Number of days after due date before the installment is considered overdue.',
-    `grace_period_end_date` DATE COMMENT 'Date when the grace period expires and the installment becomes overdue.',
-    `installment_status` STRING COMMENT 'Current payment status of the installment in its lifecycle.. Valid values are `pending|billed|paid|partially_paid|overdue|cancelled`',
-    `invoice_number` STRING COMMENT 'Unique invoice number generated for this installment billing.',
-    `late_fee_amount` DECIMAL(18,2) COMMENT 'Late payment fee assessed if installment is paid after the due date.',
-    `late_notice_sent_flag` BOOLEAN COMMENT 'Indicates whether a late payment notice has been sent for this overdue installment.',
-    `number` BIGINT COMMENT 'Sequential number of this installment within the billing schedule (e.g., 1 of 12).',
-    `outstanding_balance` DECIMAL(18,2) COMMENT 'Remaining unpaid balance on this installment (billed amount minus paid amount).',
-    `paid_amount` DECIMAL(18,2) COMMENT 'Total amount paid by the policyholder toward this installment to date.',
-    `paid_date` DATE COMMENT 'Date when the installment was fully paid by the policyholder.',
-    `payment_channel` STRING COMMENT 'Channel or interface through which the installment payment was received.. Valid values are `online|mobile_app|agent|mail|phone|in_person`',
-    `payment_method` STRING COMMENT 'Method or instrument used by the policyholder to pay this installment. [ENUM-REF-CANDIDATE: check|credit_card|debit_card|ach|wire|cash|money_order — 7 candidates stripped; promote to reference product]',
-    `payment_reference_number` STRING COMMENT 'External reference number or transaction ID from the payment processor.',
-    `premium_amount` DECIMAL(18,2) COMMENT 'Portion of the installment amount that represents pure insurance premium.',
-    `reminder_notice_sent_flag` BOOLEAN COMMENT 'Indicates whether a payment reminder notice has been sent for this installment.',
-    `reversal_date` DATE COMMENT 'Date when a payment reversal occurred on this installment.',
-    `reversal_flag` BOOLEAN COMMENT 'Indicates whether a payment on this installment has been reversed (e.g., chargeback, NSF).',
-    `reversal_reason` STRING COMMENT 'Reason code or description for why a payment was reversed (e.g., NSF, chargeback, dispute).',
-    `tax_amount` DECIMAL(18,2) COMMENT 'Total taxes (e.g., premium tax, surcharges) included in this installment.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp when this installment record was last modified.',
-    `waived_date` DATE COMMENT 'Date when the installment was waived or forgiven.',
-    `waived_flag` BOOLEAN COMMENT 'Indicates whether this installment has been waived or forgiven by the insurer.',
-    `waived_reason` STRING COMMENT 'Reason or justification for waiving this installment (e.g., customer service, hardship).',
-    CONSTRAINT pk_installment PRIMARY KEY(`installment_id`)
-) COMMENT 'Individual installment due record within a schedule: due date, billed amount, paid amount, outstanding balance, and delinquency status. Drives billing notices, late fees, and cancellation-for-nonpayment workflows.';
-
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`premium`.`payment` (
-    `payment_id` BIGINT COMMENT 'Unique identifier for the premium payment transaction record.',
-    `billing_account_id` BIGINT COMMENT 'Reference to the billing account that made this payment.',
-    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Payment transactions must reference currency master for exchange rate application, bank reconciliation, and multi-currency payment processing. Currency_code denormalized, replace with FK.',
-    `installment_schedule_id` BIGINT COMMENT 'Reference to the installment or payment plan this payment is associated with.',
-    `policy_id` BIGINT COMMENT 'Reference to the policy for which this premium payment was received.',
-    `premium_transaction_id` BIGINT COMMENT 'Unique transaction identifier assigned by the payment gateway or processor.',
-    `producers_producer_id` BIGINT COMMENT 'Reference to the agent or broker who facilitated or collected the payment.',
-    `amount` DECIMAL(18,2) COMMENT 'Total monetary amount received in this payment transaction.',
-    `applied_amount` DECIMAL(18,2) COMMENT 'Portion of the payment amount that has been applied to outstanding invoices or installments.',
-    `authorization_code` STRING COMMENT 'Authorization or approval code returned by the payment processor for card transactions.',
-    `bank_name` STRING COMMENT 'Name of the financial institution that processed the payment.',
-    `bank_routing_number` STRING COMMENT 'Nine-digit ABA routing number for ACH or wire payments.. Valid values are `^[0-9]{9}$`',
-    `channel` STRING COMMENT 'Interface or touchpoint through which the payment was submitted (web portal, mobile app, agent office, mail, phone, branch, lockbox). [ENUM-REF-CANDIDATE: web|mobile|agent|mail|phone|branch|lockbox — 7 candidates stripped; promote to reference product]',
-    `cleared_date` DATE COMMENT 'Date the payment cleared the bank and funds were confirmed available.',
-    `convenience_fee_amount` DECIMAL(18,2) COMMENT 'Additional fee charged to the payer for using a specific payment method or channel.',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when the payment record was first created in the system.',
-    `deposit_date` DATE COMMENT 'Date the payment was deposited into the insurers bank account.',
-    `effective_date` DATE COMMENT 'Date from which the payment is effective for premium credit or policy reinstatement purposes.',
-    `installment_number` BIGINT COMMENT 'Sequence number of the installment this payment satisfies within the payment plan.',
-    `method` STRING COMMENT 'Instrument or mechanism used to remit the payment (check, ACH, card, wire, cash). [ENUM-REF-CANDIDATE: check|ach|wire|credit_card|debit_card|cash|money_order — 7 candidates stripped; promote to reference product]',
-    `modified_by` STRING COMMENT 'User ID or system identifier that last modified the payment record.',
-    `modified_timestamp` TIMESTAMP COMMENT 'Timestamp when the payment record was last modified.',
-    `notes` STRING COMMENT 'Free-text notes or comments regarding the payment transaction, exceptions, or special handling.',
-    `number` STRING COMMENT 'Business-facing unique payment transaction number or receipt number.',
-    `payer_account_number` STRING COMMENT 'Masked or tokenized account number from which the payment was drawn (last 4 digits of card or bank account).',
-    `payer_name` STRING COMMENT 'Name of the individual or entity that remitted the payment.',
-    `payment_date` DATE COMMENT 'Date the payment was received or posted to the account.',
-    `payment_status` STRING COMMENT 'Current lifecycle status of the payment transaction in the billing workflow.. Valid values are `pending|applied|cleared|reversed|failed|suspended`',
-    `payment_type` STRING COMMENT 'Classification of the payment purpose (premium, reinstatement, late fee, NSF fee, adjustment, refund).. Valid values are `premium|reinstatement|late_fee|nsfee|adjustment|refund`',
-    `processing_fee_amount` DECIMAL(18,2) COMMENT 'Fee charged by the payment processor or gateway for handling the transaction.',
-    `receipt_issued_date` DATE COMMENT 'Date the payment receipt was generated and issued to the payer.',
-    `receipt_number` STRING COMMENT 'Official receipt number issued to the payer acknowledging the payment.',
-    `reference_number` STRING COMMENT 'External reference number from the payment processor, bank, or payer (check number, ACH trace, card authorization code).',
-    `reversal_date` DATE COMMENT 'Date the payment was reversed or returned, if applicable.',
-    `reversal_reason` STRING COMMENT 'Explanation or code for why the payment was reversed, if applicable (NSF, stop payment, dispute).',
-    `source` STRING COMMENT 'Origin or category of the payer (policyholder, third party, agent, reinsurer, subrogation recovery).. Valid values are `policyholder|third_party|agent|reinsurer|subrogation`',
-    `unapplied_amount` DECIMAL(18,2) COMMENT 'Portion of the payment held in suspense, not yet matched to a policy or account balance.',
-    `created_by` STRING COMMENT 'User ID or system identifier that created the payment record.',
-    CONSTRAINT pk_payment PRIMARY KEY(`payment_id`)
-) COMMENT 'Records each premium payment received: date, amount, method (check, ACH, card), and any unapplied suspense balance pending policy/account matching. Applied to installments via the payment_application junction.';
-
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` (
-    `payment_application_id` BIGINT COMMENT 'Unique identifier for the payment application record. Primary key for the junction table linking premium payments to installments.',
-    `installment_id` BIGINT COMMENT 'Foreign key reference to the premium installment schedule entry to which the payment is being applied.',
-    `payment_id` BIGINT COMMENT 'Foreign key reference to the premium payment transaction that is being applied to one or more installments.',
-    `premium_transaction_id` BIGINT COMMENT 'Unique transaction identifier from the source billing system. Enables traceability back to the originating system for reconciliation and troubleshooting.',
-    `allocation_priority` BIGINT COMMENT 'Numeric priority order used to allocate payment across multiple installments or charge types. Lower numbers applied first per billing rules.',
-    `application_date` DATE COMMENT 'Business date on which the payment was applied to the installment. May differ from payment received date due to batch processing or suspense clearing.',
-    `application_method` STRING COMMENT 'Method by which the payment was applied to the installment: automatic system matching, manual CSR allocation, suspense clearing, reversal, or adjustment.. Valid values are `automatic|manual|suspense_clearing|reversal|adjustment`',
-    `application_notes` STRING COMMENT 'Free-text notes entered by CSR or system explaining special circumstances of the payment application such as manual allocation reason or suspense research outcome.',
-    `application_sequence` BIGINT COMMENT 'Sequential order in which this payment application was processed. Supports audit trail and reversal logic for multi-installment payments.',
-    `application_status` STRING COMMENT 'Current lifecycle status of the payment application. Applied is normal state; reversed indicates the application was undone; pending for suspense items.. Valid values are `applied|reversed|pending|voided`',
-    `application_timestamp` TIMESTAMP COMMENT 'Precise date and time when the payment application transaction was recorded in the billing system. Supports audit and reconciliation.',
-    `applied_amount` DECIMAL(15,2) COMMENT 'Monetary amount from the payment that was applied to this specific installment. Sum of all applied amounts for a payment equals the payment total.',
-    `applied_by_user_code` STRING COMMENT 'User ID of the CSR or system account that executed the payment application. Null for fully automated applications. Supports audit and quality review.',
-    `applied_to_fee_flag` BOOLEAN COMMENT 'Indicates whether this application was allocated to fees such as late payment fees, NSF fees, or installment fees rather than premium principal.',
-    `applied_to_interest_flag` BOOLEAN COMMENT 'Indicates whether this application was allocated to accrued interest charges on overdue installments rather than premium principal.',
-    `applied_to_principal_flag` BOOLEAN COMMENT 'Indicates whether this application reduced the principal premium amount. True for standard applications; false for fee or interest applications.',
-    `billing_account_number` STRING COMMENT 'Billing account number under which the installment and payment are managed. Denormalized for cash application and reconciliation reporting.',
-    `created_timestamp` TIMESTAMP COMMENT 'Date and time when this payment application record was first created in the data warehouse. Supports data lineage and audit trail.',
-    `currency_code` STRING COMMENT 'Three-letter ISO 4217 currency code for the applied amount. Typically USD for domestic P&C operations.. Valid values are `^[A-Z]{3}$`',
-    `installment_balance_after` DECIMAL(15,2) COMMENT 'Outstanding balance of the installment immediately after this payment application. Should equal balance_before minus applied_amount.',
-    `installment_balance_before` DECIMAL(15,2) COMMENT 'Outstanding balance of the installment immediately before this payment application. Enables balance reconciliation and audit trail.',
-    `nsf_reversal_flag` BOOLEAN COMMENT 'Indicates whether this application was reversed due to a returned or dishonored payment such as NSF check or failed ACH. Triggers reinstatement of installment balance.',
-    `policy_number` STRING COMMENT 'Policy number associated with the installment to which payment is applied. Denormalized for reporting and reconciliation convenience.',
-    `reversal_date` DATE COMMENT 'Business date on which this payment application was reversed. Null if application remains in effect. Critical for earned premium and cash reconciliation.',
-    `reversal_reason_code` STRING COMMENT 'Standardized code indicating why this payment application was reversed. Null if application has not been reversed. Used for audit and reporting.',
-    `reversal_timestamp` TIMESTAMP COMMENT 'Precise date and time when the payment application was reversed. Null if not reversed. Supports audit trail and temporal queries.',
-    `source_system_code` STRING COMMENT 'Code identifying the billing or payment system that originated this payment application record. Supports multi-system integration and data lineage.',
-    `suspense_clearing_flag` BOOLEAN COMMENT 'Indicates whether this application cleared a payment from suspense account. True when unidentified payment is matched to installment after research.',
-    `unapplied_amount` DECIMAL(15,2) COMMENT 'Portion of the payment that remains unapplied after this application. Tracks suspense balance and supports multi-step application workflows.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Date and time when this payment application record was last modified in the data warehouse. Tracks changes such as status updates or reversals.',
-    CONSTRAINT pk_payment_application PRIMARY KEY(`payment_application_id`)
-) COMMENT 'Junction table resolving the many-to-many relationship between premium payments and installments. Records applied amount, application date, and sequence. Enables full cash application audit trail.';
-
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` (
-    `dac_transaction_id` BIGINT COMMENT 'Unique identifier for the DAC transaction record.',
-    `calendar_id` BIGINT COMMENT 'Foreign key linking to shared.calendar. Business justification: DAC accounting requires calendar reference for amortization period calculation, financial reporting, and GAAP/IFRS compliance. Accounting_period denormalized, replace with FK.',
-    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: DAC accounting in multiple currencies requires currency reference for proper GAAP/IFRS reporting, amortization calculation, and financial consolidation.',
-    `lob_code_id` BIGINT COMMENT 'Foreign key linking to shared.lob_code. Business justification: DAC transactions require LOB reference for amortization period determination, recoverability testing, and financial reporting by line of business. Lob denormalized, replace with FK.',
-    `coverage_policy_coverage_id` BIGINT COMMENT 'Foreign key linking to coverage.coverage_policy_coverage. Business justification: DAC amortization tracks by coverage for GAAP accounting, profitability analysis by coverage type, and recoverability testing.',
-    `policy_id` BIGINT COMMENT 'Reference to the policy for which DAC is capitalized or amortized.',
-    `premium_transaction_id` BIGINT COMMENT 'Unique identifier of the transaction in the source system, used for reconciliation and audit trail purposes.',
-    `accounting_standard` STRING COMMENT 'Accounting standard under which this DAC transaction is recorded: US GAAP ASC 944, IFRS 17, or Statutory Accounting Principles.. Valid values are `US_GAAP|IFRS_17|STAT`',
-    `adjustment_amount` DECIMAL(18,2) COMMENT 'Amount of adjustment to previously recorded DAC, due to policy endorsements, premium adjustments, or actuarial recalculations.',
-    `amortization_amount` DECIMAL(18,2) COMMENT 'Amount of DAC amortized in this transaction, expensed over the policy term in proportion to earned premium or expected gross profits.',
-    `amortization_method` STRING COMMENT 'Method used to amortize DAC: straight-line over policy term, proportional to earned premium, or proportional to expected gross profits per US GAAP ASC 944.. Valid values are `straight_line|earned_premium|expected_gross_profit`',
-    `amortization_period_months` BIGINT COMMENT 'Total number of months over which the DAC asset is amortized, typically matching the policy term.',
-    `approval_date` DATE COMMENT 'Date when the DAC transaction was approved by an authorized user, part of the financial control workflow.',
-    `approved_by_user_code` STRING COMMENT 'Identifier of the user who approved this DAC transaction, required for transactions above materiality thresholds per SOX controls.',
-    `capitalized_amount` DECIMAL(18,2) COMMENT 'Total acquisition cost amount capitalized as a DAC asset for the policy, including commissions, underwriting expenses, and other deferrable costs.',
-    `commission_amount` DECIMAL(18,2) COMMENT 'Commission paid to producers or agents, a primary component of deferrable acquisition costs capitalized as DAC.',
-    `cost_center_code` STRING COMMENT 'Cost center or organizational unit code for financial reporting and expense allocation purposes.',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this DAC transaction record was first created in the data warehouse.',
-    `dac_balance` DECIMAL(18,2) COMMENT 'Remaining unamortized DAC asset balance after this transaction, representing future expense to be recognized.',
-    `earned_premium_amount` DECIMAL(18,2) COMMENT 'Earned premium amount for the period, used as the basis for proportional DAC amortization when amortization method is earned premium.',
-    `effective_date` DATE COMMENT 'Date from which the DAC transaction becomes effective for financial statement purposes.',
-    `gl_account_code` STRING COMMENT 'General ledger account code to which this DAC transaction is posted in the financial accounting system.',
-    `impairment_amount` DECIMAL(18,2) COMMENT 'Amount of DAC impairment recognized if the recoverability test indicates the asset is not recoverable from future profits.',
-    `notes` STRING COMMENT 'Free-text notes or comments providing additional context about the DAC transaction, such as special adjustments or manual overrides.',
-    `other_acquisition_cost_amount` DECIMAL(18,2) COMMENT 'Other deferrable acquisition costs not classified as commission or underwriting expense, included in DAC capitalization.',
-    `policy_effective_date` DATE COMMENT 'Effective date of the underlying policy, used to calculate amortization schedules and DAC asset life.',
-    `policy_expiration_date` DATE COMMENT 'Expiration date of the underlying policy, marking the end of the DAC amortization period.',
-    `posted_by_user_code` STRING COMMENT 'Identifier of the user or system account that posted this DAC transaction to the financial ledger.',
-    `product_code` STRING COMMENT 'Code identifying the specific insurance product associated with this DAC transaction.',
-    `recoverability_test_date` DATE COMMENT 'Date when the DAC asset recoverability test was last performed to ensure the asset is not impaired per US GAAP ASC 944.',
-    `recoverability_test_result` STRING COMMENT 'Result of the most recent DAC recoverability test: pass indicates no impairment, fail indicates write-down required.. Valid values are `pass|fail|not_tested`',
-    `reversal_reason` STRING COMMENT 'Explanation for why a previously posted DAC transaction was reversed, such as data correction, policy cancellation, or accounting error.',
-    `transaction_date` DATE COMMENT 'Business date when the DAC transaction occurred or was recognized for accounting purposes.',
-    `transaction_number` STRING COMMENT 'Business-facing unique identifier for the DAC transaction, used in financial reporting and audit trails.',
-    `transaction_status` STRING COMMENT 'Current lifecycle status of the DAC transaction in the financial ledger workflow.. Valid values are `draft|pending|posted|reversed|cancelled`',
-    `transaction_type` STRING COMMENT 'Type of DAC transaction: capitalization of acquisition costs, amortization over policy term, write-off for lapsed policies, adjustment, or reversal.. Valid values are `capitalization|amortization|write_off|adjustment|reversal`',
-    `underwriting_expense_amount` DECIMAL(18,2) COMMENT 'Underwriting and policy issuance expenses that are deferrable and included in the DAC capitalization.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp when this DAC transaction record was last modified in the data warehouse.',
-    `write_off_amount` DECIMAL(18,2) COMMENT 'Amount of DAC written off due to policy cancellation, lapse, or other termination event before the end of the policy term.',
-    `written_premium_amount` DECIMAL(18,2) COMMENT 'Written premium amount for the policy, used to calculate the DAC capitalization rate and amortization schedule.',
-    CONSTRAINT pk_dac_transaction PRIMARY KEY(`dac_transaction_id`)
-) COMMENT 'Deferred Acquisition Cost transaction recording capitalized and amortized DAC amounts per policy. Tracks DAC asset balance, amortization schedule, and write-off events per US GAAP ASC 944 and IFRS 17.';
-
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` (
-    `minimum_earned_premium_id` BIGINT COMMENT 'Unique identifier for the minimum earned premium threshold record.',
-    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: MEP amounts must reference currency for proper calculation, regulatory compliance, and multi-currency policy handling. Currency_code denormalized, replace with FK.',
-    `jurisdiction_state_id` BIGINT COMMENT 'Foreign key linking to shared.state. Business justification: MEP rules are jurisdiction-specific, driven by state regulatory mandates, filing requirements, and cancellation penalty rules. Jurisdiction_code denormalized, replace with FK.',
-    `lob_code_id` BIGINT COMMENT 'Foreign key linking to shared.lob_code. Business justification: MEP rules vary by LOB for regulatory compliance and risk management. Lob denormalized, replace with FK.',
-    `coverage_policy_coverage_id` BIGINT COMMENT 'Reference to the specific coverage to which this MEP threshold applies, if coverage-level MEP is enforced.',
-    `policy_id` BIGINT COMMENT 'Reference to the policy to which this MEP threshold applies.',
-    `applies_to_cancellation_type` STRING COMMENT 'Specifies the cancellation types to which this MEP threshold applies: insured-requested, underwriter-initiated, non-payment, or all.. Valid values are `insured_request|underwriter_cancellation|non_payment|all_cancellations`',
-    `created_timestamp` TIMESTAMP COMMENT 'The date and time when this MEP threshold record was first created in the system.',
-    `effective_date` DATE COMMENT 'The date from which this MEP threshold becomes effective for the policy or coverage.',
-    `expiration_date` DATE COMMENT 'The date on which this MEP threshold expires or is superseded by a new threshold.',
-    `filing_approval_date` DATE COMMENT 'The date on which the state DOI approved the filing containing this MEP threshold.',
-    `filing_reference_number` STRING COMMENT 'The regulatory filing reference number under which this MEP threshold was approved by the state DOI.',
-    `last_modified_timestamp` TIMESTAMP COMMENT 'The date and time when this MEP threshold record was last updated.',
-    `mep_amount` DECIMAL(15,2) COMMENT 'The minimum earned premium amount that must be retained upon policy cancellation or short-rate endorsement.',
-    `mep_calculation_method` STRING COMMENT 'The method used to calculate the minimum earned premium: flat amount, percentage of written premium, or the greater of the two.. Valid values are `flat_amount|percentage_of_wp|greater_of_amount_or_percentage|short_rate_table|pro_rata_with_floor`',
-    `mep_percentage` DECIMAL(5,2) COMMENT 'The minimum earned premium expressed as a percentage of the total written premium (WP) that must be retained.',
-    `mep_waiver_reason_code` STRING COMMENT 'Code representing the reason for waiving or reducing the MEP threshold, if applicable.',
-    `minimum_earned_premium_status` STRING COMMENT 'Current lifecycle status of this MEP threshold record.. Valid values are `active|inactive|pending_approval|superseded|expired`',
-    `modified_by_user_code` STRING COMMENT 'The user ID of the person who last modified this MEP threshold record.',
-    `notes` STRING COMMENT 'Free-text notes or comments regarding this MEP threshold, including special conditions or business rationale.',
-    `override_allowed_flag` BOOLEAN COMMENT 'Indicates whether underwriters are permitted to override this MEP threshold under specific circumstances.',
-    `override_authority_level` STRING COMMENT 'The minimum authority level required to override this MEP threshold, if overrides are allowed.. Valid values are `underwriter|senior_underwriter|uw_manager|vp_underwriting|none`',
-    `policy_term_months` BIGINT COMMENT 'The policy term length in months for which this MEP threshold is defined, if term-specific.',
-    `product_code` STRING COMMENT 'The insurance product code to which this MEP threshold applies, linking to the product catalog.',
-    `regulatory_mandate_flag` BOOLEAN COMMENT 'Indicates whether this MEP threshold is mandated by state or federal regulation (true) or is a contractual/company policy (false).',
-    `short_rate_penalty_percentage` DECIMAL(5,2) COMMENT 'The short-rate penalty percentage applied in addition to the MEP when the insured cancels mid-term.',
-    `version_number` BIGINT COMMENT 'Version number of this MEP threshold record, incremented with each modification for audit trail purposes.',
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` (
+    `minimum_earned_premium_id` BIGINT COMMENT 'Unique identifier for the minimum earned premium rule. Primary key.',
+    `coverage_id` BIGINT COMMENT 'Reference to the coverage to which this minimum earned premium applies. Nullable if rule applies at policy term level.',
+    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Minimum premium amounts denominated in currency. FK enables currency-specific minimum premium rules, FX conversion for international policies, and ensures minimums reference valid currencies.',
+    `policy_id` BIGINT COMMENT 'Reference to the policy to which this minimum earned premium rule applies.',
+    `policy_term_id` BIGINT COMMENT 'Reference to the specific policy term for which this minimum earned premium threshold is defined.',
+    `application_level` STRING COMMENT 'Level at which the minimum earned premium rule applies: policy term, coverage, or insured risk.. Valid values are `policy_term|coverage|insured_risk`',
+    `applies_to_endorsement_flag` BOOLEAN COMMENT 'Indicates whether this minimum earned premium rule applies to endorsement transactions.',
+    `applies_to_new_business_flag` BOOLEAN COMMENT 'Indicates whether this minimum earned premium rule applies to new business transactions.',
+    `applies_to_renewal_flag` BOOLEAN COMMENT 'Indicates whether this minimum earned premium rule applies to renewal transactions.',
+    `calculation_method` STRING COMMENT 'Method used to determine the minimum earned premium: fixed amount, percentage of written premium, or combination logic.. Valid values are `fixed_amount|percentage|greater_of_both|lesser_of_both`',
+    `cancellation_type` STRING COMMENT 'Type of cancellation to which this minimum earned premium rule applies: flat, short-rate, pro-rata, or all cancellation types.. Valid values are `flat|short_rate|pro_rata|all`',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this minimum earned premium rule record was first created in the system.',
+    `effective_date` DATE COMMENT 'Date from which this minimum earned premium rule becomes active and enforceable.',
+    `expiration_date` DATE COMMENT 'Date on which this minimum earned premium rule ceases to be active. Nullable for open-ended rules.',
+    `filing_approval_date` DATE COMMENT 'Date on which the regulatory authority approved this minimum earned premium rule for use.',
+    `gl_account_code` STRING COMMENT 'General ledger account code to which minimum earned premium amounts are posted for financial reporting.',
+    `last_modified_timestamp` TIMESTAMP COMMENT 'Timestamp when this minimum earned premium rule record was last updated.',
+    `lob_code` STRING COMMENT 'Line of business code for which this minimum earned premium rule is defined.',
+    `minimum_amount` DECIMAL(18,2) COMMENT 'The floor amount of earned premium that must be retained by the insurer regardless of cancellation timing or return premium calculation.',
+    `minimum_days_in_force` BIGINT COMMENT 'Minimum number of days the policy must be in force before the minimum earned premium rule applies. Nullable if no threshold exists.',
+    `minimum_earned_premium_status` STRING COMMENT 'Current lifecycle status of the minimum earned premium rule.. Valid values are `active|inactive|superseded|pending`',
+    `notes` STRING COMMENT 'Free-text notes providing additional context or business rationale for this minimum earned premium rule.',
+    `override_allowed_flag` BOOLEAN COMMENT 'Indicates whether underwriters are permitted to override this minimum earned premium rule with proper authorization.',
+    `override_authority_level` STRING COMMENT 'Authority level required to override this minimum earned premium rule, such as senior underwriter or regional manager.',
+    `percentage_of_written_premium` DECIMAL(5,2) COMMENT 'Minimum earned premium expressed as a percentage of the total written premium. Used when rule is percentage-based rather than fixed amount.',
+    `proration_method` STRING COMMENT 'Method used to prorate the minimum earned premium when the policy term is partial or adjusted.. Valid values are `daily|monthly|annual|none`',
+    `regulatory_filing_reference` STRING COMMENT 'Reference number or identifier of the regulatory filing that approved this minimum earned premium rule.',
+    `rule_code` STRING COMMENT 'Business code identifying the minimum earned premium rule type or schedule.',
+    `rule_name` STRING COMMENT 'Descriptive name of the minimum earned premium rule for business users.',
+    `source_system_code` STRING COMMENT 'Code identifying the source system from which this minimum earned premium rule originated.',
+    `state_code` STRING COMMENT 'Two-letter state or jurisdiction code where this minimum earned premium rule applies. Nullable for national rules.',
+    `statutory_line_code` STRING COMMENT 'NAIC statutory line of business code for regulatory reporting of minimum earned premium.',
+    `waiver_authorized_by` STRING COMMENT 'Name or identifier of the person who authorized the waiver of this minimum earned premium rule.',
+    `waiver_date` DATE COMMENT 'Date on which the minimum earned premium rule was waived.',
+    `waiver_reason_code` STRING COMMENT 'Code indicating the reason this minimum earned premium rule was waived, if applicable.',
     CONSTRAINT pk_minimum_earned_premium PRIMARY KEY(`minimum_earned_premium_id`)
-) COMMENT 'Defines the minimum earned premium (MEP) threshold per policy or coverage. Enforces MEP on short-rate cancellations and ensures minimum retained premium per regulatory and contractual requirements.';
+) COMMENT 'Defines the minimum earned premium threshold for a Coverage or Policy Term that applies on short-rate or flat cancellation. Ensures the insurer retains a floor amount regardless of cancellation timing or return premium calculation.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` (
-    `surplus_lines_tax_id` BIGINT COMMENT 'Unique identifier for the surplus lines tax record.',
-    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Surplus lines tax amounts require currency reference for proper accounting, payment processing, and multi-currency tax calculation. Currency_code denormalized, replace with FK.',
-    `policy_id` BIGINT COMMENT 'Reference to the non-admitted policy subject to surplus lines tax.',
-    `tax_jurisdiction_state_id` BIGINT COMMENT 'Foreign key linking to shared.state. Business justification: Surplus lines tax calculation is state-specific, requires state reference for tax rates, stamping office assignment, filing requirements, and regulatory compliance.',
-    `adjustment_amount` DECIMAL(18,2) COMMENT 'Any adjustment amount applied to the original tax calculation due to endorsements, cancellations, or corrections.',
-    `adjustment_reason` STRING COMMENT 'Explanation of the reason for any tax adjustment.',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this surplus lines tax record was first created in the system.',
-    `diligent_search_completed_flag` BOOLEAN COMMENT 'Indicates whether the required diligent search for admitted market coverage was completed before placing in surplus lines.',
-    `diligent_search_date` DATE COMMENT 'Date on which the diligent search for admitted market coverage was completed.',
-    `diligent_search_documentation_reference` STRING COMMENT 'Reference identifier to the diligent search documentation maintained for regulatory compliance.',
-    `exemption_code` STRING COMMENT 'Code identifying any state-specific exemption or waiver applied to this surplus lines tax obligation.',
-    `exemption_reason` STRING COMMENT 'Description of the reason for any exemption or waiver from surplus lines tax.',
-    `filing_period_end_date` DATE COMMENT 'End date of the reporting period for which this surplus lines tax is being filed.',
-    `filing_period_start_date` DATE COMMENT 'Start date of the reporting period for which this surplus lines tax is being filed.',
-    `gwp_subject_to_tax` DECIMAL(18,2) COMMENT 'Total gross written premium amount on which surplus lines tax is calculated.',
-    `home_state_allocation_percent` DECIMAL(5,4) COMMENT 'Percentage of premium allocated to the insured home state under NRRA multi-state allocation rules.',
-    `interest_amount` DECIMAL(18,2) COMMENT 'Interest amount accrued on overdue surplus lines tax obligations.',
-    `multi_state_allocation_flag` BOOLEAN COMMENT 'Indicates whether this policy requires multi-state premium allocation for surplus lines tax purposes.',
-    `nonadmitted_insurer_naic_code` STRING COMMENT 'Five-digit NAIC company code identifying the nonadmitted insurer that issued the policy.. Valid values are `^[0-9]{5}$`',
-    `nonadmitted_insurer_name` STRING COMMENT 'Legal name of the nonadmitted insurer that issued the surplus lines policy.',
-    `notes` STRING COMMENT 'Free-form notes or comments related to the surplus lines tax record for internal reference.',
-    `payment_reference_number` STRING COMMENT 'Reference number or transaction identifier for the tax and fee payment remittance.',
-    `penalty_amount` DECIMAL(18,2) COMMENT 'Penalty amount assessed for late filing or late payment of surplus lines tax.',
-    `policy_effective_date` DATE COMMENT 'Effective date of the non-admitted policy for which surplus lines tax is calculated.',
-    `policy_expiration_date` DATE COMMENT 'Expiration date of the non-admitted policy.',
-    `stamping_fee_amount` DECIMAL(18,2) COMMENT 'Calculated stamping office fee amount due for processing the surplus lines policy.',
-    `stamping_fee_rate_percent` DECIMAL(5,4) COMMENT 'Stamping office fee rate expressed as a percentage of gross written premium.',
-    `stamping_office_code` STRING COMMENT 'Code identifying the state-authorized surplus lines stamping office responsible for processing and collecting tax.',
-    `stamping_office_name` STRING COMMENT 'Name of the surplus lines stamping office entity.',
-    `surplus_lines_broker_license_number` STRING COMMENT 'License number of the surplus lines broker who placed the non-admitted policy.',
-    `surplus_lines_broker_name` STRING COMMENT 'Name of the surplus lines broker responsible for placing the policy and remitting tax.',
-    `tax_amount` DECIMAL(18,2) COMMENT 'Calculated surplus lines tax amount due to the state.',
-    `tax_calculation_date` DATE COMMENT 'Date on which the surplus lines tax and stamping fee were calculated.',
-    `tax_filed_date` DATE COMMENT 'Actual date on which the surplus lines tax filing was submitted to the state or stamping office.',
-    `tax_filing_due_date` DATE COMMENT 'Regulatory due date by which the surplus lines tax filing must be submitted to the state.',
-    `tax_paid_date` DATE COMMENT 'Actual date on which the surplus lines tax and stamping fee payment was remitted.',
-    `tax_payment_due_date` DATE COMMENT 'Regulatory due date by which the surplus lines tax and stamping fee payment must be remitted.',
-    `tax_rate_percent` DECIMAL(5,4) COMMENT 'State-specific surplus lines tax rate expressed as a percentage of gross written premium.',
-    `tax_status` STRING COMMENT 'Current lifecycle status of the surplus lines tax obligation.. Valid values are `pending|calculated|filed|paid|overdue|waived`',
-    `total_tax_and_fee_amount` DECIMAL(18,2) COMMENT 'Combined total of surplus lines tax and stamping fee due.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp when this surplus lines tax record was last modified.',
-    CONSTRAINT pk_surplus_lines_tax PRIMARY KEY(`surplus_lines_tax_id`)
-) COMMENT 'Surplus lines tax and stamping fee record per non-admitted policy. Captures state-specific tax rates, stamping office fees, diligent search requirements, and remittance due dates per state DOI surplus lines regulations.';
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` (
+    `retrospective_adjustment_id` BIGINT COMMENT 'Unique identifier for the retrospective premium adjustment record.',
+    `adjustment_invoice_id` BIGINT COMMENT 'Foreign key linking to billing.invoice. Business justification: Retrospective rating adjustments generate additional premium invoices. Billing must reference the retro adjustment for premium reconciliation, policyholder inquiries, and audit trails.',
+    `calendar_id` BIGINT COMMENT 'Foreign key linking to shared.calendar. Business justification: Retrospective adjustments posted to accounting periods. FK enables period-based retro analysis, fiscal year retro reporting, and ensures adjustments align with calendar dimensions for',
+    `cat_zone_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.cat_zone. Business justification: Retro adjustments require zone-level loss aggregation for experience rating, geographic profitability analysis, and underwriting review. Essential for large account management.',
+    `catastrophe_event_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.catastrophe_event. Business justification: Retro-rated policies require catastrophe event linkage for loss development exclusions, final premium calculation, and policyholder reporting.',
+    `claim_id` BIGINT COMMENT 'Foreign key linking to claims.claim. Business justification: Retrospective rating adjustments are calculated directly from incurred losses on specific claims.',
+    `claimfinancials_accounting_period_id` BIGINT COMMENT 'Foreign key to the accounting period in which this adjustment is recorded.',
+    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Retrospective premium amounts in currency. FK enables multi-currency retro rating, FX conversion for consolidated retro reporting, and ensures adjustment amounts reference valid currencies',
+    `geography_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.geography. Business justification: Retro adjustments are geography-segregated for state-specific experience rating, regulatory compliance, and multi-state account management.',
+    `policy_id` BIGINT COMMENT 'Foreign key to the policy subject to retrospective rating.',
+    `policy_term_id` BIGINT COMMENT 'Foreign key to the specific policy term being adjusted.',
+    `reversed_adjustment_id` BIGINT COMMENT 'Foreign key to the original retrospective adjustment record that this adjustment reverses, if applicable.',
+    `uw_decision_id` BIGINT COMMENT 'Foreign key linking to coverage.uw_decision. Business justification: Retrospective premium adjustments triggered by underwriting decisions (risk tier changes, loss control condition waivers, experience modifier updates) require decision reference for',
+    `adjustment_effective_date` DATE COMMENT 'Date from which the retrospective adjustment becomes effective for accounting and billing purposes.',
+    `adjustment_number` STRING COMMENT 'Business identifier for this retrospective adjustment, typically sequential within the policy term.',
+    `adjustment_sequence` BIGINT COMMENT 'Sequential order of this adjustment within the policy term, starting at 1 for the first adjustment.',
+    `adjustment_status` STRING COMMENT 'Current lifecycle status of the retrospective adjustment in the billing and payment workflow.. Valid values are `draft|calculated|approved|billed|paid|reversed`',
+    `adjustment_type` STRING COMMENT 'Classification of the adjustment: interim during policy term, final at expiration, supplemental for additional data, or corrective for errors.. Valid values are `interim|final|supplemental|corrective`',
+    `adjustment_variance_amount` DECIMAL(18,2) COMMENT 'Difference between current and prior retrospective premium, representing the additional premium due or return premium owed.',
+    `approved_by_user_code` STRING COMMENT 'Identifier of the underwriter or authorized user who approved this retrospective adjustment for billing.',
+    `approved_timestamp` TIMESTAMP COMMENT 'Date and time when this retrospective adjustment was approved for billing and accounting.',
+    `basic_premium_amount` DECIMAL(18,2) COMMENT 'The fixed component of retrospective premium covering insurer expenses and profit, not subject to loss adjustment.',
+    `calculated_retro_premium_amount` DECIMAL(18,2) COMMENT 'Retrospective premium computed from the formula before applying minimum and maximum limits.',
+    `calculation_method_code` STRING COMMENT 'Code identifying the specific retrospective rating formula or plan used for this adjustment.',
+    `converted_losses_amount` DECIMAL(18,2) COMMENT 'Incurred losses multiplied by the loss conversion factor, representing the loss-based premium component.',
+    `created_timestamp` TIMESTAMP COMMENT 'Date and time when this retrospective adjustment record was first created in the data platform.',
+    `evaluation_date` DATE COMMENT 'Date on which the retrospective premium calculation was performed, typically at policy expiration or renewal.',
+    `final_retro_premium_amount` DECIMAL(18,2) COMMENT 'Retrospective premium after applying minimum and maximum limits, representing the actual premium due.',
+    `gl_account_code` STRING COMMENT 'General ledger account code to which this retrospective adjustment is posted for financial reporting.',
+    `incurred_losses_amount` DECIMAL(18,2) COMMENT 'Total losses incurred during the policy term as of the evaluation date, including paid losses and outstanding reserves.',
+    `is_maximum_applied` BOOLEAN COMMENT 'Flag indicating whether the maximum premium limit was applied in this adjustment calculation.',
+    `is_minimum_applied` BOOLEAN COMMENT 'Flag indicating whether the minimum premium limit was applied in this adjustment calculation.',
+    `last_modified_timestamp` TIMESTAMP COMMENT 'Date and time when this retrospective adjustment record was most recently updated in the data platform.',
+    `lob_code` STRING COMMENT 'Insurance line of business code for the retrospectively rated policy, typically Workers Compensation or Commercial Auto.',
+    `loss_conversion_factor` DECIMAL(8,6) COMMENT 'Multiplier applied to incurred losses to convert them to premium equivalent, covering loss adjustment expenses and profit margin.',
+    `loss_limitation_amount` DECIMAL(18,2) COMMENT 'Maximum loss amount per occurrence or in aggregate used in the retrospective premium calculation.',
+    `loss_limitation_type` STRING COMMENT 'Type of loss limitation applied in the retrospective rating plan to cap individual claim or aggregate loss amounts.. Valid values are `per_occurrence|per_accident|aggregate|none`',
+    `maximum_premium_amount` DECIMAL(18,2) COMMENT 'Ceiling amount for retrospective premium, expressed as a percentage of standard premium, protecting insured from catastrophic losses.',
+    `minimum_premium_amount` DECIMAL(18,2) COMMENT 'Floor amount for retrospective premium, expressed as a percentage of standard premium, protecting insurer from low loss scenarios.',
+    `notes` STRING COMMENT 'Free-text notes documenting special circumstances, calculation details, or business rationale for this adjustment.',
+    `prior_retro_premium_amount` DECIMAL(18,2) COMMENT 'Retrospective premium amount from the previous adjustment, used to calculate the incremental change.',
+    `reversal_indicator` BOOLEAN COMMENT 'Flag indicating whether this adjustment reverses a prior retrospective adjustment due to error or recalculation.',
+    `reversal_reason_code` STRING COMMENT 'Code indicating the reason for reversing a prior retrospective adjustment, such as calculation error or updated loss data.',
+    `source_system_code` STRING COMMENT 'Code identifying the upstream policy administration or billing system that originated this retrospective adjustment record.',
+    `standard_premium_amount` DECIMAL(18,2) COMMENT 'The base premium amount before retrospective adjustment, calculated using standard rates and exposures.',
+    `statutory_line_code` STRING COMMENT 'NAIC statutory accounting line code for regulatory reporting of retrospective premium adjustments.',
+    `tax_multiplier` DECIMAL(8,6) COMMENT 'Factor applied to gross retrospective premium to account for premium taxes and assessments.',
+    CONSTRAINT pk_retrospective_adjustment PRIMARY KEY(`retrospective_adjustment_id`)
+) COMMENT 'Records a retro premium adjustment for retrospectively-rated policies. Captures adjustment number, evaluation date, standard premium, loss conversion factor, retro premium computed, and variance from prior adjustment.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` (
-    `finance_agreement_id` BIGINT COMMENT 'Unique identifier for the premium finance agreement record.',
-    `billing_account_id` BIGINT COMMENT 'Reference to the billing account associated with this finance agreement.',
-    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Premium finance agreements must reference currency for interest calculation, payment processing, and multi-currency financing. Currency_code denormalized, replace with FK.',
-    `insured_id` BIGINT COMMENT 'Reference to the insured party who is the borrower under this finance agreement.',
-    `policy_id` BIGINT COMMENT 'Reference to the insurance policy being financed through this agreement.',
-    `agreement_number` STRING COMMENT 'Externally-known unique identifier assigned by the finance company for this agreement.. Valid values are `^[A-Z0-9]{8,20}$`',
-    `agreement_signed_date` DATE COMMENT 'Date when the finance agreement was executed and signed by all parties.',
-    `agreement_status` STRING COMMENT 'Current lifecycle status of the premium finance agreement.. Valid values are `pending|active|paid_in_full|defaulted|cancelled|suspended`',
-    `agreement_type` STRING COMMENT 'Classification of the finance agreement based on the type of policy or borrower segment.. Valid values are `standard|commercial|personal|specialty`',
-    `annual_percentage_rate` DECIMAL(5,2) COMMENT 'Annualized interest rate charged on the financed amount, expressed as a percentage.',
-    `cancellation_date` DATE COMMENT 'Date when the finance agreement was cancelled due to default, early payoff, or other reason.',
-    `cancellation_notice_days` BIGINT COMMENT 'Number of days advance notice required before the finance company may cancel the policy for non-payment.',
-    `cancellation_reason_code` STRING COMMENT 'Code indicating the reason the finance agreement was cancelled.. Valid values are `default|early_payoff|policy_cancelled|mutual_agreement|other`',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this finance agreement record was first created in the system.',
-    `default_date` DATE COMMENT 'Date when the finance agreement was declared in default due to non-payment or breach of terms.',
-    `delinquency_days` BIGINT COMMENT 'Number of days the finance agreement has been in delinquent status due to missed payments.',
-    `down_payment_amount` DECIMAL(15,2) COMMENT 'Initial payment made by the insured at the inception of the finance agreement.',
-    `effective_date` DATE COMMENT 'Date when the finance agreement becomes binding and the financing begins.',
-    `expiration_date` DATE COMMENT 'Date when the finance agreement is scheduled to conclude and all obligations are due.',
-    `final_installment_due_date` DATE COMMENT 'Date when the final installment payment is due, completing the repayment schedule.',
-    `finance_company_party_code` BIGINT COMMENT 'Reference to the third-party premium finance company providing the financing.',
-    `financed_premium_amount` DECIMAL(15,2) COMMENT 'Total insurance premium amount being financed by the finance company.',
-    `first_installment_due_date` DATE COMMENT 'Date when the first installment payment is due under the finance agreement.',
-    `grace_period_days` BIGINT COMMENT 'Number of days after the due date during which payment may be made without penalty.',
-    `installment_amount` DECIMAL(15,2) COMMENT 'Fixed amount due for each scheduled installment payment under the finance agreement.',
-    `installment_frequency` STRING COMMENT 'Frequency at which installment payments are scheduled to be made.. Valid values are `monthly|quarterly|semi_annual|annual`',
-    `interest_rate_percent` DECIMAL(5,2) COMMENT 'Periodic interest rate applied to the outstanding balance, expressed as a percentage.',
-    `last_payment_amount` DECIMAL(15,2) COMMENT 'Amount of the most recent payment received and applied to the finance agreement.',
-    `last_payment_date` DATE COMMENT 'Date when the most recent payment was received and applied to the finance agreement.',
-    `late_fee_amount` DECIMAL(15,2) COMMENT 'Fee charged for late or missed installment payments under the finance agreement terms.',
-    `modified_timestamp` TIMESTAMP COMMENT 'Timestamp when this finance agreement record was last updated in the system.',
-    `next_payment_due_amount` DECIMAL(15,2) COMMENT 'Amount due for the next scheduled installment payment.',
-    `next_payment_due_date` DATE COMMENT 'Date when the next scheduled installment payment is due.',
-    `number_of_installments` BIGINT COMMENT 'Total count of scheduled repayment installments over the term of the finance agreement.',
-    `outstanding_balance_amount` DECIMAL(15,2) COMMENT 'Current unpaid principal and interest balance remaining on the finance agreement.',
-    `past_due_amount` DECIMAL(15,2) COMMENT 'Total amount of installment payments that are overdue and unpaid.',
-    `payoff_amount` DECIMAL(15,2) COMMENT 'Total amount required to satisfy and close the finance agreement, including principal, interest, and fees.',
-    `payoff_date` DATE COMMENT 'Date when the finance agreement was paid in full and all obligations satisfied.',
-    `power_of_attorney_flag` BOOLEAN COMMENT 'Indicates whether the finance company holds power of attorney to cancel the policy for non-payment.',
-    `total_amount_financed` DECIMAL(15,2) COMMENT 'Net amount provided to the insured after down payment, equal to financed premium minus down payment.',
-    `total_finance_charge_amount` DECIMAL(15,2) COMMENT 'Total interest and fees charged by the finance company over the life of the agreement.',
-    `total_paid_amount` DECIMAL(15,2) COMMENT 'Cumulative amount paid by the insured toward the finance agreement to date.',
-    `total_repayment_amount` DECIMAL(15,2) COMMENT 'Total amount the insured must repay including principal and finance charges.',
-    CONSTRAINT pk_finance_agreement PRIMARY KEY(`finance_agreement_id`)
-) COMMENT 'Records premium financing arrangements where a third-party premium finance company funds the policy premium. Tracks financed amount, interest rate, repayment schedule, and power-of-attorney cancellation rights.';
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` (
+    `rule_id` BIGINT COMMENT 'Unique identifier for the premium_rule data product (auto-inserted during validation).',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Premium rules specific to line of business. FK enables LOB-specific rule application, regulatory compliance by line, and ensures rules reference valid LOBs for premium calculation.',
+    `superseded_by_rule_id` BIGINT COMMENT 'Identifier of the rule that supersedes this rule. Null if this rule is current or has not been replaced.',
+    `applies_to_cancellation` BOOLEAN COMMENT 'Indicates whether this rule applies to policy cancellation transactions.',
+    `applies_to_endorsement` BOOLEAN COMMENT 'Indicates whether this rule applies to mid-term endorsement transactions.',
+    `applies_to_new_business` BOOLEAN COMMENT 'Indicates whether this rule applies to new business policy transactions.',
+    `applies_to_reinstatement` BOOLEAN COMMENT 'Indicates whether this rule applies to policy reinstatement transactions.',
+    `applies_to_renewal` BOOLEAN COMMENT 'Indicates whether this rule applies to renewal policy transactions.',
+    `approval_date` DATE COMMENT 'Date on which this rule was approved by the regulatory authority or internal governance body.',
+    `approved_by` STRING COMMENT 'Name or identifier of the authority or individual who approved this rule for production use.',
+    `calculation_method` STRING COMMENT 'Method by which premium is computed under this rule: formula-based, lookup table, factor application, percentage, tiered schedule, or flat amount.. Valid values are `formula|table|factor|percentage|tiered|flat-amount`',
+    `rule_category` STRING COMMENT 'Functional category of the rule: earning method, calculation logic, split allocation, floor threshold, cap limit, or adjustment factor.. Valid values are `earning|calculation|split|floor|cap|adjustment`',
+    `rule_code` STRING COMMENT 'Business-assigned unique code identifying the premium rule for reference in rating and policy administration systems.',
+    `condition_expression` STRING COMMENT 'Logical condition that must be satisfied for this rule to apply. Expressed in rating engine syntax. Null indicates unconditional application.',
+    `coverage_type_code` STRING COMMENT 'Specific coverage type code to which this rule applies. Null indicates rule applies to all coverages within the LOB.',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this premium rule record was first created in the system.',
+    `currency_code` STRING COMMENT 'Three-letter ISO 4217 currency code for monetary thresholds and amounts in this rule.. Valid values are `USD|CAD|EUR|GBP|AUD`',
+    `rule_description` STRING COMMENT 'Detailed business description of the rule, its purpose, and its application context for underwriters and actuaries.',
+    `effective_date` DATE COMMENT 'Date from which this premium rule becomes active and applicable to new and renewing policies.',
+    `expiration_date` DATE COMMENT 'Date on which this premium rule ceases to be active. Null indicates the rule is open-ended and remains in force until superseded.',
+    `formula_expression` STRING COMMENT 'Mathematical or logical expression defining the premium calculation when calculation_method is formula. Null for non-formula methods.',
+    `last_modified_timestamp` TIMESTAMP COMMENT 'Timestamp when this premium rule record was last updated or modified.',
+    `minimum_earned_percentage` DECIMAL(7,4) COMMENT 'Minimum percentage of premium that must be earned regardless of cancellation timing. Used for minimum-earned rules.',
+    `rule_name` STRING COMMENT 'Human-readable name of the premium rule describing its purpose or application context.',
+    `notes` STRING COMMENT 'Additional notes, comments, or special instructions related to the application or interpretation of this rule.',
+    `percentage_rate` DECIMAL(7,4) COMMENT 'Percentage rate applied in the premium calculation or earning logic. Expressed as a decimal (e.g., 0.0850 for 8.5 percent).',
+    `priority_sequence` BIGINT COMMENT 'Execution order when multiple rules apply to the same premium transaction. Lower numbers execute first.',
+    `proration_method` STRING COMMENT 'Method used to prorate premium for partial periods: daily, monthly, annual, exact-days, or 30-360 day-count convention.. Valid values are `daily|monthly|annual|exact-days|30-360`',
+    `regulatory_filing_reference` STRING COMMENT 'State Department of Insurance filing reference number or SERFF tracking number for this rule, if filed for regulatory approval.',
+    `rule_status` STRING COMMENT 'Current lifecycle status of the rule: draft, pending-approval, active, suspended, expired, or superseded.. Valid values are `draft|pending-approval|active|suspended|expired|superseded`',
+    `rule_type` STRING COMMENT 'Classification of the premium calculation or earning method: pro-rata, short-rate, flat, minimum-earned, deposit, audit, or installment. [ENUM-REF-CANDIDATE: pro-rata|short-rate|flat|minimum-earned|deposit|audit|installment — 7 candidates stripped',
+    `short_rate_penalty_percentage` DECIMAL(7,4) COMMENT 'Penalty percentage applied when a policy is cancelled mid-term by the insured under short-rate rules. Null for pro-rata cancellations.',
+    `source_system_code` STRING COMMENT 'Code identifying the source system from which this rule originated: rating engine, policy administration system, or actuarial workbench.',
+    `state_code` STRING COMMENT 'Two-letter US state or jurisdiction code where this rule applies. Null indicates rule applies across all states.',
+    `threshold_amount` DECIMAL(18,2) COMMENT 'Minimum or maximum premium amount threshold enforced by this rule. Used for floor and cap rules.',
+    `threshold_type` STRING COMMENT 'Type of threshold enforced: minimum floor, maximum cap, or target benchmark.. Valid values are `minimum|maximum|target`',
+    `version_number` BIGINT COMMENT 'Version number of this rule. Incremented when the rule is revised or amended.',
+    CONSTRAINT pk_rule PRIMARY KEY(`rule_id`)
+) COMMENT 'Business rule governing how premium is computed, split, earned, or floored for a LOB, state, or coverage type. Stores rule type (pro-rata, short-rate, flat, minimum-earned), effective date range, threshold amounts, and conditions.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` (
-    `premium_rate_filing_id` BIGINT COMMENT 'Unique identifier for the premium rate filing record. Primary key.',
-    `lob_code_id` BIGINT COMMENT 'Foreign key linking to shared.lob_code. Business justification: Rate filings are LOB-specific regulatory submissions requiring LOB reference for statutory line classification and actuarial analysis. Lob denormalized, replace with FK.',
-    `state_id` BIGINT COMMENT 'Foreign key linking to shared.state. Business justification: Rate filings are state-specific regulatory submissions requiring state reference for DOI tracking, approval workflow, and compliance monitoring. State_code denormalized, replace with FK.',
-    `actuarial_justification` STRING COMMENT 'Summary of the actuarial analysis and justification supporting the proposed rate change, including loss experience and trend factors.',
-    `actuary_credential` STRING COMMENT 'Professional actuarial credential of the certifying actuary, such as FCAS, ACAS, FSA, ASA, MAAA.',
-    `actuary_name` STRING COMMENT 'Name of the credentialed actuary who prepared and certified the rate filing analysis.',
-    `affected_policy_count` BIGINT COMMENT 'Estimated number of policies that will be impacted by the rate change upon approval and implementation.',
-    `approval_date` DATE COMMENT 'Date when the state Department of Insurance approved the rate filing. Null if not yet approved or if rejected.',
-    `certification_date` DATE COMMENT 'Date when the actuary certified the rate filing analysis and supporting documentation.',
-    `competitive_impact_analysis` STRING COMMENT 'Summary of the competitive market impact analysis showing how the proposed rates compare to market competitors.',
-    `consumer_impact_statement` STRING COMMENT 'Statement describing the expected impact of the rate change on policyholders and consumers in the affected market.',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when the rate filing record was first created in the system.',
-    `effective_date` DATE COMMENT 'Date when the approved rates become effective and can be applied to new and renewal policies.',
-    `expiration_date` DATE COMMENT 'Date when the filed rates expire and can no longer be used, if applicable. Null for indefinite filings.',
-    `filing_description` STRING COMMENT 'Detailed description of the rate filing purpose, scope, and key changes being proposed to the regulator.',
-    `filing_fee_amount` DECIMAL(18,2) COMMENT 'Regulatory filing fee amount paid to the state Department of Insurance for processing the rate filing.',
-    `filing_fee_paid_flag` BOOLEAN COMMENT 'Indicates whether the required filing fee has been paid to the state regulator. True if paid, False if outstanding.',
-    `filing_method` STRING COMMENT 'Regulatory filing method required by the state: file and use, prior approval, use and file, flex rating, or no file required.. Valid values are `file_and_use|prior_approval|use_and_file|flex_rating|no_file`',
-    `filing_number` STRING COMMENT 'Unique regulatory filing number assigned by the state Department of Insurance (DOI) or insurer for tracking the rate filing submission.',
-    `filing_status` STRING COMMENT 'Current lifecycle status of the rate filing with the regulatory authority: draft, submitted, under review, approved, rejected, withdrawn, or deferred. [ENUM-REF-CANDIDATE: draft|submitted|under_review|approved|rejected|withdrawn|deferred — 7 candidates',
-    `filing_type` STRING COMMENT 'Type of regulatory filing being submitted: rate change, new program introduction, rule modification, form filing, combined rate and rule, or withdrawal.. Valid values are `rate_change|new_program|rule_change|form_filing|rate_and_rule|withdrawal`',
-    `indicated_rate_change_percentage` DECIMAL(10,4) COMMENT 'Actuarially indicated rate change percentage based on loss experience analysis, before any capping or phasing adjustments.',
-    `insurer_response` STRING COMMENT 'Insurers formal response to regulator comments, questions, or objections during the filing review process.',
-    `iso_program_code` STRING COMMENT 'ISO program code if the filing uses or references ISO rating content, forms, or rules.',
-    `loss_ratio_target` DECIMAL(10,4) COMMENT 'Target loss ratio the rate filing is designed to achieve, expressed as a decimal (e.g., 0.6500 for 65%).',
-    `modified_timestamp` TIMESTAMP COMMENT 'Timestamp when the rate filing record was last modified or updated in the system.',
-    `naic_company_code` STRING COMMENT 'Five-digit NAIC company code identifying the legal insurance entity submitting the rate filing.',
-    `objection_period_end_date` DATE COMMENT 'Date when the regulatory objection period ends, after which the filing is deemed approved if no objections are raised.',
-    `prior_filing_number` STRING COMMENT 'Filing number of the previous rate filing for this line of business and state, establishing the baseline for the current change.',
-    `rate_change_percentage` DECIMAL(10,4) COMMENT 'Overall percentage change in rates being proposed in this filing, expressed as a decimal (e.g., 0.0750 for 7.5% increase, -0.0300 for 3% decrease).',
-    `rate_change_type` STRING COMMENT 'Direction of the rate change: increase, decrease, no change, or variable by segment.. Valid values are `increase|decrease|no_change|variable`',
-    `rate_impact_amount` DECIMAL(18,2) COMMENT 'Estimated dollar impact of the rate change on total written premium for the affected line of business and state.',
-    `rate_manual_version` STRING COMMENT 'Version identifier of the rate manual or rating algorithm being filed for regulatory approval.',
-    `regulator_comments` STRING COMMENT 'Comments, questions, or objections provided by the state Department of Insurance during the review process.',
-    `rejection_date` DATE COMMENT 'Date when the state Department of Insurance rejected the rate filing. Null if approved or still under review.',
-    `serff_tracking_number` STRING COMMENT 'SERFF system tracking number used by NAIC for electronic rate and form filing submissions to state regulators.',
-    `submission_date` DATE COMMENT 'Date when the rate filing was officially submitted to the state Department of Insurance for review.',
-    `superseded_filing_number` STRING COMMENT 'Filing number of any filing that this rate filing supersedes or replaces upon approval.',
-    `supporting_document_count` BIGINT COMMENT 'Number of supporting documents submitted with the rate filing, including actuarial memoranda, rate manuals, and exhibits.',
-    `withdrawal_date` DATE COMMENT 'Date when the insurer voluntarily withdrew the rate filing from regulatory review. Null if not withdrawn.',
-    CONSTRAINT pk_premium_rate_filing PRIMARY KEY(`premium_rate_filing_id`)
-) COMMENT 'Tracks state rate and rule filing submissions to DOI: filing number, LOB, effective date, approval status, SERFF tracking number, and rate change percentage. SSOT for regulatory rate approval lifecycle.';
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` (
+    `deposit_premium_id` BIGINT COMMENT 'Unique identifier for the deposit premium record. Primary key.',
+    `calendar_id` BIGINT COMMENT 'Foreign key linking to shared.calendar. Business justification: Deposits posted to accounting periods. FK enables period-based deposit analysis, fiscal year deposit reporting, and ensures deposits align with calendar dimensions for premium accounting.',
+    `cat_zone_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.cat_zone. Business justification: Deposit premium estimates for large accounts require zone-level exposure distribution for audit planning, rate adequacy validation, and concentration monitoring.',
+    `catastrophegeography_peril_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.peril. Business justification: Deposit premium estimates are peril-segregated for large commercial accounts with multiple coverage parts (property, wind, earthquake).',
+    `claimfinancials_accounting_period_id` BIGINT COMMENT 'Reference to the accounting period in which this deposit premium was booked for financial reporting purposes.',
+    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Deposit premium amounts in currency. FK enables multi-currency deposit accounting, FX conversion for consolidated deposit reporting, and ensures deposit amounts reference valid active',
+    `deposit_invoice_id` BIGINT COMMENT 'Foreign key linking to billing.invoice. Business justification: Deposit premium transactions generate invoices for initial deposit billing. Billing operations must link invoices to deposit records for audit reconciliation, final premium adjustment',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Deposits vary by line of business. FK enables LOB-specific deposit analysis, audit reconciliation by line, and ensures deposits reference valid LOBs for premium accounting.',
+    `party_id` BIGINT COMMENT 'Reference to the underwriter who approved the deposit premium estimate and basis of calculation.',
+    `policy_id` BIGINT COMMENT 'Reference to the policy for which this deposit premium was collected.',
+    `policy_term_id` BIGINT COMMENT 'Reference to the specific policy term during which this deposit premium applies.',
+    `policy_transaction_id` BIGINT COMMENT 'Reference to the policy transaction that triggered the deposit premium collection, typically New Business or Renewal.',
+    `producers_producer_id` BIGINT COMMENT 'Reference to the producer or agent who sold the policy and is associated with this deposit premium for commission calculation purposes.',
+    `quote_id` BIGINT COMMENT 'Foreign key linking to coverage.quote. Business justification: Deposit premiums are established at quote binding based on estimated exposures; deposit terms reference quoted premium basis and audit provisions.',
+    `actual_exposure_amount` DECIMAL(18,2) COMMENT 'The actual quantity of the exposure basis determined through audit, such as actual annual payroll or actual sales volume.',
+    `adjustment_amount` DECIMAL(18,2) COMMENT 'The difference between the deposit premium and the final premium, representing additional premium due or return premium owed to the insured.',
+    `adjustment_type` STRING COMMENT 'Classification of the premium adjustment: additional premium due from insured, return premium owed to insured, or no change required.. Valid values are `additional_due|return_premium|no_change`',
+    `audit_completed_date` DATE COMMENT 'The date on which the premium audit was completed and final exposure data was captured.',
+    `audit_required_flag` BOOLEAN COMMENT 'Indicates whether a premium audit is required at policy expiration to reconcile the deposit premium against actual exposure.',
+    `audit_scheduled_date` DATE COMMENT 'The scheduled date for the premium audit to be conducted, typically within 90 days of policy expiration.',
+    `audit_type` STRING COMMENT 'The method by which the premium audit will be conducted: physical on-site audit, mail audit, telephone audit, waived audit, or no audit required.. Valid values are `physical|mail|telephone|waived|none`',
+    `basis_of_estimate` STRING COMMENT 'Description of the method or data used to estimate the deposit premium, such as prior year payroll, estimated sales, projected vehicle count, or underwriter judgment.',
+    `billing_date` DATE COMMENT 'The date on which the deposit premium was billed to the insured or producer.',
+    `collection_date` DATE COMMENT 'The date on which the deposit premium payment was received and collected by the insurer.',
+    `created_timestamp` TIMESTAMP COMMENT 'The timestamp when this deposit premium record was first created in the system.',
+    `deposit_amount` DECIMAL(18,2) COMMENT 'The estimated deposit premium amount collected at policy inception or during the term, subject to later audit or retrospective adjustment.',
+    `deposit_number` STRING COMMENT 'Business identifier for the deposit premium, often displayed on billing statements and declarations pages.',
+    `deposit_percentage` DECIMAL(5,2) COMMENT 'The percentage of estimated final premium collected as deposit, typically ranging from 25 to 100 percent depending on line of business and underwriting requirements.',
+    `deposit_status` STRING COMMENT 'Current lifecycle status of the deposit premium: estimated at binding, billed to insured, collected by billing system, reconciled against audit, adjusted, or refunded.. Valid values are `estimated|billed|collected|reconciled|adjusted|refunded`',
+    `deposit_type` STRING COMMENT 'Classification of the deposit premium: initial deposit at inception, interim deposit during term, supplemental deposit for coverage changes, or adjustment deposit.. Valid values are `initial|interim|supplemental|adjustment`',
+    `effective_date` DATE COMMENT 'The date from which this deposit premium becomes effective, typically the policy inception date or endorsement effective date.',
+    `estimated_exposure_amount` DECIMAL(18,2) COMMENT 'The estimated quantity of the exposure basis used to calculate the deposit premium, such as estimated annual payroll or projected sales volume.',
+    `estimated_exposure_basis` STRING COMMENT 'The exposure unit or rating basis used to calculate the deposit premium, such as payroll, sales, receipts, area, vehicle count, or number of employees.',
+    `expiration_date` DATE COMMENT 'The date on which this deposit premium period ends, typically the policy expiration date or audit date.',
+    `final_premium_amount` DECIMAL(18,2) COMMENT 'The final calculated premium amount based on actual exposure determined through audit or retrospective rating calculation.',
+    `gl_account_code` STRING COMMENT 'The general ledger account code to which this deposit premium is posted for financial accounting purposes.',
+    `last_modified_timestamp` TIMESTAMP COMMENT 'The timestamp when this deposit premium record was last updated or modified.',
+    `maximum_deposit_amount` DECIMAL(18,2) COMMENT 'The contractual maximum deposit premium amount that can be collected, if applicable, as specified in the policy terms.',
+    `minimum_deposit_amount` DECIMAL(18,2) COMMENT 'The contractual minimum deposit premium amount that must be collected regardless of actual exposure, as specified in the policy terms.',
+    `notes` STRING COMMENT 'Free-form text field for additional notes, comments, or special instructions related to the deposit premium, audit requirements, or reconciliation process.',
+    `reconciliation_date` DATE COMMENT 'The date on which the deposit premium was reconciled against the final premium and any adjustment was calculated.',
+    `reconciliation_status` STRING COMMENT 'Current status of the deposit premium reconciliation process: pending audit, audit in progress, reconciliation completed, disputed by insured, or waived by underwriter.. Valid values are `pending|in_progress|completed|disputed|waived`',
+    `retro_adjustment_date` DATE COMMENT 'The date on which the retrospective rating adjustment was calculated and applied to the deposit premium.',
+    `retro_rated_flag` BOOLEAN COMMENT 'Indicates whether this deposit premium is subject to retrospective rating adjustment based on actual loss experience during the policy term.',
+    `source_system_code` STRING COMMENT 'Code identifying the source system from which this deposit premium record originated, such as PolicyCenter, Duck Creek Policy, or legacy system identifier.',
+    `statutory_line_code` STRING COMMENT 'The NAIC statutory accounting line code used for regulatory financial reporting of this deposit premium.',
+    CONSTRAINT pk_deposit_premium PRIMARY KEY(`deposit_premium_id`)
+) COMMENT 'Tracks the estimated deposit premium collected at policy inception for auditable or retro-rated policies. Stores deposit amount, basis of estimate, and reconciliation status against final audit or retro adjustment.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` (
-    `agency_bill_statement_id` BIGINT COMMENT 'Unique identifier for the agency bill statement record.',
-    `agency_id` BIGINT COMMENT 'Reference to the agency entity for which this bill statement is generated.',
-    `billing_account_id` BIGINT COMMENT 'Reference to the billing account associated with this agency bill statement.',
-    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Agency billing statements require currency reference for commission calculation, payment processing, and multi-currency agency operations. Currency_code denormalized, replace with FK.',
-    `producers_producer_id` BIGINT COMMENT 'Reference to the producing agent or broker receiving this statement.',
-    `state_id` BIGINT COMMENT 'Foreign key linking to shared.state. Business justification: Agency billing is often state-specific for regulatory reporting, commission tax calculation, and producer licensing compliance. State_code denormalized, replace with FK.',
-    `adjustment_amount` DECIMAL(18,2) COMMENT 'Total adjustments applied to the statement, including endorsements, cancellations, and corrections from prior periods.',
-    `balance_forward_amount` DECIMAL(18,2) COMMENT 'Outstanding balance carried forward from the previous agency bill statement period.',
-    `billing_method` STRING COMMENT 'The billing arrangement method used for this statement, indicating whether the agency collects premium or the insurer bills directly.. Valid values are `direct_bill|agency_bill|list_bill|account_current`',
-    `cancellation_count` BIGINT COMMENT 'Number of policy cancellations processed during the statement period that affected premium and are included in this bill.',
-    `commission_amount` DECIMAL(18,2) COMMENT 'Total commission earned by the producer on the premiums included in this statement.',
-    `commission_rate_percent` DECIMAL(5,2) COMMENT 'The average or blended commission rate percentage applied to calculate the commission amount for this statement.',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this agency bill statement record was first created in the system.',
-    `current_balance_amount` DECIMAL(18,2) COMMENT 'The current outstanding balance on the agency bill statement after applying all transactions and payments.',
-    `delinquency_days` BIGINT COMMENT 'Number of days the statement balance is past due, calculated from the due date to the current date.',
-    `due_date` DATE COMMENT 'The date by which the net amount due must be paid by the producer to avoid delinquency.',
-    `endorsement_count` BIGINT COMMENT 'Number of policy endorsements processed during the statement period that affected premium and are included in this bill.',
-    `fees_amount` DECIMAL(18,2) COMMENT 'Total fees charged on the policies included in this statement, such as policy fees or installment fees.',
-    `gwp_amount` DECIMAL(18,2) COMMENT 'Total gross written premium for all policies included in this agency bill statement before any deductions.',
-    `issued_by_user_code` STRING COMMENT 'Identifier of the system user or automated process that issued this agency bill statement.',
-    `lob_summary` STRING COMMENT 'Comma-separated list or summary of lines of business included in this agency bill statement for reference and categorization.',
-    `modified_timestamp` TIMESTAMP COMMENT 'Timestamp when this agency bill statement record was last modified or updated.',
-    `naic_company_code` STRING COMMENT 'Five-digit NAIC company code identifying the insurance carrier issuing this agency bill statement.. Valid values are `^[0-9]{5}$`',
-    `net_amount_due` DECIMAL(18,2) COMMENT 'The net balance owed by the producer to the insurer or vice versa after all premiums, commissions, taxes, fees, and adjustments.',
-    `new_business_count` BIGINT COMMENT 'Number of new business policies written during the statement period and included in this bill.',
-    `notes` STRING COMMENT 'Free-text notes or comments related to this agency bill statement, including special instructions or dispute details.',
-    `nwp_amount` DECIMAL(18,2) COMMENT 'Net written premium after deducting commissions and other adjustments, representing the amount due to the insurer.',
-    `payment_received_amount` DECIMAL(18,2) COMMENT 'Total payments received from the producer during the statement period, applied against the outstanding balance.',
-    `payment_terms_days` BIGINT COMMENT 'Number of days from the statement date within which payment is expected, defining the payment terms for the producer.',
-    `policy_count` BIGINT COMMENT 'Total number of policies included in this agency bill statement for the billing period.',
-    `premium_tax_amount` DECIMAL(18,2) COMMENT 'Total premium taxes applicable to the policies included in this agency bill statement.',
-    `producer_contact_email` STRING COMMENT 'Email address of the primary contact person at the producer agency for statement correspondence.. Valid values are `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$`',
-    `producer_contact_name` STRING COMMENT 'Name of the primary contact person at the producer agency for inquiries related to this statement.',
-    `producer_contact_phone` STRING COMMENT 'Phone number of the primary contact person at the producer agency for statement inquiries.',
-    `reconciliation_status` STRING COMMENT 'Status indicating whether the agency bill statement has been reconciled with producer records and payments.. Valid values are `pending|reconciled|disputed|adjusted`',
-    `renewal_count` BIGINT COMMENT 'Number of renewal policies processed during the statement period and included in this bill.',
-    `statement_date` DATE COMMENT 'The date on which the agency bill statement was generated and issued to the producer.',
-    `statement_delivery_method` STRING COMMENT 'The method by which this agency bill statement was delivered to the producer.. Valid values are `email|postal_mail|portal|fax`',
-    `statement_format` STRING COMMENT 'The file format in which the agency bill statement was generated and delivered.. Valid values are `pdf|csv|xml|html`',
-    `statement_number` STRING COMMENT 'Unique business identifier for the agency bill statement, typically formatted as a sequential or date-based code.',
-    `statement_period_end_date` DATE COMMENT 'The ending date of the billing period covered by this agency bill statement.',
-    `statement_period_start_date` DATE COMMENT 'The beginning date of the billing period covered by this agency bill statement.',
-    `statement_status` STRING COMMENT 'Current lifecycle status of the agency bill statement indicating its payment and processing state.. Valid values are `draft|issued|paid|partially_paid|overdue|cancelled`',
-    CONSTRAINT pk_agency_bill_statement PRIMARY KEY(`agency_bill_statement_id`)
-) COMMENT 'Monthly agency bill statement sent to producing agents/brokers summarizing net premiums due, commissions retained, and balance owed. Supports agency bill reconciliation and producer account settlement.';
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table_authorization` (
+    `rate_table_authorization_id` BIGINT COMMENT 'Unique identifier for this rate table authorization record. Primary key.',
+    `rate_table_id` BIGINT COMMENT 'Foreign key linking to the rate table version authorized for use by this producer.',
+    `underwriting_authority_id` BIGINT COMMENT 'Foreign key linking to the underwriting authority grant that includes this rate table authorization.',
+    `authorization_status` STRING COMMENT 'Current lifecycle status of this rate table authorization grant.',
+    `deviation_percentage_limit` DECIMAL(5,2) COMMENT 'Maximum percentage the producer may deviate from the published rate table without referral.',
+    `effective_date` DATE COMMENT 'Date when the producer may begin using this rate table under this authority grant.',
+    `expiration_date` DATE COMMENT 'Date when the producer authority to use this rate table expires or is withdrawn.',
+    `override_allowed_flag` BOOLEAN COMMENT 'Indicates whether the producer may override or deviate from the standard rates in this table.',
+    CONSTRAINT pk_rate_table_authorization PRIMARY KEY(`rate_table_authorization_id`)
+) COMMENT 'Grants a producer or agency the authority to use a specific rate table for binding coverage. One row per producer-rate_table authorization. Tracks effective dates, expiration, override permissions, and deviation limits for that combination..';
 
 -- ========= FOREIGN KEYS =========
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ADD CONSTRAINT `fk_premium_earned_premium_original_earned_premium_id` FOREIGN KEY (`original_earned_premium_id`) REFERENCES `vibe_pc_insurance_v499`.`premium`.`earned_premium`(`earned_premium_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ADD CONSTRAINT `fk_premium_earned_premium_premium_transaction_id` FOREIGN KEY (`premium_transaction_id`) REFERENCES `vibe_pc_insurance_v499`.`premium`.`premium_transaction`(`premium_transaction_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ADD CONSTRAINT `fk_premium_premium_transaction_installment_schedule_id` FOREIGN KEY (`installment_schedule_id`) REFERENCES `vibe_pc_insurance_v499`.`premium`.`installment_schedule`(`installment_schedule_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ADD CONSTRAINT `fk_premium_premium_transaction_reversed_transaction_premium_transaction_id` FOREIGN KEY (`reversed_transaction_premium_transaction_id`) REFERENCES `vibe_pc_insurance_v499`.`premium`.`premium_transaction`(`premium_transaction_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ADD CONSTRAINT `fk_premium_installment_schedule_billing_account_id` FOREIGN KEY (`billing_account_id`) REFERENCES `vibe_pc_insurance_v499`.`premium`.`billing_account`(`billing_account_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ADD CONSTRAINT `fk_premium_installment_installment_schedule_id` FOREIGN KEY (`installment_schedule_id`) REFERENCES `vibe_pc_insurance_v499`.`premium`.`installment_schedule`(`installment_schedule_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ADD CONSTRAINT `fk_premium_payment_billing_account_id` FOREIGN KEY (`billing_account_id`) REFERENCES `vibe_pc_insurance_v499`.`premium`.`billing_account`(`billing_account_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ADD CONSTRAINT `fk_premium_payment_installment_schedule_id` FOREIGN KEY (`installment_schedule_id`) REFERENCES `vibe_pc_insurance_v499`.`premium`.`installment_schedule`(`installment_schedule_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ADD CONSTRAINT `fk_premium_payment_premium_transaction_id` FOREIGN KEY (`premium_transaction_id`) REFERENCES `vibe_pc_insurance_v499`.`premium`.`premium_transaction`(`premium_transaction_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ADD CONSTRAINT `fk_premium_payment_application_installment_id` FOREIGN KEY (`installment_id`) REFERENCES `vibe_pc_insurance_v499`.`premium`.`installment`(`installment_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ADD CONSTRAINT `fk_premium_payment_application_payment_id` FOREIGN KEY (`payment_id`) REFERENCES `vibe_pc_insurance_v499`.`premium`.`payment`(`payment_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ADD CONSTRAINT `fk_premium_payment_application_premium_transaction_id` FOREIGN KEY (`premium_transaction_id`) REFERENCES `vibe_pc_insurance_v499`.`premium`.`premium_transaction`(`premium_transaction_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ADD CONSTRAINT `fk_premium_dac_transaction_premium_transaction_id` FOREIGN KEY (`premium_transaction_id`) REFERENCES `vibe_pc_insurance_v499`.`premium`.`premium_transaction`(`premium_transaction_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ADD CONSTRAINT `fk_premium_finance_agreement_billing_account_id` FOREIGN KEY (`billing_account_id`) REFERENCES `vibe_pc_insurance_v499`.`premium`.`billing_account`(`billing_account_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ADD CONSTRAINT `fk_premium_agency_bill_statement_billing_account_id` FOREIGN KEY (`billing_account_id`) REFERENCES `vibe_pc_insurance_v499`.`premium`.`billing_account`(`billing_account_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ADD CONSTRAINT `fk_premium_premium_transaction_original_transaction_id` FOREIGN KEY (`original_transaction_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction`(`premium_transaction_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ADD CONSTRAINT `fk_premium_premium_accounting_period_prior_period_premium_accounting_period_id` FOREIGN KEY (`prior_period_premium_accounting_period_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period`(`premium_accounting_period_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ADD CONSTRAINT `fk_premium_premium_accounting_period_parent_period_id` FOREIGN KEY (`parent_period_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period`(`premium_accounting_period_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ADD CONSTRAINT `fk_premium_charge_premium_transaction_id` FOREIGN KEY (`premium_transaction_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction`(`premium_transaction_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ADD CONSTRAINT `fk_premium_tax_levy_original_tax_levy_id` FOREIGN KEY (`original_tax_levy_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy`(`tax_levy_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ADD CONSTRAINT `fk_premium_tax_levy_premium_transaction_id` FOREIGN KEY (`premium_transaction_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction`(`premium_transaction_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ADD CONSTRAINT `fk_premium_policy_fee_premium_transaction_id` FOREIGN KEY (`premium_transaction_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction`(`premium_transaction_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ADD CONSTRAINT `fk_premium_policy_fee_source_transaction_id` FOREIGN KEY (`source_transaction_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction`(`premium_transaction_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ADD CONSTRAINT `fk_premium_commission_original_commission_id` FOREIGN KEY (`original_commission_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`premium`.`commission`(`commission_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ADD CONSTRAINT `fk_premium_commission_premium_transaction_id` FOREIGN KEY (`premium_transaction_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction`(`premium_transaction_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ADD CONSTRAINT `fk_premium_earned_premium_schedule_prior_schedule_id` FOREIGN KEY (`prior_schedule_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule`(`earned_premium_schedule_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ADD CONSTRAINT `fk_premium_premium_endorsement_reversed_endorsement_id` FOREIGN KEY (`reversed_endorsement_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement`(`premium_endorsement_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ADD CONSTRAINT `fk_premium_bearing_coverage_original_bearing_coverage_id` FOREIGN KEY (`original_bearing_coverage_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage`(`bearing_coverage_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ADD CONSTRAINT `fk_premium_bearing_coverage_primary_premium_transaction_id` FOREIGN KEY (`primary_premium_transaction_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction`(`premium_transaction_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ADD CONSTRAINT `fk_premium_bearing_coverage_premium_transaction_id` FOREIGN KEY (`premium_transaction_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction`(`premium_transaction_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ADD CONSTRAINT `fk_premium_ceded_premium_original_ceded_premium_id` FOREIGN KEY (`original_ceded_premium_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium`(`ceded_premium_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ADD CONSTRAINT `fk_premium_ceded_premium_premium_transaction_id` FOREIGN KEY (`premium_transaction_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction`(`premium_transaction_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ADD CONSTRAINT `fk_premium_retrospective_adjustment_reversed_adjustment_id` FOREIGN KEY (`reversed_adjustment_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment`(`retrospective_adjustment_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ADD CONSTRAINT `fk_premium_rule_superseded_by_rule_id` FOREIGN KEY (`superseded_by_rule_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`premium`.`rule`(`rule_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table_authorization` ADD CONSTRAINT `fk_premium_rate_table_authorization_rate_table_id` FOREIGN KEY (`rate_table_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`premium`.`rate_table`(`rate_table_id`);
 
 -- ========= TAGS =========
-ALTER SCHEMA `vibe_pc_insurance_v499`.`premium` SET TAGS ('dbx_division' = 'business');
-ALTER SCHEMA `vibe_pc_insurance_v499`.`premium` SET TAGS ('dbx_domain' = 'premium');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` SET TAGS ('dbx_data_type' = 'transactional_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` SET TAGS ('dbx_subdomain' = 'premium_accounting');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `written_premium_id` SET TAGS ('dbx_business_glossary_term' = 'Written Premium (WP) ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `agency_id` SET TAGS ('dbx_business_glossary_term' = 'Agency ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `agency_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `agency_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `calendar_id` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `claim_id` SET TAGS ('dbx_business_glossary_term' = 'Claim Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `country_id` SET TAGS ('dbx_business_glossary_term' = 'Country Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Lob Code Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_business_glossary_term' = 'Coverage ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `state_id` SET TAGS ('dbx_business_glossary_term' = 'State Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `ceded_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Premium Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Commission Rate');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `experience_mod_factor` SET TAGS ('dbx_business_glossary_term' = 'Experience Modification (Mod) Factor');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `exposure_basis` SET TAGS ('dbx_business_glossary_term' = 'Exposure Basis');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `exposure_units` SET TAGS ('dbx_business_glossary_term' = 'Exposure Units');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `gwp_amount` SET TAGS ('dbx_business_glossary_term' = 'Gross Written Premium (GWP) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `installment_count` SET TAGS ('dbx_business_glossary_term' = 'Installment Count');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `installment_fee_amount` SET TAGS ('dbx_business_glossary_term' = 'Installment Fee Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `is_audit_premium` SET TAGS ('dbx_business_glossary_term' = 'Is Audit Premium Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `is_installment_plan` SET TAGS ('dbx_business_glossary_term' = 'Is Installment Plan Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `last_modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Last Modified Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `manual_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Manual Premium Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `nwp_amount` SET TAGS ('dbx_business_glossary_term' = 'Net Written Premium (NWP) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `policy_fee_amount` SET TAGS ('dbx_business_glossary_term' = 'Policy Fee Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `policy_term_effective_date` SET TAGS ('dbx_business_glossary_term' = 'Policy Term Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `policy_term_expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Policy Term Expiration Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `premium_basis_amount` SET TAGS ('dbx_business_glossary_term' = 'Premium Basis Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `premium_tax_amount` SET TAGS ('dbx_business_glossary_term' = 'Premium Tax Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `product_code` SET TAGS ('dbx_business_glossary_term' = 'Product Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `rate_effective_date` SET TAGS ('dbx_business_glossary_term' = 'Rate Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `rate_version` SET TAGS ('dbx_business_glossary_term' = 'Rate Version');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `rating_plan_code` SET TAGS ('dbx_business_glossary_term' = 'Rating Plan Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `rating_plan_code` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `rating_plan_code` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `reversal_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Reversal Reason Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `schedule_credit_amount` SET TAGS ('dbx_business_glossary_term' = 'Schedule Credit Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `schedule_debit_amount` SET TAGS ('dbx_business_glossary_term' = 'Schedule Debit Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `statutory_reporting_period` SET TAGS ('dbx_business_glossary_term' = 'Statutory Reporting Period');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `statutory_reporting_period` SET TAGS ('dbx_value_regex' = '^d{4}-Q[1-4]$');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `statutory_reporting_period` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `statutory_reporting_period` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `total_billed_amount` SET TAGS ('dbx_business_glossary_term' = 'Total Billed Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `transaction_booking_date` SET TAGS ('dbx_business_glossary_term' = 'Transaction Booking Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `transaction_effective_date` SET TAGS ('dbx_business_glossary_term' = 'Transaction Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `transaction_type` SET TAGS ('dbx_business_glossary_term' = 'Premium Transaction Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `transaction_type` SET TAGS ('dbx_value_regex' = 'new_business|renewal|endorsement|cancellation|reinstatement|audit_adjustment');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `underwriter_code` SET TAGS ('dbx_business_glossary_term' = 'Underwriter ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `written_premium_status` SET TAGS ('dbx_business_glossary_term' = 'Written Premium Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`written_premium` ALTER COLUMN `written_premium_status` SET TAGS ('dbx_value_regex' = 'booked|pending|reversed|adjusted|voided');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` SET TAGS ('dbx_data_type' = 'transactional_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` SET TAGS ('dbx_subdomain' = 'premium_accounting');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `earned_premium_id` SET TAGS ('dbx_business_glossary_term' = 'Earned Premium (EP) Identifier');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `calendar_id` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `claim_id` SET TAGS ('dbx_business_glossary_term' = 'Claim Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `country_id` SET TAGS ('dbx_business_glossary_term' = 'Country Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Lob Code Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `original_earned_premium_id` SET TAGS ('dbx_business_glossary_term' = 'Original Earned Premium (EP) Identifier');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_business_glossary_term' = 'Coverage Identifier');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Identifier');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `premium_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Source Transaction Identifier');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `state_id` SET TAGS ('dbx_business_glossary_term' = 'State Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `adjustment_description` SET TAGS ('dbx_business_glossary_term' = 'Adjustment Description');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `adjustment_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Adjustment Reason Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `calculation_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Calculation Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `ceded_ep_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Earned Premium (EP) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Commission Rate Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `dac_amount` SET TAGS ('dbx_business_glossary_term' = 'Deferred Acquisition Cost (DAC) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `earned_premium_status` SET TAGS ('dbx_business_glossary_term' = 'Earned Premium Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `earned_premium_status` SET TAGS ('dbx_value_regex' = 'draft|posted|reversed|adjusted|final');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `earning_method` SET TAGS ('dbx_business_glossary_term' = 'Premium Earning Method');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `earning_method` SET TAGS ('dbx_value_regex' = 'pro_rata|short_rate|daily|monthly|custom');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `earning_percentage` SET TAGS ('dbx_business_glossary_term' = 'Earning Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `earning_percentage` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `earning_percentage` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Earning Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `ep_amount` SET TAGS ('dbx_business_glossary_term' = 'Earned Premium (EP) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `exchange_rate` SET TAGS ('dbx_business_glossary_term' = 'Currency Exchange Rate');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Earning Expiration Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `exposure_days` SET TAGS ('dbx_business_glossary_term' = 'Exposure Days Count');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `gaap_revenue_amount` SET TAGS ('dbx_business_glossary_term' = 'Generally Accepted Accounting Principles (GAAP) Revenue Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `gl_account_code` SET TAGS ('dbx_business_glossary_term' = 'General Ledger (GL) Account Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `gwp_amount` SET TAGS ('dbx_business_glossary_term' = 'Gross Written Premium (GWP) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `ifrs17_revenue_amount` SET TAGS ('dbx_business_glossary_term' = 'International Financial Reporting Standard 17 (IFRS 17) Revenue Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `naic_company_code` SET TAGS ('dbx_business_glossary_term' = 'National Association of Insurance Commissioners (NAIC) Company Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `naic_company_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `net_ep_amount` SET TAGS ('dbx_business_glossary_term' = 'Net Earned Premium (EP) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `nwp_amount` SET TAGS ('dbx_business_glossary_term' = 'Net Written Premium (NWP) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `policy_term_months` SET TAGS ('dbx_business_glossary_term' = 'Policy Term Duration in Months');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `posting_date` SET TAGS ('dbx_business_glossary_term' = 'General Ledger (GL) Posting Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `posting_date` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `posting_date` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `premium_tax_amount` SET TAGS ('dbx_business_glossary_term' = 'Premium Tax Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `premium_tax_rate` SET TAGS ('dbx_business_glossary_term' = 'Premium Tax Rate Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `reversal_flag` SET TAGS ('dbx_business_glossary_term' = 'Reversal Flag Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `statutory_line_code` SET TAGS ('dbx_business_glossary_term' = 'Statutory Line Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `transaction_type` SET TAGS ('dbx_business_glossary_term' = 'Premium Transaction Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `transaction_type` SET TAGS ('dbx_value_regex' = 'new_business|renewal|endorsement|cancellation|reinstatement|audit');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `uep_amount` SET TAGS ('dbx_business_glossary_term' = 'Unearned Premium (UEP) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`earned_premium` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` SET TAGS ('dbx_data_type' = 'transactional_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` SET TAGS ('dbx_subdomain' = 'premium_accounting');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `premium_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Premium Transaction ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `calendar_id` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `claim_id` SET TAGS ('dbx_business_glossary_term' = 'Claim Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `endorsement_id` SET TAGS ('dbx_business_glossary_term' = 'Endorsement ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `installment_schedule_id` SET TAGS ('dbx_business_glossary_term' = 'Installment Plan ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Lob Code Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_business_glossary_term' = 'Coverage Policy Coverage Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `policy_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Cancellation ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `reversed_transaction_premium_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Reversed Transaction ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `ri_treaty_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Treaty ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `risk_state_id` SET TAGS ('dbx_business_glossary_term' = 'Risk State Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `audit_code` SET TAGS ('dbx_business_glossary_term' = 'Premium Audit ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `booking_date` SET TAGS ('dbx_business_glossary_term' = 'Transaction Booking Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `ceded_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Premium Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Commission Rate');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `coverage_part_code` SET TAGS ('dbx_business_glossary_term' = 'Coverage Part Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `coverage_part_code` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `coverage_part_code` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `dac_amount` SET TAGS ('dbx_business_glossary_term' = 'Deferred Acquisition Cost (DAC) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `due_date` SET TAGS ('dbx_business_glossary_term' = 'Premium Due Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `earned_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Earned Premium (EP) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Transaction Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `exchange_rate` SET TAGS ('dbx_business_glossary_term' = 'Exchange Rate');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `exposure_units` SET TAGS ('dbx_business_glossary_term' = 'Exposure Units');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `fee_amount` SET TAGS ('dbx_business_glossary_term' = 'Policy Fee Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `gl_account_code` SET TAGS ('dbx_business_glossary_term' = 'General Ledger (GL) Account Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `gwp_amount` SET TAGS ('dbx_business_glossary_term' = 'Gross Written Premium (GWP) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `installment_number` SET TAGS ('dbx_business_glossary_term' = 'Installment Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Modified Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `nwp_amount` SET TAGS ('dbx_business_glossary_term' = 'Net Written Premium (NWP) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `payment_method` SET TAGS ('dbx_business_glossary_term' = 'Payment Method');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `payment_received_date` SET TAGS ('dbx_business_glossary_term' = 'Payment Received Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `rate_per_unit` SET TAGS ('dbx_business_glossary_term' = 'Rate Per Unit');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `reason_code` SET TAGS ('dbx_business_glossary_term' = 'Transaction Reason Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `reversal_flag` SET TAGS ('dbx_business_glossary_term' = 'Reversal Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `statutory_line_code` SET TAGS ('dbx_business_glossary_term' = 'Statutory Line Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `tax_amount` SET TAGS ('dbx_business_glossary_term' = 'Premium Tax Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `total_billed_amount` SET TAGS ('dbx_business_glossary_term' = 'Total Billed Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `transaction_description` SET TAGS ('dbx_business_glossary_term' = 'Transaction Description');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `transaction_number` SET TAGS ('dbx_business_glossary_term' = 'Premium Transaction Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `transaction_status` SET TAGS ('dbx_business_glossary_term' = 'Premium Transaction Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `transaction_status` SET TAGS ('dbx_value_regex' = 'pending|posted|reversed|voided|cancelled');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `transaction_type` SET TAGS ('dbx_business_glossary_term' = 'Premium Transaction Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_transaction` ALTER COLUMN `unearned_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Unearned Premium (UEP) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` SET TAGS ('dbx_data_type' = 'master_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` SET TAGS ('dbx_subdomain' = 'rating_calculation');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rate_element_id` SET TAGS ('dbx_business_glossary_term' = 'Rate Element Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `coverage_form_id` SET TAGS ('dbx_business_glossary_term' = 'Product Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `coverage_form_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `coverage_form_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Lob Code Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `state_id` SET TAGS ('dbx_business_glossary_term' = 'State Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `calculation_formula` SET TAGS ('dbx_business_glossary_term' = 'Calculation Formula');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `cat_loading_factor` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Loading Factor');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rate_element_category` SET TAGS ('dbx_business_glossary_term' = 'Rate Element Category');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rate_element_category` SET TAGS ('dbx_value_regex' = 'manual_rate|experience_rating|schedule_rating|catastrophe_loading|expense_provision|profit_margin');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `class_code` SET TAGS ('dbx_business_glossary_term' = 'Class Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `class_code` SET TAGS ('dbx_value_regex' = '^[A-Z0-9]{4,10}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rate_element_code` SET TAGS ('dbx_business_glossary_term' = 'Rate Element Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rate_element_code` SET TAGS ('dbx_value_regex' = '^[A-Z0-9_-]{3,20}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `coverage_code` SET TAGS ('dbx_business_glossary_term' = 'Coverage Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `coverage_code` SET TAGS ('dbx_value_regex' = '^[A-Z0-9]{2,10}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `coverage_code` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `coverage_code` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `credibility_factor` SET TAGS ('dbx_business_glossary_term' = 'Credibility Factor');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `deductible_credit_factor` SET TAGS ('dbx_business_glossary_term' = 'Deductible Credit Factor');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `default_value` SET TAGS ('dbx_business_glossary_term' = 'Default Rate Value');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rate_element_description` SET TAGS ('dbx_business_glossary_term' = 'Rate Element Description');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `expense_provision` SET TAGS ('dbx_business_glossary_term' = 'Expense Provision');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Expiration Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `filing_approval_date` SET TAGS ('dbx_business_glossary_term' = 'Filing Approval Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `increased_limits_factor` SET TAGS ('dbx_business_glossary_term' = 'Increased Limits Factor (ILF)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `is_filed` SET TAGS ('dbx_business_glossary_term' = 'Filed Rate Element Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `is_mandatory` SET TAGS ('dbx_business_glossary_term' = 'Mandatory Rate Element Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `loss_cost` SET TAGS ('dbx_business_glossary_term' = 'Loss Cost');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `maximum_value` SET TAGS ('dbx_business_glossary_term' = 'Maximum Rate Value');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `minimum_value` SET TAGS ('dbx_business_glossary_term' = 'Minimum Rate Value');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `naics_code` SET TAGS ('dbx_business_glossary_term' = 'North American Industry Classification System (NAICS) Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `naics_code` SET TAGS ('dbx_value_regex' = '^[0-9]{6}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rate_element_name` SET TAGS ('dbx_business_glossary_term' = 'Rate Element Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rate_element_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rate_element_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Rate Element Notes');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `profit_margin` SET TAGS ('dbx_business_glossary_term' = 'Profit and Contingency Margin');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rate_basis` SET TAGS ('dbx_business_glossary_term' = 'Rate Basis');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rate_element_status` SET TAGS ('dbx_business_glossary_term' = 'Rate Element Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rate_element_status` SET TAGS ('dbx_value_regex' = 'active|inactive|pending_approval|superseded|withdrawn');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rate_element_type` SET TAGS ('dbx_business_glossary_term' = 'Rate Element Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rate_element_type` SET TAGS ('dbx_value_regex' = 'base_rate|class_factor|territory_multiplier|schedule_credit|schedule_debit|experience_modifier');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rate_filing_number` SET TAGS ('dbx_business_glossary_term' = 'Rate Filing Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rate_filing_number` SET TAGS ('dbx_value_regex' = '^[A-Z0-9-]{5,30}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rate_source` SET TAGS ('dbx_business_glossary_term' = 'Rate Source');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rate_source` SET TAGS ('dbx_value_regex' = 'ISO|NCCI|PROPRIETARY|ADVISORY|BUREAU');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rate_table_name` SET TAGS ('dbx_business_glossary_term' = 'Rate Table Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rate_table_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rate_table_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rate_value` SET TAGS ('dbx_business_glossary_term' = 'Rate Value');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rate_version` SET TAGS ('dbx_business_glossary_term' = 'Rate Version');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rate_version` SET TAGS ('dbx_value_regex' = '^[A-Z0-9.]{1,20}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rating_tier` SET TAGS ('dbx_business_glossary_term' = 'Rating Tier');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rating_tier` SET TAGS ('dbx_value_regex' = 'preferred|standard|substandard|declined');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rating_tier` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rating_tier` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rol_value` SET TAGS ('dbx_business_glossary_term' = 'Rate on Line (ROL) Value');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `rpp_value` SET TAGS ('dbx_business_glossary_term' = 'Rate Per Point (RPP) Value');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `sic_code` SET TAGS ('dbx_business_glossary_term' = 'Standard Industrial Classification (SIC) Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `sic_code` SET TAGS ('dbx_value_regex' = '^[0-9]{4}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `territory_code` SET TAGS ('dbx_business_glossary_term' = 'Territory Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `territory_code` SET TAGS ('dbx_value_regex' = '^[A-Z0-9]{1,10}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `trend_factor` SET TAGS ('dbx_business_glossary_term' = 'Trend Factor');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_element` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` SET TAGS ('dbx_data_type' = 'master_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` SET TAGS ('dbx_subdomain' = 'rating_calculation');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `rate_table_id` SET TAGS ('dbx_business_glossary_term' = 'Rate Table Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Lob Code Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `policy_rate_filing_id` SET TAGS ('dbx_business_glossary_term' = 'Rate Filing Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `state_id` SET TAGS ('dbx_business_glossary_term' = 'State Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `actuarial_memo_reference` SET TAGS ('dbx_business_glossary_term' = 'Actuarial Memorandum Reference');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `approval_date` SET TAGS ('dbx_business_glossary_term' = 'Regulatory Approval Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `approved_by_regulator` SET TAGS ('dbx_business_glossary_term' = 'Approved by Regulator Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `class_code` SET TAGS ('dbx_business_glossary_term' = 'Class Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `rate_table_code` SET TAGS ('dbx_business_glossary_term' = 'Rate Table Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `coverage_code` SET TAGS ('dbx_business_glossary_term' = 'Coverage Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `coverage_code` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `coverage_code` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `created_by_user` SET TAGS ('dbx_business_glossary_term' = 'Created By User');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `expense_provision` SET TAGS ('dbx_business_glossary_term' = 'Expense Provision');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Expiration Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `filing_number` SET TAGS ('dbx_business_glossary_term' = 'Filing Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `iso_content_flag` SET TAGS ('dbx_business_glossary_term' = 'Insurance Services Office (ISO) Content Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `iso_edition` SET TAGS ('dbx_business_glossary_term' = 'Insurance Services Office (ISO) Edition');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `loss_cost` SET TAGS ('dbx_business_glossary_term' = 'Loss Cost');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `maximum_rate` SET TAGS ('dbx_business_glossary_term' = 'Maximum Rate');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `minimum_rate` SET TAGS ('dbx_business_glossary_term' = 'Minimum Rate');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `rate_table_name` SET TAGS ('dbx_business_glossary_term' = 'Rate Table Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `rate_table_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `rate_table_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `ncci_content_flag` SET TAGS ('dbx_business_glossary_term' = 'National Council on Compensation Insurance (NCCI) Content Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `owner` SET TAGS ('dbx_business_glossary_term' = 'Rate Table Owner');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `profit_provision` SET TAGS ('dbx_business_glossary_term' = 'Profit and Contingency Provision');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `rate_basis` SET TAGS ('dbx_business_glossary_term' = 'Rate Basis');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `rate_basis` SET TAGS ('dbx_value_regex' = 'per_unit|per_hundred|per_thousand|flat|percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `rate_change_percent` SET TAGS ('dbx_business_glossary_term' = 'Rate Change Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `rate_description` SET TAGS ('dbx_business_glossary_term' = 'Rate Description');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `rate_footnote` SET TAGS ('dbx_business_glossary_term' = 'Rate Footnote');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `rate_source` SET TAGS ('dbx_business_glossary_term' = 'Rate Source');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `rate_source` SET TAGS ('dbx_value_regex' = 'iso|ncci|company_proprietary|state_manual|advisory_organization');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `rate_table_status` SET TAGS ('dbx_business_glossary_term' = 'Rate Table Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `rate_table_status` SET TAGS ('dbx_value_regex' = 'draft|pending_approval|approved|active|superseded|withdrawn');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `rate_table_type` SET TAGS ('dbx_business_glossary_term' = 'Rate Table Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `rate_unit_of_measure` SET TAGS ('dbx_business_glossary_term' = 'Rate Unit of Measure');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `rate_value` SET TAGS ('dbx_business_glossary_term' = 'Rate Value');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `rate_version` SET TAGS ('dbx_business_glossary_term' = 'Rate Version Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `rating_plan` SET TAGS ('dbx_business_glossary_term' = 'Rating Plan');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `rating_plan` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `rating_plan` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `rating_tier` SET TAGS ('dbx_business_glossary_term' = 'Rating Tier');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `rating_tier` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `rating_tier` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `rol_value` SET TAGS ('dbx_business_glossary_term' = 'Rate on Line (ROL) Value');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `rpp_value` SET TAGS ('dbx_business_glossary_term' = 'Rate Per Point (RPP) Value');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `territory_code` SET TAGS ('dbx_business_glossary_term' = 'Territory Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `updated_by_user` SET TAGS ('dbx_business_glossary_term' = 'Updated By User');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rate_table` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` SET TAGS ('dbx_data_type' = 'transactional_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` SET TAGS ('dbx_subdomain' = 'rating_calculation');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_worksheet_id` SET TAGS ('dbx_business_glossary_term' = 'Rating Worksheet Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_worksheet_id` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_worksheet_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Lob Code Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_business_glossary_term' = 'Coverage Policy Coverage Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `quote_id` SET TAGS ('dbx_business_glossary_term' = 'Quote Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `approval_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Approval Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `approved_by` SET TAGS ('dbx_business_glossary_term' = 'Approved By');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `base_rate` SET TAGS ('dbx_business_glossary_term' = 'Base Rate');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `calculation_notes` SET TAGS ('dbx_business_glossary_term' = 'Calculation Notes');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `calculation_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Calculation Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `class_code` SET TAGS ('dbx_business_glossary_term' = 'Class Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `cumulative_premium` SET TAGS ('dbx_business_glossary_term' = 'Cumulative Premium');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `deductible_credit` SET TAGS ('dbx_business_glossary_term' = 'Deductible Credit');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `experience_mod` SET TAGS ('dbx_business_glossary_term' = 'Experience Modification Factor (Experience Mod)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Expiration Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `exposure_units` SET TAGS ('dbx_business_glossary_term' = 'Exposure Units');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `gwp` SET TAGS ('dbx_business_glossary_term' = 'Gross Written Premium (GWP)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `intermediate_premium` SET TAGS ('dbx_business_glossary_term' = 'Intermediate Premium');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `minimum_premium` SET TAGS ('dbx_business_glossary_term' = 'Minimum Premium');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `minimum_premium_applied_flag` SET TAGS ('dbx_business_glossary_term' = 'Minimum Premium Applied Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Modified Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `nwp` SET TAGS ('dbx_business_glossary_term' = 'Net Written Premium (NWP)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `product_code` SET TAGS ('dbx_business_glossary_term' = 'Product Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rate_effective_date` SET TAGS ('dbx_business_glossary_term' = 'Rate Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rate_source` SET TAGS ('dbx_business_glossary_term' = 'Rate Source');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rate_source` SET TAGS ('dbx_value_regex' = 'iso|verisk|proprietary|state_manual|ncci');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_basis` SET TAGS ('dbx_business_glossary_term' = 'Rating Basis');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_basis` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_basis` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_factor_code` SET TAGS ('dbx_business_glossary_term' = 'Rating Factor Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_factor_code` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_factor_code` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_factor_type` SET TAGS ('dbx_business_glossary_term' = 'Rating Factor Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_factor_type` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_factor_type` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_factor_value` SET TAGS ('dbx_business_glossary_term' = 'Rating Factor Value');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_factor_value` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_factor_value` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_plan_code` SET TAGS ('dbx_business_glossary_term' = 'Rating Plan Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_plan_code` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_plan_code` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_plan_version` SET TAGS ('dbx_business_glossary_term' = 'Rating Plan Version');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_plan_version` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_plan_version` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_status` SET TAGS ('dbx_business_glossary_term' = 'Rating Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_status` SET TAGS ('dbx_value_regex' = 'draft|calculated|approved|rejected|superseded');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_status` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_status` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_step_name` SET TAGS ('dbx_business_glossary_term' = 'Rating Step Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_step_name` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_step_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_step_sequence` SET TAGS ('dbx_business_glossary_term' = 'Rating Step Sequence');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_step_sequence` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `rating_step_sequence` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `schedule_credit_debit` SET TAGS ('dbx_business_glossary_term' = 'Schedule Credit or Debit');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `step_premium_adjustment` SET TAGS ('dbx_business_glossary_term' = 'Step Premium Adjustment');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `taxes_and_fees` SET TAGS ('dbx_business_glossary_term' = 'Taxes and Fees');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `territory_code` SET TAGS ('dbx_business_glossary_term' = 'Territory Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `total_charged_premium` SET TAGS ('dbx_business_glossary_term' = 'Total Charged Premium');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `underwriter_code` SET TAGS ('dbx_business_glossary_term' = 'Underwriter Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `worksheet_number` SET TAGS ('dbx_business_glossary_term' = 'Worksheet Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`rating_worksheet` ALTER COLUMN `worksheet_version` SET TAGS ('dbx_business_glossary_term' = 'Worksheet Version');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` SET TAGS ('dbx_data_type' = 'master_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` SET TAGS ('dbx_subdomain' = 'payment_collection');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `billing_account_id` SET TAGS ('dbx_business_glossary_term' = 'Billing Account Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `billing_country_id` SET TAGS ('dbx_business_glossary_term' = 'Billing Country Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `billing_currency_id` SET TAGS ('dbx_business_glossary_term' = 'Billing Currency Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `billing_state_id` SET TAGS ('dbx_business_glossary_term' = 'Billing State Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `insured_id` SET TAGS ('dbx_business_glossary_term' = 'Payer Party Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `account_name` SET TAGS ('dbx_business_glossary_term' = 'Billing Account Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `account_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `account_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `account_number` SET TAGS ('dbx_business_glossary_term' = 'Billing Account Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `account_number` SET TAGS ('dbx_value_regex' = '^[A-Z0-9]{8,20}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `account_number` SET TAGS ('dbx_restricted' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `account_number` SET TAGS ('dbx_pii_financial' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `account_status` SET TAGS ('dbx_business_glossary_term' = 'Billing Account Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `account_status` SET TAGS ('dbx_value_regex' = 'active|suspended|delinquent|closed|cancelled');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `account_type` SET TAGS ('dbx_business_glossary_term' = 'Billing Account Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `account_type` SET TAGS ('dbx_value_regex' = 'individual|commercial|agency|group');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `autopay_flag` SET TAGS ('dbx_business_glossary_term' = 'Automatic Payment (Autopay) Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `billing_address_line1` SET TAGS ('dbx_business_glossary_term' = 'Billing Address Line 1');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `billing_address_line1` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `billing_address_line1` SET TAGS ('dbx_pii_address' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `billing_address_line2` SET TAGS ('dbx_business_glossary_term' = 'Billing Address Line 2');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `billing_address_line2` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `billing_address_line2` SET TAGS ('dbx_pii_address' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `billing_city` SET TAGS ('dbx_business_glossary_term' = 'Billing City');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `billing_city` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `billing_city` SET TAGS ('dbx_pii_address' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `billing_contact_email` SET TAGS ('dbx_business_glossary_term' = 'Billing Contact Email Address');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `billing_contact_email` SET TAGS ('dbx_value_regex' = '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `billing_contact_email` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `billing_contact_email` SET TAGS ('dbx_pii_email' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `billing_contact_phone` SET TAGS ('dbx_business_glossary_term' = 'Billing Contact Phone Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `billing_contact_phone` SET TAGS ('dbx_value_regex' = '^+?[0-9]{10,15}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `billing_contact_phone` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `billing_contact_phone` SET TAGS ('dbx_pii_phone' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `billing_method` SET TAGS ('dbx_business_glossary_term' = 'Billing Method');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `billing_method` SET TAGS ('dbx_value_regex' = 'direct_bill|agency_bill|list_bill|account_current');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `billing_postal_code` SET TAGS ('dbx_business_glossary_term' = 'Billing Postal Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `billing_postal_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5}(-[0-9]{4})?$');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `billing_postal_code` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `billing_postal_code` SET TAGS ('dbx_pii_address' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `cancellation_date` SET TAGS ('dbx_business_glossary_term' = 'Billing Account Cancellation Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `cancellation_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Cancellation Reason Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `cancellation_reason_code` SET TAGS ('dbx_value_regex' = '^[A-Z0-9]{2,6}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `commission_rate_percent` SET TAGS ('dbx_business_glossary_term' = 'Commission Rate Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `created_by_user` SET TAGS ('dbx_business_glossary_term' = 'Record Created By User');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `current_balance_amount` SET TAGS ('dbx_business_glossary_term' = 'Current Balance Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `delinquency_days` SET TAGS ('dbx_business_glossary_term' = 'Delinquency Days Count');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Billing Account Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Billing Account Expiration Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `grace_period_days` SET TAGS ('dbx_business_glossary_term' = 'Grace Period Days');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `grace_period_days` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `grace_period_days` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `last_payment_amount` SET TAGS ('dbx_business_glossary_term' = 'Last Payment Received Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `last_payment_date` SET TAGS ('dbx_business_glossary_term' = 'Last Payment Received Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `last_statement_date` SET TAGS ('dbx_business_glossary_term' = 'Last Statement Issued Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `next_due_amount` SET TAGS ('dbx_business_glossary_term' = 'Next Payment Due Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `next_due_date` SET TAGS ('dbx_business_glossary_term' = 'Next Payment Due Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `paperless_billing_flag` SET TAGS ('dbx_business_glossary_term' = 'Paperless Billing Enrollment Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `past_due_amount` SET TAGS ('dbx_business_glossary_term' = 'Past Due Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `payment_frequency` SET TAGS ('dbx_business_glossary_term' = 'Payment Frequency');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `payment_frequency` SET TAGS ('dbx_value_regex' = 'annual|semi_annual|quarterly|monthly|custom');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `payment_plan_code` SET TAGS ('dbx_business_glossary_term' = 'Payment Plan Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `payment_plan_code` SET TAGS ('dbx_value_regex' = '^[A-Z0-9]{2,10}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `total_billed_amount` SET TAGS ('dbx_business_glossary_term' = 'Total Billed Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `total_paid_amount` SET TAGS ('dbx_business_glossary_term' = 'Total Paid Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `unapplied_payment_amount` SET TAGS ('dbx_business_glossary_term' = 'Unapplied Payment Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `updated_by_user` SET TAGS ('dbx_business_glossary_term' = 'Record Updated By User');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`billing_account` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` SET TAGS ('dbx_data_type' = 'master_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` SET TAGS ('dbx_subdomain' = 'payment_collection');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `installment_schedule_id` SET TAGS ('dbx_business_glossary_term' = 'Installment Schedule ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `billing_account_id` SET TAGS ('dbx_business_glossary_term' = 'Account ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Lob Code Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `state_id` SET TAGS ('dbx_business_glossary_term' = 'State Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `autopay_discount_amount` SET TAGS ('dbx_business_glossary_term' = 'Autopay Discount Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `autopay_enrolled_flag` SET TAGS ('dbx_business_glossary_term' = 'Autopay Enrolled Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `billing_method` SET TAGS ('dbx_business_glossary_term' = 'Billing Method');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `billing_method` SET TAGS ('dbx_value_regex' = 'direct_bill|agency_bill|list_bill|account_current');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `cancellation_for_nonpayment_days` SET TAGS ('dbx_business_glossary_term' = 'Cancellation for Nonpayment (CANC) Days');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `cancellation_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Cancellation Reason Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `cancelled_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Cancelled Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `down_payment_amount` SET TAGS ('dbx_business_glossary_term' = 'Down Payment Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `down_payment_due_date` SET TAGS ('dbx_business_glossary_term' = 'Down Payment Due Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `down_payment_percentage` SET TAGS ('dbx_business_glossary_term' = 'Down Payment Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `down_payment_percentage` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `down_payment_percentage` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `eligibility_criteria` SET TAGS ('dbx_business_glossary_term' = 'Eligibility Criteria');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `first_installment_due_date` SET TAGS ('dbx_business_glossary_term' = 'First Installment Due Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `grace_period_days` SET TAGS ('dbx_business_glossary_term' = 'Grace Period Days');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `grace_period_days` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `grace_period_days` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `installment_count` SET TAGS ('dbx_business_glossary_term' = 'Installment Count');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `installment_fee_amount` SET TAGS ('dbx_business_glossary_term' = 'Installment Fee Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `installment_frequency` SET TAGS ('dbx_business_glossary_term' = 'Installment Frequency');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `installment_frequency` SET TAGS ('dbx_value_regex' = 'monthly|quarterly|semi-annual|annual|bi-weekly');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `late_payment_fee_amount` SET TAGS ('dbx_business_glossary_term' = 'Late Payment Fee Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `maximum_premium_threshold` SET TAGS ('dbx_business_glossary_term' = 'Maximum Premium Threshold');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `minimum_premium_threshold` SET TAGS ('dbx_business_glossary_term' = 'Minimum Premium Threshold');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Notes');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `paperless_billing_flag` SET TAGS ('dbx_business_glossary_term' = 'Paperless Billing Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `paperless_discount_amount` SET TAGS ('dbx_business_glossary_term' = 'Paperless Discount Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `payment_method_preference` SET TAGS ('dbx_business_glossary_term' = 'Payment Method Preference');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `payment_method_preference` SET TAGS ('dbx_value_regex' = 'credit_card|debit_card|ach|check|wire_transfer|cash');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `payment_plan_code` SET TAGS ('dbx_business_glossary_term' = 'Payment Plan Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `payment_plan_name` SET TAGS ('dbx_business_glossary_term' = 'Payment Plan Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `payment_plan_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `payment_plan_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `reinstatement_fee_amount` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Fee Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `reinstatement_fee_amount` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `reinstatement_fee_amount` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `schedule_effective_date` SET TAGS ('dbx_business_glossary_term' = 'Schedule Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `schedule_expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Schedule Expiration Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `schedule_number` SET TAGS ('dbx_business_glossary_term' = 'Schedule Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `schedule_status` SET TAGS ('dbx_business_glossary_term' = 'Schedule Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `schedule_status` SET TAGS ('dbx_value_regex' = 'active|suspended|cancelled|completed|defaulted|pending');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `total_amount_due` SET TAGS ('dbx_business_glossary_term' = 'Total Amount Due');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `total_fees_amount` SET TAGS ('dbx_business_glossary_term' = 'Total Fees Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `total_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Total Premium Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment_schedule` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` SET TAGS ('dbx_data_type' = 'transactional_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` SET TAGS ('dbx_subdomain' = 'payment_collection');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `installment_id` SET TAGS ('dbx_business_glossary_term' = 'Installment Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `installment_schedule_id` SET TAGS ('dbx_business_glossary_term' = 'Billing Schedule Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `autopay_flag` SET TAGS ('dbx_business_glossary_term' = 'Automatic Payment (Autopay) Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `billed_amount` SET TAGS ('dbx_business_glossary_term' = 'Installment Billed Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `billed_date` SET TAGS ('dbx_business_glossary_term' = 'Installment Billed Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `billing_notice_sent_flag` SET TAGS ('dbx_business_glossary_term' = 'Billing Notice Sent Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `cancellation_effective_date` SET TAGS ('dbx_business_glossary_term' = 'Cancellation Effective Date (CANC)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `cancellation_notice_date` SET TAGS ('dbx_business_glossary_term' = 'Cancellation Notice Date (CANC)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `days_overdue` SET TAGS ('dbx_business_glossary_term' = 'Days Overdue');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `delinquency_status` SET TAGS ('dbx_business_glossary_term' = 'Delinquency Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `delinquency_status` SET TAGS ('dbx_value_regex' = 'current|overdue|in_grace|delinquent|written_off');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `due_date` SET TAGS ('dbx_business_glossary_term' = 'Installment Due Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `fee_amount` SET TAGS ('dbx_business_glossary_term' = 'Installment Fee Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `grace_period_days` SET TAGS ('dbx_business_glossary_term' = 'Grace Period Days');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `grace_period_days` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `grace_period_days` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `grace_period_end_date` SET TAGS ('dbx_business_glossary_term' = 'Grace Period End Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `grace_period_end_date` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `grace_period_end_date` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `installment_status` SET TAGS ('dbx_business_glossary_term' = 'Installment Payment Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `installment_status` SET TAGS ('dbx_value_regex' = 'pending|billed|paid|partially_paid|overdue|cancelled');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `invoice_number` SET TAGS ('dbx_business_glossary_term' = 'Invoice Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `late_fee_amount` SET TAGS ('dbx_business_glossary_term' = 'Installment Late Fee Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `late_notice_sent_flag` SET TAGS ('dbx_business_glossary_term' = 'Late Notice Sent Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `number` SET TAGS ('dbx_business_glossary_term' = 'Installment Sequence Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `outstanding_balance` SET TAGS ('dbx_business_glossary_term' = 'Installment Outstanding Balance');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `paid_amount` SET TAGS ('dbx_business_glossary_term' = 'Installment Paid Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `paid_date` SET TAGS ('dbx_business_glossary_term' = 'Installment Paid Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `payment_channel` SET TAGS ('dbx_business_glossary_term' = 'Payment Channel');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `payment_channel` SET TAGS ('dbx_value_regex' = 'online|mobile_app|agent|mail|phone|in_person');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `payment_method` SET TAGS ('dbx_business_glossary_term' = 'Payment Method');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `payment_reference_number` SET TAGS ('dbx_business_glossary_term' = 'Payment Reference Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Installment Premium Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `reminder_notice_sent_flag` SET TAGS ('dbx_business_glossary_term' = 'Reminder Notice Sent Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `reversal_date` SET TAGS ('dbx_business_glossary_term' = 'Payment Reversal Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `reversal_flag` SET TAGS ('dbx_business_glossary_term' = 'Payment Reversal Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `reversal_reason` SET TAGS ('dbx_business_glossary_term' = 'Payment Reversal Reason');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `tax_amount` SET TAGS ('dbx_business_glossary_term' = 'Installment Tax Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `waived_date` SET TAGS ('dbx_business_glossary_term' = 'Installment Waived Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `waived_flag` SET TAGS ('dbx_business_glossary_term' = 'Installment Waived Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`installment` ALTER COLUMN `waived_reason` SET TAGS ('dbx_business_glossary_term' = 'Installment Waived Reason');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` SET TAGS ('dbx_data_type' = 'transactional_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` SET TAGS ('dbx_subdomain' = 'payment_collection');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `payment_id` SET TAGS ('dbx_business_glossary_term' = 'Payment Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `billing_account_id` SET TAGS ('dbx_business_glossary_term' = 'Account Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `installment_schedule_id` SET TAGS ('dbx_business_glossary_term' = 'Payment Plan Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `premium_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Transaction Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `amount` SET TAGS ('dbx_business_glossary_term' = 'Payment Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `applied_amount` SET TAGS ('dbx_business_glossary_term' = 'Applied Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `authorization_code` SET TAGS ('dbx_business_glossary_term' = 'Authorization Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `authorization_code` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `bank_name` SET TAGS ('dbx_business_glossary_term' = 'Bank Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `bank_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `bank_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `bank_routing_number` SET TAGS ('dbx_business_glossary_term' = 'Bank Routing Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `bank_routing_number` SET TAGS ('dbx_value_regex' = '^[0-9]{9}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `bank_routing_number` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `bank_routing_number` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `bank_routing_number` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `channel` SET TAGS ('dbx_business_glossary_term' = 'Payment Channel');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `cleared_date` SET TAGS ('dbx_business_glossary_term' = 'Cleared Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `convenience_fee_amount` SET TAGS ('dbx_business_glossary_term' = 'Convenience Fee Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `deposit_date` SET TAGS ('dbx_business_glossary_term' = 'Deposit Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `installment_number` SET TAGS ('dbx_business_glossary_term' = 'Installment Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `method` SET TAGS ('dbx_business_glossary_term' = 'Payment Method');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `modified_by` SET TAGS ('dbx_business_glossary_term' = 'Modified By User');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Modified Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Payment Notes');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `number` SET TAGS ('dbx_business_glossary_term' = 'Payment Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `payer_account_number` SET TAGS ('dbx_business_glossary_term' = 'Payer Account Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `payer_account_number` SET TAGS ('dbx_restricted' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `payer_account_number` SET TAGS ('dbx_pii_financial' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `payer_name` SET TAGS ('dbx_business_glossary_term' = 'Payer Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `payer_name` SET TAGS ('dbx_restricted' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `payer_name` SET TAGS ('dbx_pii_name' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `payment_date` SET TAGS ('dbx_business_glossary_term' = 'Payment Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `payment_status` SET TAGS ('dbx_business_glossary_term' = 'Payment Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `payment_status` SET TAGS ('dbx_value_regex' = 'pending|applied|cleared|reversed|failed|suspended');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `payment_type` SET TAGS ('dbx_business_glossary_term' = 'Payment Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `payment_type` SET TAGS ('dbx_value_regex' = 'premium|reinstatement|late_fee|nsfee|adjustment|refund');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `processing_fee_amount` SET TAGS ('dbx_business_glossary_term' = 'Processing Fee Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `receipt_issued_date` SET TAGS ('dbx_business_glossary_term' = 'Receipt Issued Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `receipt_number` SET TAGS ('dbx_business_glossary_term' = 'Receipt Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `reference_number` SET TAGS ('dbx_business_glossary_term' = 'Payment Reference Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `reversal_date` SET TAGS ('dbx_business_glossary_term' = 'Reversal Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `reversal_reason` SET TAGS ('dbx_business_glossary_term' = 'Reversal Reason');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `source` SET TAGS ('dbx_business_glossary_term' = 'Payment Source');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `source` SET TAGS ('dbx_value_regex' = 'policyholder|third_party|agent|reinsurer|subrogation');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `unapplied_amount` SET TAGS ('dbx_business_glossary_term' = 'Unapplied Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment` ALTER COLUMN `created_by` SET TAGS ('dbx_business_glossary_term' = 'Created By User');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` SET TAGS ('dbx_data_type' = 'association_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` SET TAGS ('dbx_subdomain' = 'payment_collection');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `payment_application_id` SET TAGS ('dbx_business_glossary_term' = 'Payment Application Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `installment_id` SET TAGS ('dbx_business_glossary_term' = 'Installment Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `payment_id` SET TAGS ('dbx_business_glossary_term' = 'Payment Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `premium_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Source Transaction Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `allocation_priority` SET TAGS ('dbx_business_glossary_term' = 'Allocation Priority');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `application_date` SET TAGS ('dbx_business_glossary_term' = 'Application Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `application_method` SET TAGS ('dbx_business_glossary_term' = 'Application Method');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `application_method` SET TAGS ('dbx_value_regex' = 'automatic|manual|suspense_clearing|reversal|adjustment');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `application_notes` SET TAGS ('dbx_business_glossary_term' = 'Application Notes');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `application_sequence` SET TAGS ('dbx_business_glossary_term' = 'Application Sequence Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `application_status` SET TAGS ('dbx_business_glossary_term' = 'Application Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `application_status` SET TAGS ('dbx_value_regex' = 'applied|reversed|pending|voided');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `application_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Application Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `applied_amount` SET TAGS ('dbx_business_glossary_term' = 'Applied Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `applied_by_user_code` SET TAGS ('dbx_business_glossary_term' = 'Applied By User Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `applied_by_user_code` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `applied_by_user_code` SET TAGS ('dbx_pii' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `applied_to_fee_flag` SET TAGS ('dbx_business_glossary_term' = 'Applied to Fee Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `applied_to_interest_flag` SET TAGS ('dbx_business_glossary_term' = 'Applied to Interest Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `applied_to_principal_flag` SET TAGS ('dbx_business_glossary_term' = 'Applied to Principal Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `billing_account_number` SET TAGS ('dbx_business_glossary_term' = 'Billing Account Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `billing_account_number` SET TAGS ('dbx_restricted' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `billing_account_number` SET TAGS ('dbx_pii_financial' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `currency_code` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `currency_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `installment_balance_after` SET TAGS ('dbx_business_glossary_term' = 'Installment Balance After Application');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `installment_balance_before` SET TAGS ('dbx_business_glossary_term' = 'Installment Balance Before Application');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `nsf_reversal_flag` SET TAGS ('dbx_business_glossary_term' = 'Non-Sufficient Funds (NSF) Reversal Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `policy_number` SET TAGS ('dbx_business_glossary_term' = 'Policy Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `reversal_date` SET TAGS ('dbx_business_glossary_term' = 'Reversal Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `reversal_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Reversal Reason Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `reversal_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Reversal Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `suspense_clearing_flag` SET TAGS ('dbx_business_glossary_term' = 'Suspense Clearing Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `unapplied_amount` SET TAGS ('dbx_business_glossary_term' = 'Unapplied Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`payment_application` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` SET TAGS ('dbx_data_type' = 'transactional_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` SET TAGS ('dbx_subdomain' = 'premium_accounting');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `dac_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Deferred Acquisition Cost (DAC) Transaction ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `calendar_id` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Lob Code Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_business_glossary_term' = 'Coverage Policy Coverage Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `premium_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Source Transaction ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `accounting_standard` SET TAGS ('dbx_business_glossary_term' = 'Accounting Standard');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `accounting_standard` SET TAGS ('dbx_value_regex' = 'US_GAAP|IFRS_17|STAT');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `accounting_standard` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `accounting_standard` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `adjustment_amount` SET TAGS ('dbx_business_glossary_term' = 'Adjustment Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `amortization_amount` SET TAGS ('dbx_business_glossary_term' = 'Amortization Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `amortization_method` SET TAGS ('dbx_business_glossary_term' = 'Amortization Method');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `amortization_method` SET TAGS ('dbx_value_regex' = 'straight_line|earned_premium|expected_gross_profit');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `amortization_period_months` SET TAGS ('dbx_business_glossary_term' = 'Amortization Period (Months)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `approval_date` SET TAGS ('dbx_business_glossary_term' = 'Approval Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `approved_by_user_code` SET TAGS ('dbx_business_glossary_term' = 'Approved By User ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `approved_by_user_code` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `approved_by_user_code` SET TAGS ('dbx_pii' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `capitalized_amount` SET TAGS ('dbx_business_glossary_term' = 'Capitalized Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `cost_center_code` SET TAGS ('dbx_business_glossary_term' = 'Cost Center Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `dac_balance` SET TAGS ('dbx_business_glossary_term' = 'DAC Balance');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `earned_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Earned Premium (EP) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `gl_account_code` SET TAGS ('dbx_business_glossary_term' = 'General Ledger (GL) Account Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `impairment_amount` SET TAGS ('dbx_business_glossary_term' = 'Impairment Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Transaction Notes');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `other_acquisition_cost_amount` SET TAGS ('dbx_business_glossary_term' = 'Other Acquisition Cost Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `policy_effective_date` SET TAGS ('dbx_business_glossary_term' = 'Policy Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `policy_expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Policy Expiration Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `posted_by_user_code` SET TAGS ('dbx_business_glossary_term' = 'Posted By User ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `posted_by_user_code` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `posted_by_user_code` SET TAGS ('dbx_pii' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `product_code` SET TAGS ('dbx_business_glossary_term' = 'Product Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `recoverability_test_date` SET TAGS ('dbx_business_glossary_term' = 'Recoverability Test Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `recoverability_test_result` SET TAGS ('dbx_business_glossary_term' = 'Recoverability Test Result');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `recoverability_test_result` SET TAGS ('dbx_value_regex' = 'pass|fail|not_tested');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `reversal_reason` SET TAGS ('dbx_business_glossary_term' = 'Reversal Reason');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `transaction_date` SET TAGS ('dbx_business_glossary_term' = 'DAC Transaction Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `transaction_number` SET TAGS ('dbx_business_glossary_term' = 'DAC Transaction Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `transaction_status` SET TAGS ('dbx_business_glossary_term' = 'DAC Transaction Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `transaction_status` SET TAGS ('dbx_value_regex' = 'draft|pending|posted|reversed|cancelled');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `transaction_type` SET TAGS ('dbx_business_glossary_term' = 'DAC Transaction Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `transaction_type` SET TAGS ('dbx_value_regex' = 'capitalization|amortization|write_off|adjustment|reversal');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `underwriting_expense_amount` SET TAGS ('dbx_business_glossary_term' = 'Underwriting Expense Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `underwriting_expense_amount` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `underwriting_expense_amount` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `write_off_amount` SET TAGS ('dbx_business_glossary_term' = 'Write-Off Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`dac_transaction` ALTER COLUMN `written_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Written Premium (WP) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` SET TAGS ('dbx_data_type' = 'master_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` SET TAGS ('dbx_subdomain' = 'rating_calculation');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `minimum_earned_premium_id` SET TAGS ('dbx_business_glossary_term' = 'Minimum Earned Premium (MEP) ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `jurisdiction_state_id` SET TAGS ('dbx_business_glossary_term' = 'Jurisdiction State Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Lob Code Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_business_glossary_term' = 'Coverage ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `applies_to_cancellation_type` SET TAGS ('dbx_business_glossary_term' = 'Applies to Cancellation Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `applies_to_cancellation_type` SET TAGS ('dbx_value_regex' = 'insured_request|underwriter_cancellation|non_payment|all_cancellations');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Expiration Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `filing_approval_date` SET TAGS ('dbx_business_glossary_term' = 'Filing Approval Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `filing_reference_number` SET TAGS ('dbx_business_glossary_term' = 'Filing Reference Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `last_modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Last Modified Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `mep_amount` SET TAGS ('dbx_business_glossary_term' = 'Minimum Earned Premium (MEP) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `mep_calculation_method` SET TAGS ('dbx_business_glossary_term' = 'MEP Calculation Method');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `mep_calculation_method` SET TAGS ('dbx_value_regex' = 'flat_amount|percentage_of_wp|greater_of_amount_or_percentage|short_rate_table|pro_rata_with_floor');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `mep_percentage` SET TAGS ('dbx_business_glossary_term' = 'Minimum Earned Premium (MEP) Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `mep_percentage` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `mep_percentage` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `mep_waiver_reason_code` SET TAGS ('dbx_business_glossary_term' = 'MEP Waiver Reason Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `minimum_earned_premium_status` SET TAGS ('dbx_business_glossary_term' = 'MEP Threshold Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `minimum_earned_premium_status` SET TAGS ('dbx_value_regex' = 'active|inactive|pending_approval|superseded|expired');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `modified_by_user_code` SET TAGS ('dbx_business_glossary_term' = 'Modified By User ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `modified_by_user_code` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `modified_by_user_code` SET TAGS ('dbx_pii' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Notes');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `override_allowed_flag` SET TAGS ('dbx_business_glossary_term' = 'Override Allowed Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `override_authority_level` SET TAGS ('dbx_business_glossary_term' = 'Override Authority Level');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `override_authority_level` SET TAGS ('dbx_value_regex' = 'underwriter|senior_underwriter|uw_manager|vp_underwriting|none');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `policy_term_months` SET TAGS ('dbx_business_glossary_term' = 'Policy Term Months');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `product_code` SET TAGS ('dbx_business_glossary_term' = 'Product Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `regulatory_mandate_flag` SET TAGS ('dbx_business_glossary_term' = 'Regulatory Mandate Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `short_rate_penalty_percentage` SET TAGS ('dbx_business_glossary_term' = 'Short Rate Penalty Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `short_rate_penalty_percentage` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `short_rate_penalty_percentage` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `version_number` SET TAGS ('dbx_business_glossary_term' = 'Version Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` SET TAGS ('dbx_data_type' = 'transactional_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` SET TAGS ('dbx_subdomain' = 'premium_accounting');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `surplus_lines_tax_id` SET TAGS ('dbx_business_glossary_term' = 'Surplus Lines Tax ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `surplus_lines_tax_id` SET TAGS ('dbx_restricted' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `surplus_lines_tax_id` SET TAGS ('dbx_pii_identifier' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `tax_jurisdiction_state_id` SET TAGS ('dbx_business_glossary_term' = 'Tax Jurisdiction State Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `adjustment_amount` SET TAGS ('dbx_business_glossary_term' = 'Adjustment Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `adjustment_reason` SET TAGS ('dbx_business_glossary_term' = 'Adjustment Reason');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `diligent_search_completed_flag` SET TAGS ('dbx_business_glossary_term' = 'Diligent Search Completed Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `diligent_search_date` SET TAGS ('dbx_business_glossary_term' = 'Diligent Search Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `diligent_search_documentation_reference` SET TAGS ('dbx_business_glossary_term' = 'Diligent Search Documentation Reference');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `exemption_code` SET TAGS ('dbx_business_glossary_term' = 'Exemption Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `exemption_reason` SET TAGS ('dbx_business_glossary_term' = 'Exemption Reason');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `filing_period_end_date` SET TAGS ('dbx_business_glossary_term' = 'Filing Period End Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `filing_period_start_date` SET TAGS ('dbx_business_glossary_term' = 'Filing Period Start Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `gwp_subject_to_tax` SET TAGS ('dbx_business_glossary_term' = 'Gross Written Premium (GWP) Subject to Tax');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `home_state_allocation_percent` SET TAGS ('dbx_business_glossary_term' = 'Home State Allocation Percent');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `interest_amount` SET TAGS ('dbx_business_glossary_term' = 'Interest Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `multi_state_allocation_flag` SET TAGS ('dbx_business_glossary_term' = 'Multi-State Allocation Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `nonadmitted_insurer_naic_code` SET TAGS ('dbx_business_glossary_term' = 'Nonadmitted Insurer NAIC Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `nonadmitted_insurer_naic_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `nonadmitted_insurer_name` SET TAGS ('dbx_business_glossary_term' = 'Nonadmitted Insurer Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `nonadmitted_insurer_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `nonadmitted_insurer_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Notes');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `payment_reference_number` SET TAGS ('dbx_business_glossary_term' = 'Payment Reference Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `penalty_amount` SET TAGS ('dbx_business_glossary_term' = 'Penalty Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `policy_effective_date` SET TAGS ('dbx_business_glossary_term' = 'Policy Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `policy_expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Policy Expiration Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `stamping_fee_amount` SET TAGS ('dbx_business_glossary_term' = 'Stamping Fee Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `stamping_fee_rate_percent` SET TAGS ('dbx_business_glossary_term' = 'Stamping Fee Rate Percent');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `stamping_office_code` SET TAGS ('dbx_business_glossary_term' = 'Stamping Office Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `stamping_office_name` SET TAGS ('dbx_business_glossary_term' = 'Stamping Office Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `stamping_office_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `stamping_office_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `surplus_lines_broker_license_number` SET TAGS ('dbx_business_glossary_term' = 'Surplus Lines Broker License Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `surplus_lines_broker_license_number` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `surplus_lines_broker_license_number` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `surplus_lines_broker_name` SET TAGS ('dbx_business_glossary_term' = 'Surplus Lines Broker Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `surplus_lines_broker_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `surplus_lines_broker_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `tax_amount` SET TAGS ('dbx_business_glossary_term' = 'Tax Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `tax_calculation_date` SET TAGS ('dbx_business_glossary_term' = 'Tax Calculation Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `tax_filed_date` SET TAGS ('dbx_business_glossary_term' = 'Tax Filed Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `tax_filing_due_date` SET TAGS ('dbx_business_glossary_term' = 'Tax Filing Due Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `tax_paid_date` SET TAGS ('dbx_business_glossary_term' = 'Tax Paid Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `tax_payment_due_date` SET TAGS ('dbx_business_glossary_term' = 'Tax Payment Due Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `tax_rate_percent` SET TAGS ('dbx_business_glossary_term' = 'Tax Rate Percent');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `tax_status` SET TAGS ('dbx_business_glossary_term' = 'Tax Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `tax_status` SET TAGS ('dbx_value_regex' = 'pending|calculated|filed|paid|overdue|waived');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `total_tax_and_fee_amount` SET TAGS ('dbx_business_glossary_term' = 'Total Tax and Fee Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`surplus_lines_tax` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` SET TAGS ('dbx_data_type' = 'master_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` SET TAGS ('dbx_subdomain' = 'payment_collection');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `finance_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Finance Agreement Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `billing_account_id` SET TAGS ('dbx_business_glossary_term' = 'Billing Account Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `insured_id` SET TAGS ('dbx_business_glossary_term' = 'Insured Party Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `agreement_number` SET TAGS ('dbx_business_glossary_term' = 'Finance Agreement Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `agreement_number` SET TAGS ('dbx_value_regex' = '^[A-Z0-9]{8,20}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `agreement_signed_date` SET TAGS ('dbx_business_glossary_term' = 'Agreement Signed Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `agreement_status` SET TAGS ('dbx_business_glossary_term' = 'Finance Agreement Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `agreement_status` SET TAGS ('dbx_value_regex' = 'pending|active|paid_in_full|defaulted|cancelled|suspended');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `agreement_type` SET TAGS ('dbx_business_glossary_term' = 'Finance Agreement Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `agreement_type` SET TAGS ('dbx_value_regex' = 'standard|commercial|personal|specialty');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `annual_percentage_rate` SET TAGS ('dbx_business_glossary_term' = 'Annual Percentage Rate (APR)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `annual_percentage_rate` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `annual_percentage_rate` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `cancellation_date` SET TAGS ('dbx_business_glossary_term' = 'Finance Agreement Cancellation Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `cancellation_notice_days` SET TAGS ('dbx_business_glossary_term' = 'Cancellation Notice Days Count');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `cancellation_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Cancellation Reason Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `cancellation_reason_code` SET TAGS ('dbx_value_regex' = 'default|early_payoff|policy_cancelled|mutual_agreement|other');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `default_date` SET TAGS ('dbx_business_glossary_term' = 'Default Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `delinquency_days` SET TAGS ('dbx_business_glossary_term' = 'Delinquency Days Count');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `down_payment_amount` SET TAGS ('dbx_business_glossary_term' = 'Down Payment Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Finance Agreement Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Finance Agreement Expiration Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `final_installment_due_date` SET TAGS ('dbx_business_glossary_term' = 'Final Installment Due Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `finance_company_party_code` SET TAGS ('dbx_business_glossary_term' = 'Finance Company Party Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `financed_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Financed Premium Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `first_installment_due_date` SET TAGS ('dbx_business_glossary_term' = 'First Installment Due Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `grace_period_days` SET TAGS ('dbx_business_glossary_term' = 'Grace Period Days Count');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `grace_period_days` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `grace_period_days` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `installment_amount` SET TAGS ('dbx_business_glossary_term' = 'Installment Payment Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `installment_frequency` SET TAGS ('dbx_business_glossary_term' = 'Installment Payment Frequency');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `installment_frequency` SET TAGS ('dbx_value_regex' = 'monthly|quarterly|semi_annual|annual');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `interest_rate_percent` SET TAGS ('dbx_business_glossary_term' = 'Interest Rate Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `last_payment_amount` SET TAGS ('dbx_business_glossary_term' = 'Last Payment Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `last_payment_date` SET TAGS ('dbx_business_glossary_term' = 'Last Payment Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `late_fee_amount` SET TAGS ('dbx_business_glossary_term' = 'Late Fee Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Modified Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `next_payment_due_amount` SET TAGS ('dbx_business_glossary_term' = 'Next Payment Due Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `next_payment_due_date` SET TAGS ('dbx_business_glossary_term' = 'Next Payment Due Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `number_of_installments` SET TAGS ('dbx_business_glossary_term' = 'Number of Installments');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `outstanding_balance_amount` SET TAGS ('dbx_business_glossary_term' = 'Outstanding Balance Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `past_due_amount` SET TAGS ('dbx_business_glossary_term' = 'Past Due Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `payoff_amount` SET TAGS ('dbx_business_glossary_term' = 'Payoff Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `payoff_date` SET TAGS ('dbx_business_glossary_term' = 'Payoff Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `power_of_attorney_flag` SET TAGS ('dbx_business_glossary_term' = 'Power of Attorney (POA) Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `total_amount_financed` SET TAGS ('dbx_business_glossary_term' = 'Total Amount Financed');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `total_finance_charge_amount` SET TAGS ('dbx_business_glossary_term' = 'Total Finance Charge Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `total_paid_amount` SET TAGS ('dbx_business_glossary_term' = 'Total Paid Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`finance_agreement` ALTER COLUMN `total_repayment_amount` SET TAGS ('dbx_business_glossary_term' = 'Total Repayment Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` SET TAGS ('dbx_data_type' = 'master_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` SET TAGS ('dbx_subdomain' = 'rating_calculation');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `premium_rate_filing_id` SET TAGS ('dbx_business_glossary_term' = 'Premium Rate Filing ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Lob Code Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `state_id` SET TAGS ('dbx_business_glossary_term' = 'State Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `actuarial_justification` SET TAGS ('dbx_business_glossary_term' = 'Actuarial Justification');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `actuary_credential` SET TAGS ('dbx_business_glossary_term' = 'Actuary Credential');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `actuary_name` SET TAGS ('dbx_business_glossary_term' = 'Actuary Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `actuary_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `actuary_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `affected_policy_count` SET TAGS ('dbx_business_glossary_term' = 'Affected Policy Count');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `approval_date` SET TAGS ('dbx_business_glossary_term' = 'Approval Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `certification_date` SET TAGS ('dbx_business_glossary_term' = 'Certification Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `competitive_impact_analysis` SET TAGS ('dbx_business_glossary_term' = 'Competitive Impact Analysis');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `consumer_impact_statement` SET TAGS ('dbx_business_glossary_term' = 'Consumer Impact Statement');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Expiration Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `filing_description` SET TAGS ('dbx_business_glossary_term' = 'Filing Description');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `filing_fee_amount` SET TAGS ('dbx_business_glossary_term' = 'Filing Fee Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `filing_fee_paid_flag` SET TAGS ('dbx_business_glossary_term' = 'Filing Fee Paid Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `filing_method` SET TAGS ('dbx_business_glossary_term' = 'Filing Method');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `filing_method` SET TAGS ('dbx_value_regex' = 'file_and_use|prior_approval|use_and_file|flex_rating|no_file');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `filing_number` SET TAGS ('dbx_business_glossary_term' = 'Filing Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `filing_status` SET TAGS ('dbx_business_glossary_term' = 'Filing Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `filing_type` SET TAGS ('dbx_business_glossary_term' = 'Filing Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `filing_type` SET TAGS ('dbx_value_regex' = 'rate_change|new_program|rule_change|form_filing|rate_and_rule|withdrawal');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `indicated_rate_change_percentage` SET TAGS ('dbx_business_glossary_term' = 'Indicated Rate Change Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `indicated_rate_change_percentage` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `indicated_rate_change_percentage` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `insurer_response` SET TAGS ('dbx_business_glossary_term' = 'Insurer Response');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `iso_program_code` SET TAGS ('dbx_business_glossary_term' = 'Insurance Services Office (ISO) Program Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `loss_ratio_target` SET TAGS ('dbx_business_glossary_term' = 'Loss Ratio (LR) Target');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Modified Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `naic_company_code` SET TAGS ('dbx_business_glossary_term' = 'National Association of Insurance Commissioners (NAIC) Company Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `objection_period_end_date` SET TAGS ('dbx_business_glossary_term' = 'Objection Period End Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `prior_filing_number` SET TAGS ('dbx_business_glossary_term' = 'Prior Filing Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `rate_change_percentage` SET TAGS ('dbx_business_glossary_term' = 'Rate Change Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `rate_change_percentage` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `rate_change_percentage` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `rate_change_type` SET TAGS ('dbx_business_glossary_term' = 'Rate Change Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `rate_change_type` SET TAGS ('dbx_value_regex' = 'increase|decrease|no_change|variable');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `rate_impact_amount` SET TAGS ('dbx_business_glossary_term' = 'Rate Impact Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `rate_manual_version` SET TAGS ('dbx_business_glossary_term' = 'Rate Manual Version');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `regulator_comments` SET TAGS ('dbx_business_glossary_term' = 'Regulator Comments');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `rejection_date` SET TAGS ('dbx_business_glossary_term' = 'Rejection Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `serff_tracking_number` SET TAGS ('dbx_business_glossary_term' = 'System for Electronic Rate and Form Filing (SERFF) Tracking Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `submission_date` SET TAGS ('dbx_business_glossary_term' = 'Submission Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `superseded_filing_number` SET TAGS ('dbx_business_glossary_term' = 'Superseded Filing Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `supporting_document_count` SET TAGS ('dbx_business_glossary_term' = 'Supporting Document Count');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `supporting_document_count` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `supporting_document_count` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`premium_rate_filing` ALTER COLUMN `withdrawal_date` SET TAGS ('dbx_business_glossary_term' = 'Withdrawal Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` SET TAGS ('dbx_data_type' = 'transactional_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` SET TAGS ('dbx_subdomain' = 'payment_collection');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `agency_bill_statement_id` SET TAGS ('dbx_business_glossary_term' = 'Agency Bill Statement ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `agency_bill_statement_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `agency_bill_statement_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `agency_id` SET TAGS ('dbx_business_glossary_term' = 'Agency ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `agency_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `agency_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `billing_account_id` SET TAGS ('dbx_business_glossary_term' = 'Billing Account ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `state_id` SET TAGS ('dbx_business_glossary_term' = 'State Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `adjustment_amount` SET TAGS ('dbx_business_glossary_term' = 'Adjustment Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `balance_forward_amount` SET TAGS ('dbx_business_glossary_term' = 'Balance Forward Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `billing_method` SET TAGS ('dbx_business_glossary_term' = 'Billing Method');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `billing_method` SET TAGS ('dbx_value_regex' = 'direct_bill|agency_bill|list_bill|account_current');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `cancellation_count` SET TAGS ('dbx_business_glossary_term' = 'Cancellation (CANC) Count');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `commission_rate_percent` SET TAGS ('dbx_business_glossary_term' = 'Commission Rate Percent');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `current_balance_amount` SET TAGS ('dbx_business_glossary_term' = 'Current Balance Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `delinquency_days` SET TAGS ('dbx_business_glossary_term' = 'Delinquency Days');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `due_date` SET TAGS ('dbx_business_glossary_term' = 'Due Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `endorsement_count` SET TAGS ('dbx_business_glossary_term' = 'Endorsement (ENDT) Count');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `fees_amount` SET TAGS ('dbx_business_glossary_term' = 'Fees Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `gwp_amount` SET TAGS ('dbx_business_glossary_term' = 'Gross Written Premium (GWP) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `issued_by_user_code` SET TAGS ('dbx_business_glossary_term' = 'Issued By User ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `issued_by_user_code` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `issued_by_user_code` SET TAGS ('dbx_pii' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `lob_summary` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Summary');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Modified Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `naic_company_code` SET TAGS ('dbx_business_glossary_term' = 'National Association of Insurance Commissioners (NAIC) Company Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `naic_company_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `net_amount_due` SET TAGS ('dbx_business_glossary_term' = 'Net Amount Due');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `new_business_count` SET TAGS ('dbx_business_glossary_term' = 'New Business (NB) Count');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Notes');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `nwp_amount` SET TAGS ('dbx_business_glossary_term' = 'Net Written Premium (NWP) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `payment_received_amount` SET TAGS ('dbx_business_glossary_term' = 'Payment Received Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `payment_terms_days` SET TAGS ('dbx_business_glossary_term' = 'Payment Terms Days');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `policy_count` SET TAGS ('dbx_business_glossary_term' = 'Policy Count');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `premium_tax_amount` SET TAGS ('dbx_business_glossary_term' = 'Premium Tax Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `producer_contact_email` SET TAGS ('dbx_business_glossary_term' = 'Producer Contact Email');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `producer_contact_email` SET TAGS ('dbx_value_regex' = '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `producer_contact_email` SET TAGS ('dbx_restricted' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `producer_contact_email` SET TAGS ('dbx_pii_email' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `producer_contact_name` SET TAGS ('dbx_business_glossary_term' = 'Producer Contact Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `producer_contact_name` SET TAGS ('dbx_restricted' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `producer_contact_name` SET TAGS ('dbx_pii_name' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `producer_contact_phone` SET TAGS ('dbx_business_glossary_term' = 'Producer Contact Phone');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `producer_contact_phone` SET TAGS ('dbx_restricted' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `producer_contact_phone` SET TAGS ('dbx_pii_phone' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `reconciliation_status` SET TAGS ('dbx_business_glossary_term' = 'Reconciliation Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `reconciliation_status` SET TAGS ('dbx_value_regex' = 'pending|reconciled|disputed|adjusted');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `renewal_count` SET TAGS ('dbx_business_glossary_term' = 'Renewal (REN) Count');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `statement_date` SET TAGS ('dbx_business_glossary_term' = 'Statement Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `statement_delivery_method` SET TAGS ('dbx_business_glossary_term' = 'Statement Delivery Method');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `statement_delivery_method` SET TAGS ('dbx_value_regex' = 'email|postal_mail|portal|fax');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `statement_format` SET TAGS ('dbx_business_glossary_term' = 'Statement Format');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `statement_format` SET TAGS ('dbx_value_regex' = 'pdf|csv|xml|html');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `statement_number` SET TAGS ('dbx_business_glossary_term' = 'Statement Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `statement_period_end_date` SET TAGS ('dbx_business_glossary_term' = 'Statement Period End Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `statement_period_start_date` SET TAGS ('dbx_business_glossary_term' = 'Statement Period Start Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `statement_status` SET TAGS ('dbx_business_glossary_term' = 'Statement Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`premium`.`agency_bill_statement` ALTER COLUMN `statement_status` SET TAGS ('dbx_value_regex' = 'draft|issued|paid|partially_paid|overdue|cancelled');
+ALTER SCHEMA `vibe_pc_insurance_blog_v499`.`premium` SET TAGS ('dbx_division' = 'business');
+ALTER SCHEMA `vibe_pc_insurance_blog_v499`.`premium` SET TAGS ('dbx_domain' = 'premium');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` SET TAGS ('dbx_data_type' = 'transactional_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` SET TAGS ('dbx_subdomain' = 'financial_transactions');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `premium_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Premium Transaction ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `calendar_id` SET TAGS ('dbx_business_glossary_term' = 'Calendar Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `cat_model_version_id` SET TAGS ('dbx_business_glossary_term' = 'Cat Model Version Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `cat_zone_id` SET TAGS ('dbx_business_glossary_term' = 'Cat Zone Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `catastrophe_event_id` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe Event Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `catastrophegeography_peril_id` SET TAGS ('dbx_business_glossary_term' = 'Peril Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `claim_id` SET TAGS ('dbx_business_glossary_term' = 'Claim Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `claimfinancials_accounting_period_id` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `coverage_id` SET TAGS ('dbx_business_glossary_term' = 'Coverage ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `geography_id` SET TAGS ('dbx_business_glossary_term' = 'Geography Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `insured_risk_id` SET TAGS ('dbx_business_glossary_term' = 'Insured Risk ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `original_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Original Premium Transaction ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `policy_term_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Term ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `policy_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Transaction ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `quote_id` SET TAGS ('dbx_business_glossary_term' = 'Quote Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `rating_worksheet_id` SET TAGS ('dbx_business_glossary_term' = 'Rating Worksheet Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `submission_id` SET TAGS ('dbx_business_glossary_term' = 'Submission Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `unit_of_measure_id` SET TAGS ('dbx_business_glossary_term' = 'Unit Of Measure Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `coverage_transaction_id` SET TAGS ('dbx_ssot_reference' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `audit_basis` SET TAGS ('dbx_business_glossary_term' = 'Audit Premium Basis');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `audit_basis` SET TAGS ('dbx_value_regex' = 'Payroll|Revenue|Units|Receipts|None');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `ceded_written_premium` SET TAGS ('dbx_business_glossary_term' = 'Ceded Written Premium');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `ceded_written_premium` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `ceded_written_premium` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `cost_center_code` SET TAGS ('dbx_business_glossary_term' = 'Cost Center Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `days_in_force` SET TAGS ('dbx_business_glossary_term' = 'Days In Force');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `direct_billed_indicator` SET TAGS ('dbx_business_glossary_term' = 'Direct Billed Indicator');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `earned_premium` SET TAGS ('dbx_business_glossary_term' = 'Earned Premium (EP)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `earned_premium` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `earned_premium` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `earning_method` SET TAGS ('dbx_business_glossary_term' = 'Premium Earning Method');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `earning_method` SET TAGS ('dbx_value_regex' = 'Pro-Rata|1/365|1/24|Flat|Other');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Premium Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `endorsement_type` SET TAGS ('dbx_business_glossary_term' = 'Endorsement Premium Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `endorsement_type` SET TAGS ('dbx_value_regex' = 'Additional|Return|Flat|Audit|None');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Premium Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `exposure_amount` SET TAGS ('dbx_business_glossary_term' = 'Exposure Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `gl_account_code` SET TAGS ('dbx_business_glossary_term' = 'General Ledger (GL) Account Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `gross_written_premium` SET TAGS ('dbx_business_glossary_term' = 'Gross Written Premium (GWP)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `gross_written_premium` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `gross_written_premium` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `net_written_premium` SET TAGS ('dbx_business_glossary_term' = 'Net Written Premium (NWP)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `net_written_premium` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `net_written_premium` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Premium Transaction Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `payment_plan_code` SET TAGS ('dbx_business_glossary_term' = 'Payment Plan Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `posted_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Posted Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `pro_rata_factor` SET TAGS ('dbx_business_glossary_term' = 'Pro-Rata Earning Factor');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `rate` SET TAGS ('dbx_business_glossary_term' = 'Premium Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `rate_effective_date` SET TAGS ('dbx_business_glossary_term' = 'Rate Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `return_premium` SET TAGS ('dbx_business_glossary_term' = 'Return Premium');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `return_premium` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `return_premium` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `reversal_indicator` SET TAGS ('dbx_business_glossary_term' = 'Reversal Indicator');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `source_system_code` SET TAGS ('dbx_value_regex' = 'PAS|BILLING|RATING|MANUAL|REINSURANCE');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `state_code` SET TAGS ('dbx_business_glossary_term' = 'State Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `state_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{2}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `state_code` SET TAGS ('dbx_pii_sensitive' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `transaction_date` SET TAGS ('dbx_business_glossary_term' = 'Premium Transaction Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `transaction_number` SET TAGS ('dbx_business_glossary_term' = 'Premium Transaction Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `transaction_status` SET TAGS ('dbx_business_glossary_term' = 'Premium Transaction Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `transaction_status` SET TAGS ('dbx_value_regex' = 'Pending|Posted|Reversed|Voided|Error');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `transaction_type` SET TAGS ('dbx_business_glossary_term' = 'Premium Transaction Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `transaction_type` SET TAGS ('dbx_value_regex' = 'Written|Earned|Unearned|Return|Adjustment');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `unearned_premium` SET TAGS ('dbx_business_glossary_term' = 'Unearned Premium (UEP)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `unearned_premium` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `unearned_premium` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_transaction` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` SET TAGS ('dbx_data_type' = 'reference_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` SET TAGS ('dbx_subdomain' = 'financial_transactions');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `premium_accounting_period_id` SET TAGS ('dbx_business_glossary_term' = 'Premium Accounting Period ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `prior_period_premium_accounting_period_id` SET TAGS ('dbx_business_glossary_term' = 'Prior Accounting Period ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `parent_period_id` SET TAGS ('dbx_business_glossary_term' = 'Parent Accounting Period ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `accident_year_ay` SET TAGS ('dbx_business_glossary_term' = 'Accident Year (AY)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `actuarial_reserve_cutoff_date` SET TAGS ('dbx_business_glossary_term' = 'Actuarial Reserve Cutoff Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `bordereaux_due_date` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Bordereaux Due Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `calendar_year_cy` SET TAGS ('dbx_business_glossary_term' = 'Calendar Year (CY)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `close_date` SET TAGS ('dbx_business_glossary_term' = 'Period Close Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `currency_code` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `currency_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `days_in_period` SET TAGS ('dbx_business_glossary_term' = 'Days in Period');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `earned_premium_basis` SET TAGS ('dbx_business_glossary_term' = 'Earned Premium (EP) Basis');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `earned_premium_basis` SET TAGS ('dbx_value_regex' = 'PRO_RATA|DAILY|MONTHLY');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `end_date` SET TAGS ('dbx_business_glossary_term' = 'Period End Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `filing_status` SET TAGS ('dbx_business_glossary_term' = 'Regulatory Filing Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `filing_status` SET TAGS ('dbx_value_regex' = 'NOT_FILED|FILED|ACCEPTED|REJECTED|AMENDED');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `fiscal_month` SET TAGS ('dbx_business_glossary_term' = 'Fiscal Month');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `fiscal_quarter` SET TAGS ('dbx_business_glossary_term' = 'Fiscal Quarter');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `fiscal_year` SET TAGS ('dbx_business_glossary_term' = 'Fiscal Year');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `gl_period_code` SET TAGS ('dbx_business_glossary_term' = 'General Ledger (GL) Period Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `is_current_period` SET TAGS ('dbx_business_glossary_term' = 'Is Current Period Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `is_ifrs17_reporting_period` SET TAGS ('dbx_business_glossary_term' = 'Is IFRS 17 Reporting Period Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `is_statutory_filing_period` SET TAGS ('dbx_business_glossary_term' = 'Is Statutory Filing Period Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `lock_date` SET TAGS ('dbx_business_glossary_term' = 'Period Lock Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `period_code` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `period_code` SET TAGS ('dbx_value_regex' = '^[0-9]{4}-(0[1-9]|1[0-2]|Q[1-4]|ANNUAL)$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `period_name` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `period_name` SET TAGS ('dbx_pii_category' = 'name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `period_status` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `period_status` SET TAGS ('dbx_value_regex' = 'OPEN|CLOSED|LOCKED|REOPENED');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `period_type` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `period_type` SET TAGS ('dbx_value_regex' = 'MONTHLY|QUARTERLY|ANNUAL');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `policy_year_py` SET TAGS ('dbx_business_glossary_term' = 'Policy Year (PY)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `regulatory_filing_deadline` SET TAGS ('dbx_business_glossary_term' = 'Regulatory Filing Deadline');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `reopen_date` SET TAGS ('dbx_business_glossary_term' = 'Period Reopen Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `reopen_reason` SET TAGS ('dbx_business_glossary_term' = 'Period Reopen Reason');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `reporting_basis` SET TAGS ('dbx_business_glossary_term' = 'Reporting Basis');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `reporting_basis` SET TAGS ('dbx_value_regex' = 'SAP|GAAP|IFRS17');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `schedule_p_year_type` SET TAGS ('dbx_business_glossary_term' = 'Schedule P Year Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `schedule_p_year_type` SET TAGS ('dbx_value_regex' = 'CY|AY|PY');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_accounting_period` ALTER COLUMN `start_date` SET TAGS ('dbx_business_glossary_term' = 'Period Start Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` SET TAGS ('dbx_data_type' = 'transactional_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` SET TAGS ('dbx_subdomain' = 'financial_transactions');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `charge_id` SET TAGS ('dbx_business_glossary_term' = 'Charge Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `calendar_id` SET TAGS ('dbx_business_glossary_term' = 'Calendar Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `catastrophe_event_id` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe Event Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `catastrophegeography_peril_id` SET TAGS ('dbx_business_glossary_term' = 'Peril Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `claimfinancials_accounting_period_id` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `coverage_id` SET TAGS ('dbx_business_glossary_term' = 'Coverage Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `geography_id` SET TAGS ('dbx_business_glossary_term' = 'Geography Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `insured_risk_id` SET TAGS ('dbx_business_glossary_term' = 'Insured Risk Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `policy_term_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Term Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `premium_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Premium Transaction Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `rating_worksheet_id` SET TAGS ('dbx_business_glossary_term' = 'Rating Worksheet Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `amount` SET TAGS ('dbx_business_glossary_term' = 'Charge Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `basis_amount` SET TAGS ('dbx_business_glossary_term' = 'Charge Basis Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `charge_category` SET TAGS ('dbx_business_glossary_term' = 'Charge Category');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `charge_category` SET TAGS ('dbx_value_regex' = 'premium|fee|penalty|refund|adjustment');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `ceded_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `charge_status` SET TAGS ('dbx_business_glossary_term' = 'Charge Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `charge_status` SET TAGS ('dbx_value_regex' = 'active|voided|reversed|adjusted|pending');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `charge_type` SET TAGS ('dbx_business_glossary_term' = 'Charge Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Commission Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Commission Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `charge_description` SET TAGS ('dbx_business_glossary_term' = 'Charge Description');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `earned_amount` SET TAGS ('dbx_business_glossary_term' = 'Earned Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Charge Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Charge Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `gl_account_code` SET TAGS ('dbx_business_glossary_term' = 'General Ledger (GL) Account Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `is_ceded` SET TAGS ('dbx_business_glossary_term' = 'Is Ceded to Reinsurance Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `is_commissionable` SET TAGS ('dbx_business_glossary_term' = 'Is Commissionable Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `is_earned` SET TAGS ('dbx_business_glossary_term' = 'Is Earned Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `is_minimum_premium` SET TAGS ('dbx_business_glossary_term' = 'Is Minimum Premium Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `is_prorated` SET TAGS ('dbx_business_glossary_term' = 'Is Prorated Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `net_amount` SET TAGS ('dbx_business_glossary_term' = 'Net Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `number` SET TAGS ('dbx_business_glossary_term' = 'Charge Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `percentage` SET TAGS ('dbx_business_glossary_term' = 'Charge Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `proration_factor` SET TAGS ('dbx_business_glossary_term' = 'Proration Factor');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `rate` SET TAGS ('dbx_business_glossary_term' = 'Charge Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `rating_element_code` SET TAGS ('dbx_business_glossary_term' = 'Rating Element Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `rating_element_description` SET TAGS ('dbx_business_glossary_term' = 'Rating Element Description');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `reversal_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Reversal Reason Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `reversal_reason_description` SET TAGS ('dbx_business_glossary_term' = 'Reversal Reason Description');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `sequence` SET TAGS ('dbx_business_glossary_term' = 'Charge Sequence Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `statutory_line_code` SET TAGS ('dbx_business_glossary_term' = 'Statutory Line Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `unearned_amount` SET TAGS ('dbx_business_glossary_term' = 'Unearned Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`charge` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Updated Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` SET TAGS ('dbx_data_type' = 'transactional_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` SET TAGS ('dbx_subdomain' = 'financial_transactions');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `tax_levy_id` SET TAGS ('dbx_business_glossary_term' = 'Tax Levy Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `calendar_id` SET TAGS ('dbx_business_glossary_term' = 'Calendar Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `cat_zone_id` SET TAGS ('dbx_business_glossary_term' = 'Cat Zone Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `claimfinancials_accounting_period_id` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `geography_id` SET TAGS ('dbx_business_glossary_term' = 'Geography Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `original_tax_levy_id` SET TAGS ('dbx_business_glossary_term' = 'Original Tax Levy Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `policy_term_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Term Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `premium_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Premium Transaction Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `amount` SET TAGS ('dbx_business_glossary_term' = 'Tax Levy Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `tax_levy_description` SET TAGS ('dbx_business_glossary_term' = 'Tax Levy Description');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `naic_company_code` SET TAGS ('dbx_business_glossary_term' = 'National Association of Insurance Commissioners (NAIC) Company Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `policy_transaction_type_code` SET TAGS ('dbx_business_glossary_term' = 'Policy Transaction Type Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `policy_transaction_type_code` SET TAGS ('dbx_value_regex' = 'NEW_BUSINESS|RENEWAL|ENDORSEMENT|CANCELLATION|REINSTATEMENT');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Tax Levy Source System Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `stamping_office_code` SET TAGS ('dbx_business_glossary_term' = 'Stamping Office Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `surplus_lines_flag` SET TAGS ('dbx_business_glossary_term' = 'Surplus Lines Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `tax_adjustment_flag` SET TAGS ('dbx_business_glossary_term' = 'Tax Adjustment Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `tax_authority_name` SET TAGS ('dbx_business_glossary_term' = 'Tax Authority Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `tax_authority_name` SET TAGS ('dbx_pii_category' = 'name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `tax_calculation_method_code` SET TAGS ('dbx_business_glossary_term' = 'Tax Calculation Method Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `tax_calculation_method_code` SET TAGS ('dbx_value_regex' = 'STATUTORY_RATE|FLAT_FEE|TIERED_RATE|MINIMUM_TAX');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `tax_effective_date` SET TAGS ('dbx_business_glossary_term' = 'Tax Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `tax_exemption_flag` SET TAGS ('dbx_business_glossary_term' = 'Tax Exemption Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `tax_exemption_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Tax Exemption Reason Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `tax_exemption_reason_code` SET TAGS ('dbx_value_regex' = 'EXEMPT_ENTITY|REINSURANCE|EXPORT|FEDERAL_PROGRAM|OTHER');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `tax_rate` SET TAGS ('dbx_business_glossary_term' = 'Tax Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `tax_remittance_batch_code` SET TAGS ('dbx_business_glossary_term' = 'Tax Remittance Batch Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `tax_remittance_date` SET TAGS ('dbx_business_glossary_term' = 'Tax Remittance Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `tax_remittance_due_date` SET TAGS ('dbx_business_glossary_term' = 'Tax Remittance Due Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `tax_remittance_status` SET TAGS ('dbx_business_glossary_term' = 'Tax Remittance Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `tax_remittance_status` SET TAGS ('dbx_value_regex' = 'PENDING|REMITTED|OVERDUE|WAIVED|ADJUSTED');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `tax_reporting_category_code` SET TAGS ('dbx_business_glossary_term' = 'Tax Reporting Category Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `tax_reporting_category_code` SET TAGS ('dbx_value_regex' = 'DIRECT_WRITTEN|ASSUMED_REINSURANCE|CEDED_REINSURANCE');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `tax_type_code` SET TAGS ('dbx_business_glossary_term' = 'Tax Type Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `tax_type_code` SET TAGS ('dbx_value_regex' = 'STATE_PREMIUM_TAX|SURPLUS_LINES_TAX|STAMPING_FEE|MUNICIPAL_TAX|FIRE_MARSHAL_TAX|GUARANTY_FUND_ASSESSMENT');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `taxable_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Taxable Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`tax_levy` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Updated Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` SET TAGS ('dbx_data_type' = 'transactional_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` SET TAGS ('dbx_subdomain' = 'financial_transactions');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `policy_fee_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Fee Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `calendar_id` SET TAGS ('dbx_business_glossary_term' = 'Calendar Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `claimfinancials_accounting_period_id` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `invoice_id` SET TAGS ('dbx_business_glossary_term' = 'Invoice Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `original_fee_id` SET TAGS ('dbx_business_glossary_term' = 'Original Fee Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `payment_plan_id` SET TAGS ('dbx_business_glossary_term' = 'Payment Plan Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `policy_term_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Term Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `premium_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Premium Transaction Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `source_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Source Transaction Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `billing_method` SET TAGS ('dbx_business_glossary_term' = 'Billing Method');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `billing_method` SET TAGS ('dbx_value_regex' = 'direct_bill|agency_bill|list_bill|account_current');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `fee_amount` SET TAGS ('dbx_business_glossary_term' = 'Fee Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `fee_basis` SET TAGS ('dbx_business_glossary_term' = 'Fee Basis');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `fee_code` SET TAGS ('dbx_business_glossary_term' = 'Fee Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `fee_description` SET TAGS ('dbx_business_glossary_term' = 'Fee Description');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `fee_quantity` SET TAGS ('dbx_business_glossary_term' = 'Fee Quantity');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `fee_rate` SET TAGS ('dbx_business_glossary_term' = 'Fee Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `fee_status` SET TAGS ('dbx_business_glossary_term' = 'Fee Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `fee_status` SET TAGS ('dbx_value_regex' = 'pending|posted|reversed|refunded|written_off');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `fee_type` SET TAGS ('dbx_business_glossary_term' = 'Fee Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `gl_account_code` SET TAGS ('dbx_business_glossary_term' = 'General Ledger (GL) Account Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `is_commission_bearing` SET TAGS ('dbx_business_glossary_term' = 'Is Commission Bearing Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `is_refundable` SET TAGS ('dbx_business_glossary_term' = 'Is Refundable Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `is_taxable` SET TAGS ('dbx_business_glossary_term' = 'Is Taxable Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `jurisdiction_code` SET TAGS ('dbx_business_glossary_term' = 'Jurisdiction Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `last_modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Last Modified Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `lob_code` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `reversal_date` SET TAGS ('dbx_business_glossary_term' = 'Reversal Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `reversal_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Reversal Reason Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `state_code` SET TAGS ('dbx_business_glossary_term' = 'State Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `state_code` SET TAGS ('dbx_pii_sensitive' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `statutory_line_code` SET TAGS ('dbx_business_glossary_term' = 'Statutory Line Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `transaction_booking_date` SET TAGS ('dbx_business_glossary_term' = 'Transaction Booking Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `transaction_effective_date` SET TAGS ('dbx_business_glossary_term' = 'Transaction Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `transaction_type` SET TAGS ('dbx_business_glossary_term' = 'Transaction Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `transaction_type` SET TAGS ('dbx_value_regex' = 'charge|reversal|adjustment|refund');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `waived_flag` SET TAGS ('dbx_business_glossary_term' = 'Waived Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `waiver_authorized_by` SET TAGS ('dbx_business_glossary_term' = 'Waiver Authorized By');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `waiver_authorized_by` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`policy_fee` ALTER COLUMN `waiver_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Waiver Reason Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` SET TAGS ('dbx_data_type' = 'transactional_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` SET TAGS ('dbx_subdomain' = 'financial_transactions');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `commission_id` SET TAGS ('dbx_business_glossary_term' = 'Commission Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `agency_id` SET TAGS ('dbx_business_glossary_term' = 'Agency Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `calendar_id` SET TAGS ('dbx_business_glossary_term' = 'Calendar Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `claimfinancials_accounting_period_id` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `disbursement_id` SET TAGS ('dbx_business_glossary_term' = 'Disbursement Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `geography_id` SET TAGS ('dbx_business_glossary_term' = 'Geography Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `license_id` SET TAGS ('dbx_business_glossary_term' = 'License Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `original_commission_id` SET TAGS ('dbx_business_glossary_term' = 'Original Commission Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `policy_term_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Term Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `premium_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Premium Transaction Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `quote_id` SET TAGS ('dbx_business_glossary_term' = 'Quote Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `amount` SET TAGS ('dbx_business_glossary_term' = 'Commission Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `basis` SET TAGS ('dbx_business_glossary_term' = 'Commission Basis');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `basis` SET TAGS ('dbx_value_regex' = 'written_premium|earned_premium|policy_fee|installment_fee');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `basis_amount` SET TAGS ('dbx_business_glossary_term' = 'Basis Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `calculation_method` SET TAGS ('dbx_business_glossary_term' = 'Calculation Method');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `calculation_method` SET TAGS ('dbx_value_regex' = 'flat_rate|tiered|sliding_scale|manual_override');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `chargeback_indicator` SET TAGS ('dbx_business_glossary_term' = 'Chargeback Indicator');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `chargeback_reason` SET TAGS ('dbx_business_glossary_term' = 'Chargeback Reason');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `commission_status` SET TAGS ('dbx_business_glossary_term' = 'Commission Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `commission_status` SET TAGS ('dbx_value_regex' = 'calculated|approved|pending_payment|paid|reversed|cancelled');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `commission_type` SET TAGS ('dbx_business_glossary_term' = 'Commission Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `commission_type` SET TAGS ('dbx_value_regex' = 'new_business|renewal|endorsement|contingent|override|bonus');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `contingent_indicator` SET TAGS ('dbx_business_glossary_term' = 'Contingent Indicator');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `earned_date` SET TAGS ('dbx_business_glossary_term' = 'Earned Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `gl_account_code` SET TAGS ('dbx_business_glossary_term' = 'General Ledger (GL) Account Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Modified Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `net_payable_amount` SET TAGS ('dbx_business_glossary_term' = 'Net Payable Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `override_indicator` SET TAGS ('dbx_business_glossary_term' = 'Override Indicator');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `payment_date` SET TAGS ('dbx_business_glossary_term' = 'Payment Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `payment_method` SET TAGS ('dbx_business_glossary_term' = 'Payment Method');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `payment_method` SET TAGS ('dbx_value_regex' = 'ach|wire|check|offset|direct_deposit');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `payment_status` SET TAGS ('dbx_business_glossary_term' = 'Payment Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `payment_status` SET TAGS ('dbx_value_regex' = 'unpaid|paid|partially_paid|withheld|deferred');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `policy_transaction_type` SET TAGS ('dbx_business_glossary_term' = 'Policy Transaction Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `policy_transaction_type` SET TAGS ('dbx_value_regex' = 'new_business|renewal|endorsement|cancellation|reinstatement');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `rate` SET TAGS ('dbx_business_glossary_term' = 'Commission Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `reversal_indicator` SET TAGS ('dbx_business_glossary_term' = 'Reversal Indicator');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `schedule_code` SET TAGS ('dbx_business_glossary_term' = 'Commission Schedule Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `split_percentage` SET TAGS ('dbx_business_glossary_term' = 'Split Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `tax_withholding_amount` SET TAGS ('dbx_business_glossary_term' = 'Tax Withholding Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `tier_level` SET TAGS ('dbx_business_glossary_term' = 'Tier Level');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`commission` ALTER COLUMN `transaction_date` SET TAGS ('dbx_business_glossary_term' = 'Transaction Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` SET TAGS ('dbx_data_type' = 'transactional_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` SET TAGS ('dbx_subdomain' = 'financial_transactions');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `earned_premium_schedule_id` SET TAGS ('dbx_business_glossary_term' = 'Earned Premium Schedule ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `calendar_id` SET TAGS ('dbx_business_glossary_term' = 'Calendar Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `catastrophegeography_peril_id` SET TAGS ('dbx_business_glossary_term' = 'Peril Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `claimfinancials_accounting_period_id` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `coverage_id` SET TAGS ('dbx_business_glossary_term' = 'Coverage ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `geography_id` SET TAGS ('dbx_business_glossary_term' = 'Geography Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `insured_risk_id` SET TAGS ('dbx_business_glossary_term' = 'Insured Risk ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `policy_term_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Term ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `prior_schedule_id` SET TAGS ('dbx_business_glossary_term' = 'Prior Schedule ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `quote_id` SET TAGS ('dbx_business_glossary_term' = 'Quote Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `adjustment_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Adjustment Reason Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `cancellation_date` SET TAGS ('dbx_business_glossary_term' = 'Cancellation Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `cancellation_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Cancellation Reason Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `cumulative_earned_amount` SET TAGS ('dbx_business_glossary_term' = 'Cumulative Earned Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `daily_earned_amount` SET TAGS ('dbx_business_glossary_term' = 'Daily Earned Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `days_elapsed` SET TAGS ('dbx_business_glossary_term' = 'Days Elapsed');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `days_in_period` SET TAGS ('dbx_business_glossary_term' = 'Days in Period');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `days_remaining` SET TAGS ('dbx_business_glossary_term' = 'Days Remaining');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `earned_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Earned Premium (EP) Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `earning_method` SET TAGS ('dbx_business_glossary_term' = 'Earning Method');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `earning_method` SET TAGS ('dbx_value_regex' = 'daily|monthly|quarterly|annual|event_based');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `earning_percentage` SET TAGS ('dbx_business_glossary_term' = 'Earning Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `gl_account_code` SET TAGS ('dbx_business_glossary_term' = 'General Ledger (GL) Account Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `ifrs17_cohort_code` SET TAGS ('dbx_business_glossary_term' = 'IFRS 17 Cohort Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `is_minimum_earned` SET TAGS ('dbx_business_glossary_term' = 'Is Minimum Earned Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `is_prorated` SET TAGS ('dbx_business_glossary_term' = 'Is Prorated Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `is_short_rate` SET TAGS ('dbx_business_glossary_term' = 'Is Short Rate Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `last_updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Last Updated Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `minimum_earned_amount` SET TAGS ('dbx_business_glossary_term' = 'Minimum Earned Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `proration_factor` SET TAGS ('dbx_business_glossary_term' = 'Proration Factor');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `reporting_basis` SET TAGS ('dbx_business_glossary_term' = 'Reporting Basis');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `reporting_basis` SET TAGS ('dbx_value_regex' = 'statutory|gaap|ifrs17|tax');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `schedule_date` SET TAGS ('dbx_business_glossary_term' = 'Schedule Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `schedule_number` SET TAGS ('dbx_business_glossary_term' = 'Schedule Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `schedule_status` SET TAGS ('dbx_business_glossary_term' = 'Schedule Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `schedule_status` SET TAGS ('dbx_value_regex' = 'active|cancelled|expired|suspended|adjusted');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `schedule_type` SET TAGS ('dbx_business_glossary_term' = 'Schedule Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `schedule_type` SET TAGS ('dbx_value_regex' = 'pro_rata|short_rate|daily|monthly|annual|custom');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `short_rate_penalty_amount` SET TAGS ('dbx_business_glossary_term' = 'Short Rate Penalty Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `short_rate_percentage` SET TAGS ('dbx_business_glossary_term' = 'Short Rate Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `statutory_line_code` SET TAGS ('dbx_business_glossary_term' = 'Statutory Line Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `total_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Total Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`earned_premium_schedule` ALTER COLUMN `unearned_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Unearned Premium (UEP) Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` SET TAGS ('dbx_data_type' = 'transactional_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` SET TAGS ('dbx_subdomain' = 'financial_transactions');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `premium_endorsement_id` SET TAGS ('dbx_business_glossary_term' = 'Premium Endorsement ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `calendar_id` SET TAGS ('dbx_business_glossary_term' = 'Calendar Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `catastrophe_event_id` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe Event Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `catastrophegeography_peril_id` SET TAGS ('dbx_business_glossary_term' = 'Peril Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `claimfinancials_accounting_period_id` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `geography_id` SET TAGS ('dbx_business_glossary_term' = 'Geography Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `invoice_id` SET TAGS ('dbx_business_glossary_term' = 'Invoice ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `party_id` SET TAGS ('dbx_business_glossary_term' = 'Underwriter ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `policy_term_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Term ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `policy_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Transaction ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `reversed_endorsement_id` SET TAGS ('dbx_business_glossary_term' = 'Reversed Endorsement ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `uw_decision_id` SET TAGS ('dbx_business_glossary_term' = 'Uw Decision Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `billing_status` SET TAGS ('dbx_business_glossary_term' = 'Billing Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `billing_status` SET TAGS ('dbx_value_regex' = 'Pending|Billed|Paid|Partially Paid|Refunded|Written Off');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `ceded_premium_change_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Premium Change Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `commission_change_amount` SET TAGS ('dbx_business_glossary_term' = 'Commission Change Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `days_in_term_remaining` SET TAGS ('dbx_business_glossary_term' = 'Days in Term Remaining');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `earned_premium_change_amount` SET TAGS ('dbx_business_glossary_term' = 'Earned Premium (EP) Change Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `endorsement_number` SET TAGS ('dbx_business_glossary_term' = 'Endorsement Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `fee_change_amount` SET TAGS ('dbx_business_glossary_term' = 'Fee Change Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `gl_account_code` SET TAGS ('dbx_business_glossary_term' = 'General Ledger (GL) Account Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `gross_premium_change_amount` SET TAGS ('dbx_business_glossary_term' = 'Gross Premium Change Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `is_billable` SET TAGS ('dbx_business_glossary_term' = 'Is Billable');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `net_premium_change_amount` SET TAGS ('dbx_business_glossary_term' = 'Net Premium Change Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `proration_factor` SET TAGS ('dbx_business_glossary_term' = 'Proration Factor');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `proration_method` SET TAGS ('dbx_business_glossary_term' = 'Proration Method');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `proration_method` SET TAGS ('dbx_value_regex' = 'Pro-Rata|Short-Rate|Flat|Daily|Monthly');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `reversal_indicator` SET TAGS ('dbx_business_glossary_term' = 'Reversal Indicator');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `reversal_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Reversal Reason Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `reversal_reason_description` SET TAGS ('dbx_business_glossary_term' = 'Reversal Reason Description');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `source_system_transaction_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Transaction ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `statutory_line_code` SET TAGS ('dbx_business_glossary_term' = 'Statutory Line Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `tax_change_amount` SET TAGS ('dbx_business_glossary_term' = 'Tax Change Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `total_charge_change_amount` SET TAGS ('dbx_business_glossary_term' = 'Total Charge Change Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `transaction_effective_date` SET TAGS ('dbx_business_glossary_term' = 'Transaction Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `transaction_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Transaction Reason Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `transaction_reason_description` SET TAGS ('dbx_business_glossary_term' = 'Transaction Reason Description');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `transaction_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Transaction Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `transaction_type` SET TAGS ('dbx_business_glossary_term' = 'Transaction Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `transaction_type` SET TAGS ('dbx_value_regex' = 'Endorsement|Cancellation|Reinstatement|Flat Cancellation|Pro-Rata Cancellation|Short-Rate Cancellation');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `unearned_premium_change_amount` SET TAGS ('dbx_business_glossary_term' = 'Unearned Premium (UEP) Change Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Updated Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`premium_endorsement` ALTER COLUMN `written_premium_change_amount` SET TAGS ('dbx_business_glossary_term' = 'Written Premium (WP) Change Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` SET TAGS ('dbx_data_type' = 'reference_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` SET TAGS ('dbx_subdomain' = 'rating_rules');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `rate_table_id` SET TAGS ('dbx_business_glossary_term' = 'Rate Table ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `cat_model_version_id` SET TAGS ('dbx_business_glossary_term' = 'Cat Model Version Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `cat_zone_id` SET TAGS ('dbx_business_glossary_term' = 'Cat Zone Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `catastrophegeography_peril_id` SET TAGS ('dbx_business_glossary_term' = 'Peril Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `classification_code_id` SET TAGS ('dbx_business_glossary_term' = 'Classification Code Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `filing_organization_id` SET TAGS ('dbx_business_glossary_term' = 'Filing Organization Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `geography_id` SET TAGS ('dbx_business_glossary_term' = 'Geography Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `unit_of_measure_id` SET TAGS ('dbx_business_glossary_term' = 'Unit Of Measure Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `actuarial_memo_reference` SET TAGS ('dbx_business_glossary_term' = 'Actuarial Memo Reference');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `approval_date` SET TAGS ('dbx_business_glossary_term' = 'Approval Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `approval_status` SET TAGS ('dbx_business_glossary_term' = 'Approval Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `approval_status` SET TAGS ('dbx_value_regex' = 'draft|filed|approved|rejected|withdrawn|superseded');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `base_rate_amount` SET TAGS ('dbx_business_glossary_term' = 'Base Rate Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `rate_table_code` SET TAGS ('dbx_business_glossary_term' = 'Rate Table Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `coverage_code` SET TAGS ('dbx_business_glossary_term' = 'Coverage Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `credibility_factor` SET TAGS ('dbx_business_glossary_term' = 'Credibility Factor');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `deductible_amount` SET TAGS ('dbx_business_glossary_term' = 'Deductible Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `expense_provision_percentage` SET TAGS ('dbx_business_glossary_term' = 'Expense Provision Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `filing_date` SET TAGS ('dbx_business_glossary_term' = 'Filing Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `filing_number` SET TAGS ('dbx_business_glossary_term' = 'Filing Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `is_file_and_use` SET TAGS ('dbx_business_glossary_term' = 'Is File and Use');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `is_prior_approval` SET TAGS ('dbx_business_glossary_term' = 'Is Prior Approval');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `is_use_and_file` SET TAGS ('dbx_business_glossary_term' = 'Is Use and File');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `iso_program_code` SET TAGS ('dbx_business_glossary_term' = 'Insurance Services Office (ISO) Program Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `limit_amount` SET TAGS ('dbx_business_glossary_term' = 'Limit Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `loss_cost_basis` SET TAGS ('dbx_business_glossary_term' = 'Loss Cost Basis');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `maximum_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Maximum Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `minimum_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Minimum Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Modified Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `rate_table_name` SET TAGS ('dbx_business_glossary_term' = 'Rate Table Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `rate_table_name` SET TAGS ('dbx_pii_category' = 'name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `profit_provision_percentage` SET TAGS ('dbx_business_glossary_term' = 'Profit Provision Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `published_date` SET TAGS ('dbx_business_glossary_term' = 'Published Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `rate_change_percentage` SET TAGS ('dbx_business_glossary_term' = 'Rate Change Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `rate_manual_edition` SET TAGS ('dbx_business_glossary_term' = 'Rate Manual Edition');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `rate_source` SET TAGS ('dbx_business_glossary_term' = 'Rate Source');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `rate_source` SET TAGS ('dbx_value_regex' = 'proprietary|iso_advisory|ncci|state_manual|competitor_benchmark');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `rate_table_status` SET TAGS ('dbx_business_glossary_term' = 'Rate Table Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `rate_table_status` SET TAGS ('dbx_value_regex' = 'active|inactive|pending|superseded|withdrawn');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `rate_type` SET TAGS ('dbx_business_glossary_term' = 'Rate Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `rate_type` SET TAGS ('dbx_value_regex' = 'base|factor|minimum|surcharge|discount|credit');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `rating_algorithm_code` SET TAGS ('dbx_business_glossary_term' = 'Rating Algorithm Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `state_code` SET TAGS ('dbx_business_glossary_term' = 'State Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `state_code` SET TAGS ('dbx_pii_sensitive' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `territory_definition` SET TAGS ('dbx_business_glossary_term' = 'Territory Definition');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `trend_factor` SET TAGS ('dbx_business_glossary_term' = 'Trend Factor');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `version_number` SET TAGS ('dbx_business_glossary_term' = 'Version Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table` ALTER COLUMN `withdrawn_date` SET TAGS ('dbx_business_glossary_term' = 'Withdrawn Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` SET TAGS ('dbx_data_type' = 'transactional_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` SET TAGS ('dbx_subdomain' = 'rating_rules');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `audit_id` SET TAGS ('dbx_business_glossary_term' = 'Primary Key for premium_audit');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `auditor_individual_id` SET TAGS ('dbx_business_glossary_term' = 'Auditor Individual Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `calendar_id` SET TAGS ('dbx_business_glossary_term' = 'Calendar Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `claim_expense_id` SET TAGS ('dbx_business_glossary_term' = 'Audit Expense Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `claim_id` SET TAGS ('dbx_business_glossary_term' = 'Claim Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `geography_id` SET TAGS ('dbx_business_glossary_term' = 'Geography Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `invoice_id` SET TAGS ('dbx_business_glossary_term' = 'Audit Invoice Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `policy_term_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Term Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Auditor Producer Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `quote_id` SET TAGS ('dbx_business_glossary_term' = 'Quote Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `unit_of_measure_id` SET TAGS ('dbx_business_glossary_term' = 'Unit Of Measure Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `additional_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Additional Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `audit_number` SET TAGS ('dbx_business_glossary_term' = 'Audit Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `audit_status` SET TAGS ('dbx_business_glossary_term' = 'Audit Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `audit_status` SET TAGS ('dbx_value_regex' = 'scheduled|in_progress|completed|cancelled|disputed');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `audit_type` SET TAGS ('dbx_business_glossary_term' = 'Audit Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `audit_type` SET TAGS ('dbx_value_regex' = 'final|interim|cancellation|reinstatement');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `audited_exposure` SET TAGS ('dbx_business_glossary_term' = 'Audited Exposure');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `audited_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Audited Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `billing_adjustment_status` SET TAGS ('dbx_business_glossary_term' = 'Billing Adjustment Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `billing_adjustment_status` SET TAGS ('dbx_value_regex' = 'not_required|pending|processed|failed');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `completion_date` SET TAGS ('dbx_business_glossary_term' = 'Audit Completion Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `deposit_reconciliation_status` SET TAGS ('dbx_business_glossary_term' = 'Deposit Reconciliation Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `deposit_reconciliation_status` SET TAGS ('dbx_value_regex' = 'pending|reconciled|disputed|waived');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `dispute_flag` SET TAGS ('dbx_business_glossary_term' = 'Dispute Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `dispute_reason` SET TAGS ('dbx_business_glossary_term' = 'Dispute Reason');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `dispute_resolution_date` SET TAGS ('dbx_business_glossary_term' = 'Dispute Resolution Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `estimated_exposure` SET TAGS ('dbx_business_glossary_term' = 'Estimated Exposure');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `estimated_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Estimated Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `exposure_basis_description` SET TAGS ('dbx_business_glossary_term' = 'Exposure Basis Description');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `exposure_variance` SET TAGS ('dbx_business_glossary_term' = 'Exposure Variance');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `exposure_variance_percentage` SET TAGS ('dbx_business_glossary_term' = 'Exposure Variance Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `is_minimum_premium_applied` SET TAGS ('dbx_business_glossary_term' = 'Is Minimum Premium Applied Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `last_modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Last Modified Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `method` SET TAGS ('dbx_business_glossary_term' = 'Audit Method');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `method` SET TAGS ('dbx_value_regex' = 'physical|desk|mail|phone|electronic');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `minimum_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Minimum Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Audit Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `period_end_date` SET TAGS ('dbx_business_glossary_term' = 'Audit Period End Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `period_start_date` SET TAGS ('dbx_business_glossary_term' = 'Audit Period Start Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `policyholder_signature_date` SET TAGS ('dbx_business_glossary_term' = 'Policyholder Signature Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `policyholder_signature_date` SET TAGS ('dbx_pii_sensitive' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `premium_variance_amount` SET TAGS ('dbx_business_glossary_term' = 'Premium Variance Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `return_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Return Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `scheduled_date` SET TAGS ('dbx_business_glossary_term' = 'Audit Scheduled Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `start_date` SET TAGS ('dbx_business_glossary_term' = 'Audit Start Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `waiver_flag` SET TAGS ('dbx_business_glossary_term' = 'Waiver Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`audit` ALTER COLUMN `waiver_reason` SET TAGS ('dbx_business_glossary_term' = 'Waiver Reason');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` SET TAGS ('dbx_data_type' = 'association_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` SET TAGS ('dbx_subdomain' = 'financial_transactions');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `bearing_coverage_id` SET TAGS ('dbx_business_glossary_term' = 'Bearing Coverage Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `calendar_id` SET TAGS ('dbx_business_glossary_term' = 'Calendar Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `coverage_id` SET TAGS ('dbx_business_glossary_term' = 'Coverage Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `insured_risk_id` SET TAGS ('dbx_business_glossary_term' = 'Insured Risk Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `original_bearing_coverage_id` SET TAGS ('dbx_business_glossary_term' = 'Original Bearing Coverage Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `policy_term_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Term Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `primary_premium_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Premium Transaction Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `premium_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Source Transaction Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `allocated_amount` SET TAGS ('dbx_business_glossary_term' = 'Allocated Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `allocation_basis` SET TAGS ('dbx_business_glossary_term' = 'Allocation Basis');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `allocation_basis` SET TAGS ('dbx_value_regex' = 'tiv|exposure|limit|rate|manual');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `allocation_percentage` SET TAGS ('dbx_business_glossary_term' = 'Allocation Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `allocation_sequence` SET TAGS ('dbx_business_glossary_term' = 'Allocation Sequence Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `allocation_status` SET TAGS ('dbx_business_glossary_term' = 'Allocation Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `allocation_status` SET TAGS ('dbx_value_regex' = 'active|reversed|adjusted|voided|pending');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `allocation_type` SET TAGS ('dbx_business_glossary_term' = 'Allocation Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `allocation_type` SET TAGS ('dbx_value_regex' = 'direct|proportional|specific|manual|system_calculated|override');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `ceded_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Commission Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Commission Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `coverage_description` SET TAGS ('dbx_business_glossary_term' = 'Coverage Description');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Allocation Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Allocation Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `gl_account_code` SET TAGS ('dbx_business_glossary_term' = 'General Ledger (GL) Account Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `is_ceded` SET TAGS ('dbx_business_glossary_term' = 'Is Ceded to Reinsurance Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `is_commissionable` SET TAGS ('dbx_business_glossary_term' = 'Is Commissionable Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `is_primary_coverage` SET TAGS ('dbx_business_glossary_term' = 'Is Primary Coverage Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `last_modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Last Modified Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `net_amount` SET TAGS ('dbx_business_glossary_term' = 'Net Retained Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Allocation Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `reversal_date` SET TAGS ('dbx_business_glossary_term' = 'Reversal Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `reversal_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Reversal Reason Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `risk_type` SET TAGS ('dbx_business_glossary_term' = 'Risk Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `statutory_line_code` SET TAGS ('dbx_business_glossary_term' = 'Statutory Line Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`bearing_coverage` ALTER COLUMN `transaction_booking_date` SET TAGS ('dbx_business_glossary_term' = 'Transaction Booking Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` SET TAGS ('dbx_data_type' = 'transactional_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` SET TAGS ('dbx_subdomain' = 'financial_transactions');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `ceded_premium_id` SET TAGS ('dbx_business_glossary_term' = 'Ceded Premium Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `calendar_id` SET TAGS ('dbx_business_glossary_term' = 'Calendar Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `cat_model_version_id` SET TAGS ('dbx_business_glossary_term' = 'Cat Model Version Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `catastrophe_event_id` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe Event Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `catastrophegeography_peril_id` SET TAGS ('dbx_business_glossary_term' = 'Peril Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `claimfinancials_accounting_period_id` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `coverage_id` SET TAGS ('dbx_business_glossary_term' = 'Coverage Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `fac_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Facultative (FAC) Agreement Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `geography_id` SET TAGS ('dbx_business_glossary_term' = 'Geography Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `original_ceded_premium_id` SET TAGS ('dbx_business_glossary_term' = 'Original Ceded Premium Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `policy_term_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Term Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `rating_worksheet_id` SET TAGS ('dbx_business_glossary_term' = 'Rating Worksheet Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `ri_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Agreement Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `premium_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Source Transaction Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `treaty_id` SET TAGS ('dbx_business_glossary_term' = 'Treaty Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `bordereaux_reporting_flag` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Reporting Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `bordereaux_submission_date` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Submission Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `ceded_earned_premium` SET TAGS ('dbx_business_glossary_term' = 'Ceded Earned Premium');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `ceded_unearned_premium` SET TAGS ('dbx_business_glossary_term' = 'Ceded Unearned Premium');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `ceded_written_premium` SET TAGS ('dbx_business_glossary_term' = 'Ceded Written Premium');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `ceding_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `ceding_commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `cession_basis` SET TAGS ('dbx_business_glossary_term' = 'Cession Basis');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `cession_basis` SET TAGS ('dbx_value_regex' = 'quota_share|surplus|excess_of_loss|stop_loss|facultative');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `cession_number` SET TAGS ('dbx_business_glossary_term' = 'Cession Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `cession_rate` SET TAGS ('dbx_business_glossary_term' = 'Cession Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `gl_account_code` SET TAGS ('dbx_business_glossary_term' = 'General Ledger (GL) Account Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `last_modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Last Modified Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `net_ceded_premium` SET TAGS ('dbx_business_glossary_term' = 'Net Ceded Premium');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `profit_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `profit_commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `reversal_indicator` SET TAGS ('dbx_business_glossary_term' = 'Reversal Indicator');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `reversal_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Reversal Reason Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `settlement_date` SET TAGS ('dbx_business_glossary_term' = 'Settlement Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `settlement_status` SET TAGS ('dbx_business_glossary_term' = 'Settlement Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `settlement_status` SET TAGS ('dbx_value_regex' = 'pending|settled|disputed|reversed');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `state_code` SET TAGS ('dbx_business_glossary_term' = 'State Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `state_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{2}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `state_code` SET TAGS ('dbx_pii_sensitive' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `statutory_line_code` SET TAGS ('dbx_business_glossary_term' = 'Statutory Line Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `transaction_date` SET TAGS ('dbx_business_glossary_term' = 'Transaction Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `transaction_type` SET TAGS ('dbx_business_glossary_term' = 'Transaction Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`ceded_premium` ALTER COLUMN `transaction_type` SET TAGS ('dbx_value_regex' = 'written|earned|unearned|return|adjustment|reversal');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` SET TAGS ('dbx_data_type' = 'reference_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` SET TAGS ('dbx_subdomain' = 'rating_rules');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `minimum_earned_premium_id` SET TAGS ('dbx_business_glossary_term' = 'Minimum Earned Premium (MEP) Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `coverage_id` SET TAGS ('dbx_business_glossary_term' = 'Coverage Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `policy_term_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Term Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `application_level` SET TAGS ('dbx_business_glossary_term' = 'Application Level');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `application_level` SET TAGS ('dbx_value_regex' = 'policy_term|coverage|insured_risk');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `applies_to_endorsement_flag` SET TAGS ('dbx_business_glossary_term' = 'Applies to Endorsement (END) Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `applies_to_new_business_flag` SET TAGS ('dbx_business_glossary_term' = 'Applies to New Business (NB) Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `applies_to_renewal_flag` SET TAGS ('dbx_business_glossary_term' = 'Applies to Renewal (REN) Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `calculation_method` SET TAGS ('dbx_business_glossary_term' = 'Calculation Method');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `calculation_method` SET TAGS ('dbx_value_regex' = 'fixed_amount|percentage|greater_of_both|lesser_of_both');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `cancellation_type` SET TAGS ('dbx_business_glossary_term' = 'Cancellation Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `cancellation_type` SET TAGS ('dbx_value_regex' = 'flat|short_rate|pro_rata|all');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `filing_approval_date` SET TAGS ('dbx_business_glossary_term' = 'Filing Approval Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `gl_account_code` SET TAGS ('dbx_business_glossary_term' = 'General Ledger (GL) Account Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `last_modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Last Modified Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `lob_code` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `minimum_amount` SET TAGS ('dbx_business_glossary_term' = 'Minimum Earned Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `minimum_days_in_force` SET TAGS ('dbx_business_glossary_term' = 'Minimum Days In Force');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `minimum_earned_premium_status` SET TAGS ('dbx_business_glossary_term' = 'Rule Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `minimum_earned_premium_status` SET TAGS ('dbx_value_regex' = 'active|inactive|superseded|pending');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `override_allowed_flag` SET TAGS ('dbx_business_glossary_term' = 'Override Allowed Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `override_authority_level` SET TAGS ('dbx_business_glossary_term' = 'Override Authority Level');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `percentage_of_written_premium` SET TAGS ('dbx_business_glossary_term' = 'Percentage of Written Premium');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `proration_method` SET TAGS ('dbx_business_glossary_term' = 'Proration Method');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `proration_method` SET TAGS ('dbx_value_regex' = 'daily|monthly|annual|none');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `regulatory_filing_reference` SET TAGS ('dbx_business_glossary_term' = 'Regulatory Filing Reference');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `rule_code` SET TAGS ('dbx_business_glossary_term' = 'Minimum Earned Premium (MEP) Rule Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `rule_name` SET TAGS ('dbx_business_glossary_term' = 'Minimum Earned Premium (MEP) Rule Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `rule_name` SET TAGS ('dbx_pii_category' = 'name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `state_code` SET TAGS ('dbx_business_glossary_term' = 'State Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `state_code` SET TAGS ('dbx_pii_sensitive' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `statutory_line_code` SET TAGS ('dbx_business_glossary_term' = 'Statutory Line Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `waiver_authorized_by` SET TAGS ('dbx_business_glossary_term' = 'Waiver Authorized By');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `waiver_date` SET TAGS ('dbx_business_glossary_term' = 'Waiver Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`minimum_earned_premium` ALTER COLUMN `waiver_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Waiver Reason Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` SET TAGS ('dbx_data_type' = 'transactional_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` SET TAGS ('dbx_subdomain' = 'financial_transactions');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `retrospective_adjustment_id` SET TAGS ('dbx_business_glossary_term' = 'Retrospective Adjustment Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `adjustment_invoice_id` SET TAGS ('dbx_business_glossary_term' = 'Adjustment Invoice Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `calendar_id` SET TAGS ('dbx_business_glossary_term' = 'Calendar Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `cat_zone_id` SET TAGS ('dbx_business_glossary_term' = 'Cat Zone Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `catastrophe_event_id` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe Event Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `claim_id` SET TAGS ('dbx_business_glossary_term' = 'Claim Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `claimfinancials_accounting_period_id` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `geography_id` SET TAGS ('dbx_business_glossary_term' = 'Geography Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `policy_term_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Term Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `reversed_adjustment_id` SET TAGS ('dbx_business_glossary_term' = 'Reversed Adjustment Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `uw_decision_id` SET TAGS ('dbx_business_glossary_term' = 'Uw Decision Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `adjustment_effective_date` SET TAGS ('dbx_business_glossary_term' = 'Adjustment Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `adjustment_number` SET TAGS ('dbx_business_glossary_term' = 'Retrospective Adjustment Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `adjustment_sequence` SET TAGS ('dbx_business_glossary_term' = 'Adjustment Sequence Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `adjustment_status` SET TAGS ('dbx_business_glossary_term' = 'Retrospective Adjustment Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `adjustment_status` SET TAGS ('dbx_value_regex' = 'draft|calculated|approved|billed|paid|reversed');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `adjustment_type` SET TAGS ('dbx_business_glossary_term' = 'Retrospective Adjustment Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `adjustment_type` SET TAGS ('dbx_value_regex' = 'interim|final|supplemental|corrective');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `adjustment_variance_amount` SET TAGS ('dbx_business_glossary_term' = 'Adjustment Variance Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `approved_by_user_code` SET TAGS ('dbx_business_glossary_term' = 'Approved By User Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `approved_by_user_code` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `approved_by_user_code` SET TAGS ('dbx_pii' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `approved_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Approval Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `basic_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Basic Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `calculated_retro_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Calculated Retrospective Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `calculation_method_code` SET TAGS ('dbx_business_glossary_term' = 'Retrospective Calculation Method Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `converted_losses_amount` SET TAGS ('dbx_business_glossary_term' = 'Converted Losses Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `evaluation_date` SET TAGS ('dbx_business_glossary_term' = 'Retrospective Evaluation Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `final_retro_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Final Retrospective Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `gl_account_code` SET TAGS ('dbx_business_glossary_term' = 'General Ledger (GL) Account Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `incurred_losses_amount` SET TAGS ('dbx_business_glossary_term' = 'Incurred Losses Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `is_maximum_applied` SET TAGS ('dbx_business_glossary_term' = 'Maximum Premium Applied Indicator');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `is_minimum_applied` SET TAGS ('dbx_business_glossary_term' = 'Minimum Premium Applied Indicator');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `last_modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Last Modified Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `lob_code` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `loss_conversion_factor` SET TAGS ('dbx_business_glossary_term' = 'Loss Conversion Factor (LCF)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `loss_limitation_amount` SET TAGS ('dbx_business_glossary_term' = 'Loss Limitation Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `loss_limitation_type` SET TAGS ('dbx_business_glossary_term' = 'Loss Limitation Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `loss_limitation_type` SET TAGS ('dbx_value_regex' = 'per_occurrence|per_accident|aggregate|none');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `maximum_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Maximum Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `minimum_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Minimum Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Retrospective Adjustment Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `prior_retro_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Prior Retrospective Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `reversal_indicator` SET TAGS ('dbx_business_glossary_term' = 'Reversal Indicator');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `reversal_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Reversal Reason Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `standard_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Standard Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `statutory_line_code` SET TAGS ('dbx_business_glossary_term' = 'Statutory Line Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`retrospective_adjustment` ALTER COLUMN `tax_multiplier` SET TAGS ('dbx_business_glossary_term' = 'Tax Multiplier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` SET TAGS ('dbx_data_type' = 'reference_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` SET TAGS ('dbx_subdomain' = 'rating_rules');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `rule_id` SET TAGS ('dbx_business_glossary_term' = 'Primary Key for premium_rule');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `superseded_by_rule_id` SET TAGS ('dbx_business_glossary_term' = 'Superseded By Rule Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `applies_to_cancellation` SET TAGS ('dbx_business_glossary_term' = 'Applies to Cancellation (CAN) Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `applies_to_endorsement` SET TAGS ('dbx_business_glossary_term' = 'Applies to Endorsement (END) Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `applies_to_new_business` SET TAGS ('dbx_business_glossary_term' = 'Applies to New Business (NB) Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `applies_to_reinstatement` SET TAGS ('dbx_business_glossary_term' = 'Applies to Reinstatement (RI) Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `applies_to_renewal` SET TAGS ('dbx_business_glossary_term' = 'Applies to Renewal (REN) Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `approval_date` SET TAGS ('dbx_business_glossary_term' = 'Rule Approval Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `approved_by` SET TAGS ('dbx_business_glossary_term' = 'Rule Approved By');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `calculation_method` SET TAGS ('dbx_business_glossary_term' = 'Premium Calculation Method');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `calculation_method` SET TAGS ('dbx_value_regex' = 'formula|table|factor|percentage|tiered|flat-amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `rule_category` SET TAGS ('dbx_business_glossary_term' = 'Premium Rule Category');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `rule_category` SET TAGS ('dbx_value_regex' = 'earning|calculation|split|floor|cap|adjustment');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `rule_code` SET TAGS ('dbx_business_glossary_term' = 'Premium Rule Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `condition_expression` SET TAGS ('dbx_business_glossary_term' = 'Rule Condition Expression');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `coverage_type_code` SET TAGS ('dbx_business_glossary_term' = 'Coverage Type Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Rule Record Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `currency_code` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `currency_code` SET TAGS ('dbx_value_regex' = 'USD|CAD|EUR|GBP|AUD');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `rule_description` SET TAGS ('dbx_business_glossary_term' = 'Premium Rule Description');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Rule Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Rule Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `formula_expression` SET TAGS ('dbx_business_glossary_term' = 'Premium Formula Expression');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `last_modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Rule Record Last Modified Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `minimum_earned_percentage` SET TAGS ('dbx_business_glossary_term' = 'Minimum Earned Premium Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `rule_name` SET TAGS ('dbx_business_glossary_term' = 'Premium Rule Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `rule_name` SET TAGS ('dbx_pii_category' = 'name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Premium Rule Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `percentage_rate` SET TAGS ('dbx_business_glossary_term' = 'Premium Percentage Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `priority_sequence` SET TAGS ('dbx_business_glossary_term' = 'Rule Priority Sequence');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `proration_method` SET TAGS ('dbx_business_glossary_term' = 'Premium Proration Method');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `proration_method` SET TAGS ('dbx_value_regex' = 'daily|monthly|annual|exact-days|30-360');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `regulatory_filing_reference` SET TAGS ('dbx_business_glossary_term' = 'Regulatory Filing Reference Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `rule_status` SET TAGS ('dbx_business_glossary_term' = 'Premium Rule Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `rule_status` SET TAGS ('dbx_value_regex' = 'draft|pending-approval|active|suspended|expired|superseded');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `rule_type` SET TAGS ('dbx_business_glossary_term' = 'Premium Rule Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `short_rate_penalty_percentage` SET TAGS ('dbx_business_glossary_term' = 'Short Rate Penalty Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `state_code` SET TAGS ('dbx_business_glossary_term' = 'State Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `state_code` SET TAGS ('dbx_pii_sensitive' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `threshold_amount` SET TAGS ('dbx_business_glossary_term' = 'Premium Threshold Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `threshold_type` SET TAGS ('dbx_business_glossary_term' = 'Premium Threshold Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `threshold_type` SET TAGS ('dbx_value_regex' = 'minimum|maximum|target');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rule` ALTER COLUMN `version_number` SET TAGS ('dbx_business_glossary_term' = 'Rule Version Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` SET TAGS ('dbx_data_type' = 'transactional_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` SET TAGS ('dbx_subdomain' = 'financial_transactions');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `deposit_premium_id` SET TAGS ('dbx_business_glossary_term' = 'Deposit Premium Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `calendar_id` SET TAGS ('dbx_business_glossary_term' = 'Calendar Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `cat_zone_id` SET TAGS ('dbx_business_glossary_term' = 'Cat Zone Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `catastrophegeography_peril_id` SET TAGS ('dbx_business_glossary_term' = 'Peril Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `claimfinancials_accounting_period_id` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `deposit_invoice_id` SET TAGS ('dbx_business_glossary_term' = 'Deposit Invoice Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `party_id` SET TAGS ('dbx_business_glossary_term' = 'Underwriter Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `policy_term_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Term Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `policy_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Transaction Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `quote_id` SET TAGS ('dbx_business_glossary_term' = 'Quote Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `actual_exposure_amount` SET TAGS ('dbx_business_glossary_term' = 'Actual Exposure Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `adjustment_amount` SET TAGS ('dbx_business_glossary_term' = 'Premium Adjustment Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `adjustment_type` SET TAGS ('dbx_business_glossary_term' = 'Premium Adjustment Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `adjustment_type` SET TAGS ('dbx_value_regex' = 'additional_due|return_premium|no_change');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `audit_completed_date` SET TAGS ('dbx_business_glossary_term' = 'Audit Completed Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `audit_required_flag` SET TAGS ('dbx_business_glossary_term' = 'Audit Required Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `audit_scheduled_date` SET TAGS ('dbx_business_glossary_term' = 'Audit Scheduled Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `audit_type` SET TAGS ('dbx_business_glossary_term' = 'Audit Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `audit_type` SET TAGS ('dbx_value_regex' = 'physical|mail|telephone|waived|none');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `basis_of_estimate` SET TAGS ('dbx_business_glossary_term' = 'Basis of Estimate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `billing_date` SET TAGS ('dbx_business_glossary_term' = 'Deposit Premium Billing Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `collection_date` SET TAGS ('dbx_business_glossary_term' = 'Deposit Premium Collection Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `deposit_amount` SET TAGS ('dbx_business_glossary_term' = 'Deposit Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `deposit_number` SET TAGS ('dbx_business_glossary_term' = 'Deposit Premium Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `deposit_percentage` SET TAGS ('dbx_business_glossary_term' = 'Deposit Premium Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `deposit_status` SET TAGS ('dbx_business_glossary_term' = 'Deposit Premium Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `deposit_status` SET TAGS ('dbx_value_regex' = 'estimated|billed|collected|reconciled|adjusted|refunded');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `deposit_type` SET TAGS ('dbx_business_glossary_term' = 'Deposit Premium Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `deposit_type` SET TAGS ('dbx_value_regex' = 'initial|interim|supplemental|adjustment');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Deposit Premium Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `estimated_exposure_amount` SET TAGS ('dbx_business_glossary_term' = 'Estimated Exposure Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `estimated_exposure_basis` SET TAGS ('dbx_business_glossary_term' = 'Estimated Exposure Basis');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Deposit Premium Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `final_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Final Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `gl_account_code` SET TAGS ('dbx_business_glossary_term' = 'General Ledger (GL) Account Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `last_modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Last Modified Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `maximum_deposit_amount` SET TAGS ('dbx_business_glossary_term' = 'Maximum Deposit Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `minimum_deposit_amount` SET TAGS ('dbx_business_glossary_term' = 'Minimum Deposit Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Deposit Premium Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `reconciliation_date` SET TAGS ('dbx_business_glossary_term' = 'Reconciliation Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `reconciliation_status` SET TAGS ('dbx_business_glossary_term' = 'Reconciliation Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `reconciliation_status` SET TAGS ('dbx_value_regex' = 'pending|in_progress|completed|disputed|waived');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `retro_adjustment_date` SET TAGS ('dbx_business_glossary_term' = 'Retrospective Adjustment Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `retro_rated_flag` SET TAGS ('dbx_business_glossary_term' = 'Retrospectively Rated Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`deposit_premium` ALTER COLUMN `statutory_line_code` SET TAGS ('dbx_business_glossary_term' = 'Statutory Line Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table_authorization` SET TAGS ('dbx_data_type' = 'association_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table_authorization` SET TAGS ('dbx_subdomain' = 'rating_rules');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table_authorization` SET TAGS ('dbx_association_edges' = 'premium.rate_table,producers.underwriting_authority');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table_authorization` ALTER COLUMN `rate_table_authorization_id` SET TAGS ('dbx_business_glossary_term' = 'Rate Table Authorization ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table_authorization` ALTER COLUMN `rate_table_id` SET TAGS ('dbx_business_glossary_term' = 'Rate Table Authorization - Rate Table Id');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table_authorization` ALTER COLUMN `underwriting_authority_id` SET TAGS ('dbx_business_glossary_term' = 'Rate Table Authorization - Underwriting Authority Id');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table_authorization` ALTER COLUMN `authorization_status` SET TAGS ('dbx_business_glossary_term' = 'Authorization Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table_authorization` ALTER COLUMN `deviation_percentage_limit` SET TAGS ('dbx_business_glossary_term' = 'Deviation Percentage Limit');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table_authorization` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Authorization Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table_authorization` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Authorization Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`premium`.`rate_table_authorization` ALTER COLUMN `override_allowed_flag` SET TAGS ('dbx_business_glossary_term' = 'Override Allowed Flag');

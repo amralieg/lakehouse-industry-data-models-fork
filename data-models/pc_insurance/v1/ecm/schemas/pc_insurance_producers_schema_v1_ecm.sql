@@ -1,2012 +1,2073 @@
 -- Schema for Domain: producers | Business: Pc_Insurance | Version: v1_ecm
--- Generated on: 2026-09-18 02:30:18
+-- Generated on: 2026-09-20 14:33:31
 
 -- ========= DATABASE =========
-CREATE DATABASE IF NOT EXISTS `vibe_pc_insurance_v499`.`producers` COMMENT 'Provisional description for user-specified domain producers. Awaiting a generated description of what this domain owns.';
+CREATE DATABASE IF NOT EXISTS `vibe_pc_insurance_blog_v499`.`producers` COMMENT 'Provisional description for user-specified domain producers. Awaiting a generated description of what this domain owns.';
 
 -- ========= TABLES =========
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` (
-    `producers_producer_id` BIGINT COMMENT 'Unique identifier for the producers_producer data product.',
-    `agency_id` BIGINT COMMENT 'Reference to the parent agency or brokerage firm with which this individual producer is affiliated. Null for agency-level producer records. Supports hierarchical commission rollup.',
-    `commission_schedule_id` BIGINT COMMENT 'Foreign key linking to producers.commission_schedule. Business justification: Producer master record references default commission schedule via string code. Adding proper FK enables referential integrity.',
-    `state_id` BIGINT COMMENT 'Foreign key linking to shared.state. Business justification: Producer licensing and regulatory compliance require tracking the producers domicile state. State DOI governs producer appointments, license renewals, and regulatory filings.',
-    `aml_certification_date` DATE COMMENT 'Date on which the producer completed the most recent AML training certification. Used to track certification currency and trigger renewal reminders.',
-    `anti_money_laundering_certified` BOOLEAN COMMENT 'Indicates whether the producer has completed required Anti-Money Laundering (AML) training certification. Mandatory for producers handling certain commercial and high-value personal lines.',
-    `appointment_effective_date` DATE COMMENT 'Date on which the carriers appointment of the producer became effective with the state Department of Insurance. Marks the start of the producers authority to solicit business.',
-    `appointment_status` STRING COMMENT 'Current lifecycle status of the producers appointment with the carrier. Determines whether the producer is authorized to bind new business or service existing policies.. Valid values are `active|inactive|suspended|terminated|pending`',
-    `appointment_termination_date` DATE COMMENT 'Date on which the carriers appointment of the producer was terminated or expired. Null if the appointment is currently active. Required for NAIC termination filings.',
-    `background_check_date` DATE COMMENT 'Date on which the most recent background check was completed for this producer. Used to determine if a refresh is required per carrier compliance policy.',
-    `background_check_status` STRING COMMENT 'Status of the most recent background check conducted on the producer as part of the carriers onboarding and ongoing compliance program. Required by many state DOIs.. Valid values are `passed|failed|pending|waived|expired`',
-    `binding_authority_granted` BOOLEAN COMMENT 'Indicates whether the producer has been granted binding authority to commit the carrier to coverage without prior underwriting review. Drives workflow routing in PolicyCenter.',
-    `binding_authority_limit` DECIMAL(18,2) COMMENT 'Maximum single-risk premium or total insured value (TIV) in USD that the producer is authorized to bind without prior underwriting approval. Null if no binding authority is granted.',
-    `business_address_city` STRING COMMENT 'City of the producers principal place of business address.',
-    `business_address_line1` STRING COMMENT 'Primary street address line of the producers principal place of business. Used for regulatory correspondence, appointment filings, and commission payment mailing.',
-    `business_address_state` STRING COMMENT 'Two-letter USPS state code for the producers principal place of business. Used for state-level regulatory filings and geographic distribution analytics.. Valid values are `^[A-Z]{2}$`',
-    `business_address_zip` STRING COMMENT 'US ZIP or ZIP+4 postal code for the producers principal place of business. Used for geographic territory assignment and regulatory jurisdiction determination.. Valid values are `^[0-9]{5}(-[0-9]{4})?$`',
-    `business_email` STRING COMMENT 'Primary business email address for the producer. Used for policy documents, commission statements, regulatory notices, and system-generated alerts from PolicyCenter or Duck Creek.. Valid values are `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$`',
-    `business_phone` STRING COMMENT 'Primary business telephone number for the producers office. Used for underwriting communication, claims coordination, and regulatory correspondence.. Valid values are `^+?[0-9]{10,15}$`',
-    `contingent_commission_eligible` BOOLEAN COMMENT 'Indicates whether the producer is eligible for contingent or profit-sharing commission based on loss ratio and volume performance thresholds defined in the producer agreement.',
-    `continuing_education_compliant` BOOLEAN COMMENT 'Indicates whether the producer is current on state-mandated continuing education (CE) credit hours required for license renewal. Sourced from NIPR or AgentSync CE tracking.',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when the producer record was first created in the producer management system. Audit trail field aligned with SOX data lineage requirements.',
-    `dba_name` STRING COMMENT 'Trade or DBA name under which the producer operates if different from the legal name. Used on customer-facing documents and marketing materials.',
-    `e_and_o_carrier` STRING COMMENT 'Name of the insurance carrier providing the producers Errors and Omissions (E&O) professional liability coverage. Carrier requires active E&O as a condition of appointment.',
-    `e_and_o_expiration_date` DATE COMMENT 'Expiration date of the producers E&O professional liability policy. Compliance monitoring must alert before expiration to prevent appointment suspension.',
-    `e_and_o_limit_amount` DECIMAL(18,2) COMMENT 'Per-occurrence coverage limit of the producers E&O professional liability policy in USD. Carrier may require a minimum limit as a condition of appointment for certain LOBs.',
-    `e_and_o_policy_number` STRING COMMENT 'Policy number of the producers active E&O professional liability insurance. Tracked to verify continuous coverage as a condition of maintaining carrier appointment.',
-    `entity_type` STRING COMMENT 'Classification of the producer as an individual person or a business entity. Drives licensing requirements, commission structures, and regulatory reporting.. Valid values are `individual|agency|broker|managing_general_agent|surplus_lines_broker`',
-    `fein` STRING COMMENT 'IRS-issued Federal Employer Identification Number for agency or corporate producer entities. Used for 1099 commission tax reporting and financial ledger payables processing.. Valid values are `^[0-9]{2}-[0-9]{7}$`',
-    `last_updated_timestamp` TIMESTAMP COMMENT 'Timestamp of the most recent update to the producer record in the producer management system. Used for change data capture (CDC) and data lineage tracking in the Snowflake lakehouse.',
-    `legal_name` STRING COMMENT 'Full legal name of the producer as registered with the state Department of Insurance. For individuals, this is the full personal name; for agencies, the registered business name.',
-    `license_class` STRING COMMENT 'Classification of the producers license type as defined by the domicile state DOI (e.g., Property, Casualty, Personal Lines, Commercial Lines, Life, Accident & Health).',
-    `license_expiration_date` DATE COMMENT 'Date on which the producers domicile state insurance license expires. Carrier compliance systems must monitor this date to suspend appointment before license lapse.',
-    `license_number` STRING COMMENT 'State-issued insurance producer license number in the producers domicile state. Distinct from NPN; used for state-level regulatory filings and appointment verifications.',
-    `lines_of_authority` STRING COMMENT 'Pipe-delimited list of lines of authority (LOA) for which the producer is licensed and appointed (e.g., Property|Casualty|Personal Lines). Governs which LOBs the producer may solicit.',
-    `managing_general_agent_code` STRING COMMENT 'Code identifying the Managing General Agent (MGA) or wholesale broker through whom this producer accesses the carriers products, if applicable. Used for MGA commission override calculations.',
-    `npn` STRING COMMENT 'NIPR-assigned National Producer Number uniquely identifying the producer across all US states. Mandatory for regulatory licensing verification and NAIC reporting.. Valid values are `^[0-9]{1,10}$`',
-    `onboarding_date` DATE COMMENT 'Date on which the producer completed the carriers onboarding process and was first activated in the producer management system. Used for tenure analysis and cohort reporting.',
-    `preferred_lob` STRING COMMENT 'Primary line of business (LOB) in which the producer specializes or generates the majority of written premium (e.g., Personal Auto, Homeowners, Commercial GL, BOP, WC). Used for territory and product alignment.',
-    `producer_code` STRING COMMENT 'Carrier-assigned internal code uniquely identifying the producer within the policy administration system (Guidewire PolicyCenter or Duck Creek Policy). Used on policy DEC pages and commission statements.. Valid values are `^[A-Z0-9_-]{3,20}$`',
-    `producer_type` STRING COMMENT 'Distribution channel classification indicating whether the producer is a captive agent (exclusive), independent agent, wholesale broker, or direct writer. Drives commission tier and appointment rules.. Valid values are `captive|independent|direct|wholesale|retail`',
-    `ssn_last4` STRING COMMENT 'Last four digits of the individual producers SSN retained for identity verification and 1099 tax reporting. Full SSN must not be stored per PCI DSS and NIST SP 800-122 data minimization.. Valid values are `^[0-9]{4}$`',
-    `surplus_lines_licensed` BOOLEAN COMMENT 'Indicates whether the producer holds a surplus lines license, authorizing placement of non-admitted coverage. Required for E&S market placements and surplus lines tax filings.',
-    `termination_reason` STRING COMMENT 'Reason code for the termination of the producer appointment. Required for state DOI termination filings. For cause terminations trigger mandatory NAIC reporting within 30 days.. Valid values are `voluntary|for_cause|non_renewal|license_lapse|regulatory_action`',
-    `uw_authority_level` STRING COMMENT 'Tiered underwriting authority level granted to the producer, controlling which risk classes and coverage limits the producer may quote and bind independently.. Valid values are `none|limited|standard|enhanced|full`',
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` (
+    `producers_producer_id` BIGINT COMMENT 'Unique surrogate identifier for each licensed insurance producer record. Primary key. One row per producer.',
+    `distribution_channel_id` BIGINT COMMENT 'Reference to the distribution channel through which this producer operates (e.g., independent agent, direct, broker, MGA).',
+    `party_id` BIGINT COMMENT 'Foreign key linking to party.party. Business justification: Every producer is a party in the master registry. Links producer identity to KYC/OFAC screening, fraud indicators, license verification, contact management, and regulatory reporting.',
+    `appointment_effective_date` DATE COMMENT 'Date the producers appointment with Pc_Insurance became effective. Marks the start of the producers authority to bind business.',
+    `appointment_status` STRING COMMENT 'Current appointment status of the producer with the insurer. Drives eligibility to bind business. Lifecycle: pending -> active -> suspended/terminated.. Valid values are `active|inactive|terminated|pending|suspended`',
+    `appointment_termination_date` DATE COMMENT 'Date the producers appointment with Pc_Insurance was terminated. Null if appointment is currently active.',
+    `background_check_date` DATE COMMENT 'Date the most recent background check was completed. Used to determine if a refresh is required per appointment policy.',
+    `background_check_status` STRING COMMENT 'Status of the most recent background check conducted on the producer as part of the appointment process.. Valid values are `passed|failed|pending|waived`',
+    `bank_account_reference` STRING COMMENT 'Tokenized or masked reference to the producers bank account used for ACH commission disbursements. Full account data stored in payment vault.',
+    `binding_authority_flag` BOOLEAN COMMENT 'Indicates whether the producer has delegated binding authority to issue policies on behalf of Pc_Insurance without prior underwriting approval.',
+    `binding_authority_limit` DECIMAL(18,2) COMMENT 'Maximum single-risk premium or TIV the producer may bind without referral to underwriting. Null if binding_authority_flag is false.',
+    `commission_schedule_code` STRING COMMENT 'Code identifying the commission schedule applicable to this producer. Drives commission calculation on premium transactions.',
+    `contingent_commission_eligible` BOOLEAN COMMENT 'Indicates whether the producer is eligible for contingent (profit-sharing) commission based on loss ratio and volume performance.',
+    `continuing_education_due_date` DATE COMMENT 'Date by which the producer must complete state-mandated continuing education (CE) credits to maintain licensure.',
+    `continuing_education_hours_completed` DECIMAL(5,1) COMMENT 'Number of continuing education credit hours completed in the current CE cycle. Tracked against state-mandated minimums.',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when the producer record was first created in the Producer/Agency Management System. Audit trail field.',
+    `default_commission_rate` DECIMAL(7,4) COMMENT 'Default commission rate (as a decimal, e.g., 0.1200 = 12%) applied to written premium for this producer absent a line-specific override.',
+    `eo_carrier_name` STRING COMMENT 'Name of the insurance carrier providing the producers Errors & Omissions (E&O) professional liability coverage.',
+    `eo_coverage_amount` DECIMAL(18,2) COMMENT 'Per-occurrence limit of the producers E&O professional liability policy in USD. Used to verify minimum coverage requirements.',
+    `eo_expiration_date` DATE COMMENT 'Expiration date of the producers E&O professional liability policy. Triggers renewal reminder and potential appointment suspension.',
+    `eo_policy_number` STRING COMMENT 'Policy number of the producers E&O professional liability insurance. Required for appointment and renewal.',
+    `is_surplus_lines_licensed` BOOLEAN COMMENT 'Indicates whether the producer holds a surplus lines broker license, enabling placement of non-admitted coverage.',
+    `license_class` STRING COMMENT 'Class or type of insurance license held (e.g., Property & Casualty, Life & Health, Personal Lines). Determines lines of business the producer may sell. [ENUM-REF-CANDIDATE: property_casualty|life_health|personal_lines|commercial_lines|surplus_lines —',
+    `license_effective_date` DATE COMMENT 'Date the producers resident state license became effective. Used to verify active licensure at time of policy binding.',
+    `license_expiration_date` DATE COMMENT 'Date the producers resident state license expires. Triggers renewal workflow and appointment suspension if not renewed.',
+    `license_number` STRING COMMENT 'Primary state-issued insurance producer license number in the resident state. Additional non-resident licenses are tracked in the Producer Appointment table.',
+    `lob_authorizations` STRING COMMENT 'Comma-delimited list of lines of business (LOB) codes the producer is authorized to write (e.g., HO, PAP, CGL, BOP, CA). Enforced at submission intake.',
+    `naic_company_code` STRING COMMENT 'Five-digit NAIC code of the insurer entity appointing this producer. Used in Schedule F and state appointment filings.. Valid values are `^[0-9]{5}$`',
+    `npn` STRING COMMENT 'NIPR-assigned National Producer Number uniquely identifying the producer across all US states. Used for license validation and regulatory reporting.. Valid values are `^[0-9]{1,10}$`',
+    `payment_method` STRING COMMENT 'Method by which commission payments are disbursed to the producer (ACH direct deposit, paper check, or wire transfer).. Valid values are `ach|check|wire`',
+    `producer_role` STRING COMMENT 'Functional role of the producer in the distribution channel. [ENUM-REF-CANDIDATE: agent|broker|managing_general_agent|surplus_lines_broker|independent_agent|captive_agent — promote to reference product]. Valid values are `agent|broker|managing_general_agent|surplus_lines_broker|independent_agent|captive_agent`',
+    `producer_type` STRING COMMENT 'Indicates whether the producer is a natural person (individual) or a business entity (agency/firm). Drives licensing and appointment rules.. Valid values are `individual|entity`',
+    `regulatory_action_flag` BOOLEAN COMMENT 'Indicates whether the producer has any open or historical regulatory actions, fines, or license sanctions on record.',
+    `resident_state_code` STRING COMMENT 'Two-letter US state code of the producers resident (home) state for licensing purposes. Determines reciprocal licensing eligibility.. Valid values are `^[A-Z]{2}$`',
+    `since_date` DATE COMMENT 'Date the producer first became appointed with Pc_Insurance. Used for tenure-based commission tier calculations and relationship analytics.',
+    `surplus_lines_license_number` STRING COMMENT 'State-issued surplus lines broker license number. Null if producer is not surplus lines licensed.',
+    `tax_identification_number` STRING COMMENT 'Federal Employer Identification Number (FEIN) for entity producers or Social Security Number (SSN) for individual producers. Used for IRS 1099 commission reporting.',
+    `termination_reason` STRING COMMENT 'Reason code for appointment termination. Required for state DOI termination filings. Null if appointment is active.. Valid values are `voluntary|non_renewal|cause|regulatory|deceased|other`',
+    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp when the producer record was most recently modified. Used for change data capture and audit trail.',
+    `w9_on_file` BOOLEAN COMMENT 'Indicates whether a valid IRS Form W-9 (or W-8 for foreign producers) is on file. Required before commission disbursement.',
+    `writing_company_code` STRING COMMENT 'NAIC company code of the Pc_Insurance legal entity (writing company) to which this producer is appointed. Supports multi-company insurer groups.',
     CONSTRAINT pk_producers_producer PRIMARY KEY(`producers_producer_id`)
-) COMMENT 'SSOT master for every licensed insurance producer (agent or broker) appointed by the carrier. Owns producer identity, NPN, FEIN/SSN, entity type, and active status across all lines of business.';
+) COMMENT 'Master record for every licensed insurance producer (agent or broker). One row per producer. Stores NPN, license numbers, resident state, producer type, appointment status, and E&O coverage details.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` (
-    `producer_license_id` BIGINT COMMENT 'Unique surrogate identifier for a producer license record in the Pc_Insurance data platform. Primary key for the producer_license entity.',
-    `eno_policy_id` BIGINT COMMENT 'Foreign key linking to producers.eno_policy. Business justification: Producer license tracks E&O coverage via string references. Adding proper FK to eno_policy enables referential integrity and eliminates redundant storage.',
-    `producers_producer_id` BIGINT COMMENT 'Reference to the producer (agent or broker) who holds this license. Links the license record to the producer master entity.',
-    `state_id` BIGINT COMMENT 'Foreign key linking to shared.state. Business justification: Every producer license is issued by a specific state DOI. License verification, renewal tracking, and regulatory reporting require state reference.',
-    `appointment_date` DATE COMMENT 'Date on which Pc_Insurance filed or received confirmation of the producer appointment with the issuing state DOI for this license.',
-    `appointment_required` BOOLEAN COMMENT 'Indicates whether the issuing state requires a formal carrier appointment in addition to this license before the producer may transact business on behalf of Pc_Insurance.',
-    `appointment_status` STRING COMMENT 'Current status of the producers appointment with Pc_Insurance under this license and jurisdiction. Appointment is required before binding policies in states that mandate it.. Valid values are `appointed|not_appointed|terminated|pending`',
-    `appointment_termination_date` DATE COMMENT 'Date on which the producers appointment with Pc_Insurance was terminated for this license and jurisdiction. Null if the appointment is still active.',
-    `background_check_date` DATE COMMENT 'Date on which the most recent background check was completed for this producer in connection with this license or appointment. Used for compliance audit and renewal tracking.',
-    `background_check_status` STRING COMMENT 'Status of the background check conducted on the producer as part of the licensing or appointment process. Required by many states and carriers per DOI and SOX compliance.. Valid values are `passed|failed|pending|waived|not_required`',
-    `ce_compliance_status` STRING COMMENT 'Current compliance status of the producer with respect to continuing education (CE) requirements for this license. Drives renewal eligibility and compliance alerts.. Valid values are `compliant|non_compliant|exempt|pending_review`',
-    `ce_credits_completed` BIGINT COMMENT 'Number of continuing education (CE) credit hours the producer has completed in the current renewal cycle toward satisfying the state DOI requirement for this license.',
-    `ce_credits_required` BIGINT COMMENT 'Number of continuing education (CE) credit hours required by the issuing state DOI for renewal of this license within the current renewal cycle.',
-    `ce_due_date` DATE COMMENT 'Deadline by which the producer must complete all required continuing education (CE) credits to qualify for license renewal in the issuing state.',
-    `continuing_education_required` BOOLEAN COMMENT 'Indicates whether the issuing state requires the producer to complete continuing education (CE) credits as a condition of license renewal for this line of authority.',
-    `doi_last_verified_date` DATE COMMENT 'Date on which this license record was last verified against the issuing state DOI or NIPR registry. Used to ensure data currency for compliance and appointment management.',
-    `doi_verification_status` STRING COMMENT 'Status of the license verification against the issuing state Department of Insurance (DOI) records or NIPR. Flags discrepancies between internal records and official DOI data.. Valid values are `verified|unverified|discrepancy|pending_verification`',
-    `effective_date` DATE COMMENT 'Date from which this producer license record is considered effective within Pc_Insurance systems. May differ from the DOI issue date if there was a processing lag.',
-    `expiration_date` DATE COMMENT 'Date on which this producer license expires and must be renewed to remain in good standing with the issuing state DOI. Null if the license is perpetual.',
-    `inactivation_date` DATE COMMENT 'Date on which this license record was marked inactive in Pc_Insurance systems due to expiration, revocation, or voluntary surrender. Null if the license remains active.',
-    `issue_date` DATE COMMENT 'Date on which the state DOI originally issued this producer license. Used to calculate license tenure and seniority for compliance and commission purposes.',
-    `license_number` STRING COMMENT 'Official license number assigned by the state Department of Insurance (DOI) to the producer. Used for regulatory verification and compliance tracking.',
-    `license_status` STRING COMMENT 'Current regulatory status of the producer license as reported by the issuing state DOI. Drives eligibility to bind business in the jurisdiction.. Valid values are `active|expired|suspended|revoked|cancelled|pending`',
-    `license_type` STRING COMMENT 'Classifies the license as individual, business entity, surplus lines, adjuster, or other category as defined by the issuing state DOI. [ENUM-REF-CANDIDATE: individual|business_entity|surplus_lines|adjuster|public_adjuster|managing_general_agent — promote. Valid values are `individual|business_entity|surplus_lines|adjuster|public_adjuster|managing_general_agent`',
-    `line_of_authority` STRING COMMENT 'Specific line of authority granted by the DOI under this license (e.g., Property, Casualty, Life, Health, Personal Lines, Commercial Lines). Determines which products the producer may sell.',
-    `lob_code` STRING COMMENT 'Standardized NAIC or internal Line of Business (LOB) code corresponding to the line of authority on this license. Used for regulatory reporting and system routing.. Valid values are `^[A-Z0-9]{2,10}$`',
-    `naic_producer_code` STRING COMMENT 'National Association of Insurance Commissioners (NAIC) assigned producer code used for interstate licensing verification and regulatory reporting via the NIPR gateway.. Valid values are `^[0-9]{5,10}$`',
-    `notes` STRING COMMENT 'Free-text field for compliance officers or producer management staff to record additional context, exceptions, or follow-up actions related to this producer license record.',
-    `npn` STRING COMMENT 'Unique National Producer Number (NPN) assigned by NIPR/NAIC to the producer. Used for cross-state license verification, regulatory filings, and producer appointment records.. Valid values are `^[0-9]{1,10}$`',
-    `record_created_timestamp` TIMESTAMP COMMENT 'Timestamp when this producer license record was first created in the Pc_Insurance data platform. Used for audit trail and data lineage per SOX and internal governance standards.',
-    `record_updated_timestamp` TIMESTAMP COMMENT 'Timestamp when this producer license record was last modified in the Pc_Insurance data platform. Used for change tracking, audit trail, and incremental data pipeline processing.',
-    `regulatory_action_date` DATE COMMENT 'Date of the most recent regulatory action taken against this producer license by the issuing state DOI. Null if no regulatory action has occurred.',
-    `regulatory_action_description` STRING COMMENT 'Free-text description of the regulatory action taken against this producer license, including the nature of the violation and the DOI order or consent decree reference.',
-    `regulatory_action_indicator` BOOLEAN COMMENT 'Indicates whether any regulatory action (e.g., suspension, revocation, fine, consent order) has been taken against this producer license by the issuing state DOI.',
-    `renewal_date` DATE COMMENT 'Date on which the producer last successfully renewed this license with the issuing state DOI. Null if the license has never been renewed since original issuance.',
-    `resident_nonresident_indicator` STRING COMMENT 'Indicates whether this license is a resident license (producer domiciled in the issuing state) or a non-resident license (producer licensed in another home state).. Valid values are `resident|nonresident`',
-    `source_system_code` STRING COMMENT 'Code identifying the operational system of record from which this license record was sourced (e.g., AgentSync, Vertafore Sircon, NIPR). Used for data lineage and reconciliation.',
-    `source_system_license_code` STRING COMMENT 'Native identifier for this license record in the originating operational system (e.g., AgentSync license record ID or Vertafore Sircon record key). Supports data lineage and reconciliation.',
-    `surplus_lines_eligible` BOOLEAN COMMENT 'Indicates whether this license authorizes the producer to place business with non-admitted surplus lines carriers in the issuing state jurisdiction.',
-    `surplus_lines_license_number` STRING COMMENT 'Separate surplus lines license number issued by the state DOI when the producer is authorized to place non-admitted surplus lines business. Null if not applicable.',
-    `termination_reason` STRING COMMENT 'Reason code explaining why this license or appointment was terminated or cancelled. Used for regulatory reporting and producer compliance audit trails.. Valid values are `voluntary|non_renewal|regulatory_action|carrier_initiated|deceased|other`',
-    CONSTRAINT pk_producer_license PRIMARY KEY(`producer_license_id`)
-) COMMENT 'State-issued insurance license held by a producer, including license number, line of authority (LOB), state jurisdiction, issue date, expiration date, and current status per DOI records.';
-
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` (
-    `appointment_id` BIGINT COMMENT 'Unique surrogate identifier for a producer appointment record in the Pc_Insurance system.',
-    `agency_id` BIGINT COMMENT 'Reference to the agency or brokerage organization through which the individual producer is affiliated for this appointment.',
-    `commission_schedule_id` BIGINT COMMENT 'Reference to the commission schedule governing base and contingent commission rates applicable to this appointment.',
-    `eno_policy_id` BIGINT COMMENT 'Foreign key linking to producers.eno_policy. Business justification: Appointment tracks E&O coverage requirements but currently stores only expiry date and limit. Adding FK to eno_policy enables full policy details retrieval and referential integrity.',
-    `lob_code_id` BIGINT COMMENT 'Foreign key linking to shared.lob_code. Business justification: Appointments grant producers authority to write specific lines of business. Underwriting authority validation and commission calculation require LOB reference.',
-    `org_unit_id` BIGINT COMMENT 'Reference to the Pc_Insurance legal carrier entity (e.g., admitted vs. surplus lines subsidiary) issuing this appointment.',
-    `producers_producer_id` BIGINT COMMENT 'Reference to the licensed producer (agent or broker) receiving this carrier appointment.',
-    `state_id` BIGINT COMMENT 'Foreign key linking to shared.state. Business justification: Appointments are state-specific regulatory filings with state DOIs. Appointment tracking, termination reporting, and regulatory compliance require state reference.',
-    `appointed_by_user` STRING COMMENT 'Username or employee ID of the carrier underwriting or producer management staff member who authorized this appointment.',
-    `appointment_status` STRING COMMENT 'Current lifecycle state of the producer appointment as recognized by the carrier and state DOI.. Valid values are `active|pending|terminated|suspended|not_renewed`',
-    `appointment_type` STRING COMMENT 'Classification of the producer appointment relationship. [ENUM-REF-CANDIDATE: agent|broker|managing_general_agent|surplus_lines_broker|reinsurance_intermediary|solicitor — promote to reference product]. Valid values are `agent|broker|managing_general_agent|surplus_lines_broker|reinsurance_intermediary`',
-    `background_check_date` DATE COMMENT 'Date on which the most recent background check was completed for this producer appointment.',
-    `background_check_status` STRING COMMENT 'Result of the carrier-required background screening conducted during producer onboarding prior to appointment activation.. Valid values are `passed|failed|pending|waived`',
-    `base_commission_rate` DECIMAL(7,4) COMMENT 'Standard commission rate (as a decimal fraction) payable to the producer on new and renewal written premium under this appointment.',
-    `binding_authority_limit` DECIMAL(18,2) COMMENT 'Maximum single-risk premium or TIV the producer may bind without prior UW referral under this appointment. Null if no binding authority.',
-    `channel_type` STRING COMMENT 'Distribution channel classification for this appointment, used in commission and production analytics.. Valid values are `independent_agent|captive_agent|broker|direct|managing_general_agent|surplus_lines`',
-    `contingent_commission_eligible` BOOLEAN COMMENT 'Indicates whether the producer is eligible for contingent or profit-sharing commission under this appointment.',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this appointment record was first created in the Pc_Insurance data platform.',
-    `doi_approval_date` DATE COMMENT 'Date the state DOI confirmed or approved the producer appointment filing. Null if pending or not required.',
-    `doi_filing_date` DATE COMMENT 'Date the appointment was submitted to the state DOI for regulatory filing and approval.',
-    `doi_filing_reference` STRING COMMENT 'State Department of Insurance confirmation or tracking number assigned when the appointment was filed with the regulator.',
-    `effective_date` DATE COMMENT 'Date on which the carrier appointment becomes binding and the producer is authorized to solicit business.',
-    `expiration_date` DATE COMMENT 'Date on which the carrier appointment expires or is scheduled to lapse. Null for perpetual appointments.',
-    `is_binding_authority` BOOLEAN COMMENT 'Indicates whether the producer has been granted binding authority to commit coverage on behalf of Pc_Insurance without prior UW approval.',
-    `is_surplus_lines` BOOLEAN COMMENT 'Indicates whether this appointment is for surplus lines (non-admitted) business, subject to separate state surplus lines regulations.',
-    `naic_company_code` STRING COMMENT 'Five-digit NAIC company code identifying the Pc_Insurance legal entity under which this appointment is issued.. Valid values are `^[0-9]{5}$`',
-    `notes` STRING COMMENT 'Free-text notes capturing special conditions, exceptions, or underwriting remarks associated with this producer appointment.',
-    `number` STRING COMMENT 'Externally-known carrier-assigned appointment reference number used in DOI filings and bordereaux reporting.. Valid values are `^[A-Z0-9-]{4,30}$`',
-    `producer_license_class` STRING COMMENT 'Class of the underlying producer license authorizing this appointment, e.g., property, casualty, surplus lines.. Valid values are `property|casualty|life|health|surplus_lines|variable`',
-    `producer_license_number` STRING COMMENT 'State-issued insurance producer license number that underpins this appointment. Must be active in the appointment state.',
-    `source` STRING COMMENT 'Indicates how this appointment was initiated: new business onboarding, renewal, transfer from another carrier entity, or reinstatement.. Valid values are `new_business|renewal|transfer|reinstatement`',
-    `source_system_appointment_code` STRING COMMENT 'Native primary key or record identifier for this appointment in the originating producer management system of record.',
-    `source_system_code` STRING COMMENT 'Code identifying the operational system of record from which this appointment record was sourced, e.g., AgentSync or Vertafore Sircon.. Valid values are `agentsync|sircon|guidewire|duck_creek|sapiens|manual`',
-    `termination_date` DATE COMMENT 'Date on which the appointment was formally terminated prior to its scheduled expiration, if applicable.',
-    `termination_reason` STRING COMMENT 'Reason code explaining why the appointment was terminated. Required for DOI termination filings per NAIC guidelines.. Valid values are `voluntary|non_renewal|regulatory_action|performance|fraud|other`',
-    `training_completed` BOOLEAN COMMENT 'Indicates whether the producer has completed all mandatory carrier product and compliance training required for this appointment.',
-    `training_completion_date` DATE COMMENT 'Date on which the producer completed all required carrier training for this appointment.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp of the most recent update to this appointment record in the Pc_Insurance data platform.',
-    CONSTRAINT pk_appointment PRIMARY KEY(`appointment_id`)
-) COMMENT 'Formal carrier appointment authorizing a producer to sell specific LOBs in a given state on behalf of Pc_Insurance. Tracks appointment status, effective/expiration dates, and DOI filing reference.';
-
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`producers`.`agency` (
-    `agency_id` BIGINT COMMENT 'Unique surrogate identifier for the agency or brokerage firm record in the producers domain.',
-    `commission_schedule_id` BIGINT COMMENT 'Foreign key linking to producers.commission_schedule. Business justification: Agency master record references default commission schedule via string code. Adding proper FK enables referential integrity.',
-    `parent_agency_id` BIGINT COMMENT 'Self-referencing identifier linking this agency to its parent agency or network group, enabling hierarchical rollup of production, commission, and loss data.',
-    `state_id` BIGINT COMMENT 'Foreign key linking to shared.state. Business justification: Agency domicile state determines regulatory jurisdiction, licensing requirements, and tax obligations. Agency onboarding and compliance tracking require state reference.',
-    `agency_status` STRING COMMENT 'Current lifecycle status of the agency appointment with Pc_Insurance, governing whether the agency may bind new business or renew policies.. Valid values are `active|inactive|suspended|terminated|pending_appointment`',
-    `agency_type` STRING COMMENT 'Classification of the agency by distribution channel role. [ENUM-REF-CANDIDATE: independent_agent|captive_agent|broker|managing_general_agent|surplus_lines_broker|wholesale_broker — promote to reference product]. Valid values are `independent_agent|captive_agent|broker|managing_general_agent|surplus_lines_broker|wholesale_broker`',
-    `annual_premium_volume` DECIMAL(18,2) COMMENT 'Most recently reported annual written premium (WP) volume placed by the agency across all carriers, used for producer tiering, contingent commission, and appetite decisions.',
-    `appointment_effective_date` DATE COMMENT 'Date on which the agency appointment with Pc_Insurance became effective, marking the start of the contractual producer relationship and binding authority.',
-    `appointment_termination_date` DATE COMMENT 'Date on which the agency appointment with Pc_Insurance was or will be terminated. Null for active appointments. Required for DOI termination notice filings.',
-    `background_check_date` DATE COMMENT 'Date on which the most recent background check was completed for the agency principal(s), used to track compliance with periodic re-screening requirements.',
-    `background_check_status` STRING COMMENT 'Status of the most recent background check conducted on the agency principal(s) as part of the producer onboarding and appointment compliance process.. Valid values are `passed|failed|pending|waived`',
-    `binding_authority_flag` BOOLEAN COMMENT 'Indicates whether the agency has been granted binding authority by Pc_Insurance to commit coverage on behalf of the insurer without prior underwriting approval.',
-    `binding_authority_limit` DECIMAL(18,2) COMMENT 'Maximum single-risk premium or total insured value (TIV) the agency is authorized to bind without prior underwriting approval, expressed in USD.',
-    `agency_code` STRING COMMENT 'Externally-known alphanumeric code assigned to the agency by Pc_Insurance, used on policy declarations, bordereaux, and commission statements.. Valid values are `^[A-Z0-9]{4,20}$`',
-    `contingent_commission_eligible` BOOLEAN COMMENT 'Indicates whether the agency is eligible for contingent or profit-sharing commission based on loss ratio (LR) and volume performance thresholds.',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when the agency record was first created in the producer management system, providing the audit trail start point for the agency lifecycle.',
-    `dba_name` STRING COMMENT 'Trade or assumed name under which the agency operates if different from its legal name. DBA is registered with the state and used in consumer-facing communications.',
-    `email_address` STRING COMMENT 'Primary business email address for the agency, used for policy documents, commission statements, renewal notices, and regulatory correspondence.. Valid values are `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$`',
-    `eo_carrier_name` STRING COMMENT 'Name of the insurance carrier providing the agency Errors and Omissions (E&O) professional liability coverage, required for appointment and ongoing compliance.',
-    `eo_coverage_amount` DECIMAL(18,2) COMMENT 'Per-occurrence limit of the agency E&O professional liability policy in USD. Pc_Insurance requires a minimum threshold for appointment eligibility.',
-    `eo_expiration_date` DATE COMMENT 'Expiration date of the agency E&O professional liability policy. Pc_Insurance monitors this date to ensure continuous coverage and trigger renewal reminders.',
-    `eo_policy_number` STRING COMMENT 'Policy number of the agency Errors and Omissions (E&O) professional liability insurance policy, used to verify coverage during appointment and renewal audits.',
-    `fax_number` STRING COMMENT 'Business fax number for the agency, used for document transmission including policy applications, endorsement requests, and claims correspondence.. Valid values are `^+?[0-9-() ]{7,20}$`',
-    `fein` STRING COMMENT 'IRS-issued Federal Employer Identification Number (FEIN) for the agency entity, required for tax reporting, commission 1099 issuance, and regulatory filings.. Valid values are `^[0-9]{2}-[0-9]{7}$`',
-    `last_updated_timestamp` TIMESTAMP COMMENT 'Timestamp of the most recent update to the agency record in the producer management system, supporting audit trail, change detection, and incremental data pipeline processing.',
-    `legal_name` STRING COMMENT 'Full legal registered name of the agency or brokerage firm as filed with the state Department of Insurance (DOI) and used on all regulatory and contractual documents.',
-    `loss_ratio` DECIMAL(7,4) COMMENT 'Most recently calculated loss ratio (LR) for the agency book of business with Pc_Insurance, expressed as a decimal. Used for contingent commission eligibility and UW appetite review.',
-    `managing_ga_flag` BOOLEAN COMMENT 'Indicates whether the agency operates as a Managing General Agent (MGA) with delegated underwriting authority, distinct from a standard retail or wholesale broker.',
-    `naic_producer_code` STRING COMMENT 'NAIC-assigned producer code uniquely identifying the agency across all state DOI licensing systems and NAIC databases for regulatory reporting.. Valid values are `^[0-9]{5,10}$`',
-    `network_code` STRING COMMENT 'Code identifying the independent agency network or cluster group (e.g., Keystone, Argo) to which the agency belongs, used for network-level commission and volume tracking.',
-    `onboarding_completed_date` DATE COMMENT 'Date on which the agency completed all onboarding requirements including licensing verification, E&O confirmation, background check, and system credentialing.',
-    `pc_insurance_gwp` DECIMAL(18,2) COMMENT 'Gross written premium (GWP) placed with Pc_Insurance by this agency in the most recent policy year, used for production performance tracking and commission tier qualification.',
-    `phone_number` STRING COMMENT 'Primary business telephone number for the agency, used for underwriting communication, claims coordination, and producer management outreach.. Valid values are `^+?[0-9-() ]{7,20}$`',
-    `preferred_lob_codes` STRING COMMENT 'Comma-separated list of line of business (LOB) codes the agency is authorized or preferred to write, such as GL, BOP, WC, CPP, APD. Used for appetite and routing.',
-    `principal_address_line1` STRING COMMENT 'First line of the agency principal business address, used for regulatory correspondence, commission payments, and DOI licensing records.',
-    `principal_address_line2` STRING COMMENT 'Second line of the agency principal business address (suite, floor, unit). Supplements address_line1 for complete mailing address.',
-    `principal_city` STRING COMMENT 'City of the agency principal business address, used for geographic segmentation, state licensing jurisdiction determination, and regulatory filings.',
-    `principal_country_code` STRING COMMENT 'ISO 3166-1 alpha-3 country code for the agency principal business address. Typically USA for domestic agencies; supports surplus lines and international brokers.. Valid values are `^[A-Z]{3}$`',
-    `principal_postal_code` STRING COMMENT 'ZIP or ZIP+4 postal code for the agency principal business address, used for geographic rating territory assignment and regulatory correspondence.. Valid values are `^[0-9]{5}(-[0-9]{4})?$`',
-    `surplus_lines_licensed` BOOLEAN COMMENT 'Indicates whether the agency holds a surplus lines broker license, authorizing placement of non-admitted coverage with eligible surplus lines insurers.',
-    `termination_reason` STRING COMMENT 'Reason code for the termination of the agency appointment. Required for state DOI termination notice filings per NAIC Producer Licensing Model Act.. Valid values are `voluntary|non_renewal|cause|regulatory_action|merger_acquisition`',
-    `territory_code` STRING COMMENT 'Pc_Insurance internal territory or region code assigned to the agency for field underwriting management, production tracking, and geographic performance reporting.',
-    `website_url` STRING COMMENT 'Public website URL for the agency, used for producer directory listings, digital marketing attribution, and consumer-facing producer locator tools.. Valid values are `^https?://[^s]{3,255}$`',
-    `years_in_business` BIGINT COMMENT 'Number of years the agency has been in operation since its founding date. Used in underwriting appetite scoring and producer tiering for contingent commission eligibility.',
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` (
+    `agency_id` BIGINT COMMENT 'Unique identifier for the insurance agency or brokerage firm. Primary key.',
+    `cat_zone_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.cat_zone. Business justification: Agencies have cat exposure concentration limits by zone. Underwriting monitors agency-level TIV accumulation in cat zones to enforce diversification requirements and prevent',
+    `distribution_channel_id` BIGINT COMMENT 'Foreign key linking to producers.distribution_channel. Business justification: Agencies operate through a specific distribution channel (captive, independent, broker, direct). Replace STRING distribution_channel_code with FK. N:1 relationship.',
+    `geography_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.geography. Business justification: Agencies are assigned service territories defined in geography hierarchy. Used for producer appointment validation (ensuring producer is appointed in geography where risk is',
+    `parent_agency_id` BIGINT COMMENT 'Reference to the parent agency for hierarchical relationships such as MGA to sub-producer or wholesale to retail agency networks.',
+    `party_id` BIGINT COMMENT 'Foreign key linking to party.party. Business justification: Every agency is a legal entity in party registry. Links agency to organizational KYC, FEIN/NAIC validation, address standardization, OFAC screening, and consolidated party view.',
+    `agency_status` STRING COMMENT 'Current lifecycle status of the agency relationship with the carrier: active, inactive, suspended, terminated, or pending appointment.. Valid values are `active|inactive|suspended|terminated|pending_appointment`',
+    `agency_type` STRING COMMENT 'Classification of the agency business model: independent agent, captive agent, managing general agent (MGA), wholesale broker, retail broker, surplus lines broker, or direct writer.',
+    `annual_premium_volume` DECIMAL(15,2) COMMENT 'Total annual written premium volume produced by the agency across all lines of business for the most recent calendar year.',
+    `appointment_effective_date` DATE COMMENT 'Date when the agency appointment with the carrier became effective and the agency was authorized to bind business.',
+    `appointment_termination_date` DATE COMMENT 'Date when the agency appointment with the carrier was terminated or expired, ending binding authority.',
+    `binding_authority_flag` BOOLEAN COMMENT 'Indicates whether the agency has binding authority to issue policies on behalf of the carrier without prior underwriting approval.',
+    `binding_authority_limit` DECIMAL(15,2) COMMENT 'Maximum total insured value or premium amount the agency is authorized to bind without carrier underwriting review.',
+    `commission_schedule_code` STRING COMMENT 'Reference code to the commission rate schedule applicable to this agency for new business, renewals, and endorsements by line of business.',
+    `contingent_commission_eligible` BOOLEAN COMMENT 'Indicates whether the agency is eligible for contingent or profit-sharing commission based on loss ratio and volume performance.',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when the agency record was first created in the system capturing the initial appointment or onboarding event.',
+    `default_commission_rate` DECIMAL(5,4) COMMENT 'Default commission rate as a decimal percentage applied to written premium when no line-specific rate is defined in the commission schedule.',
+    `eo_carrier_name` STRING COMMENT 'Name of the insurance carrier providing errors and omissions professional liability coverage for the agency.',
+    `eo_coverage_amount` DECIMAL(15,2) COMMENT 'Total coverage limit amount for the agency errors and omissions professional liability insurance policy.',
+    `eo_expiration_date` DATE COMMENT 'Expiration date of the agency errors and omissions professional liability insurance policy requiring renewal for continued appointment.',
+    `eo_policy_number` STRING COMMENT 'Policy number for the agency errors and omissions professional liability insurance coverage required for appointment.',
+    `last_modified_timestamp` TIMESTAMP COMMENT 'Timestamp when the agency record was most recently updated reflecting changes to appointment status, contact information, or authorization.',
+    `lob_authorizations` STRING COMMENT 'Comma-separated list of lines of business the agency is authorized to write: personal auto, homeowners, commercial property, general liability, workers compensation, etc.',
+    `mailing_address_same_as_principal` BOOLEAN COMMENT 'Indicates whether the mailing address is identical to the principal business address for correspondence and regulatory notices.',
+    `policy_count` BIGINT COMMENT 'Total number of active policies in force written by the agency as of the most recent reporting period.',
+    `principal_address_line1` STRING COMMENT 'First line of the principal business address for the agency as registered with the state Department of Insurance (DOI).',
+    `principal_address_line2` STRING COMMENT 'Second line of the principal business address including suite, floor, or building number.',
+    `principal_city` STRING COMMENT 'City name for the principal business address of the agency.',
+    `principal_country_code` STRING COMMENT 'Three-letter ISO country code for the principal business address of the agency.. Valid values are `^[A-Z]{3}$`',
+    `principal_county` STRING COMMENT 'County name for the principal business address used for territory and catastrophe exposure aggregation.',
+    `principal_postal_code` STRING COMMENT 'ZIP or ZIP+4 postal code for the principal business address of the agency.. Valid values are `^d{5}(-d{4})?$`',
+    `principal_state_code` STRING COMMENT 'Two-letter state code for the principal business address and domicile state of the agency.. Valid values are `^[A-Z]{2}$`',
+    `source_system_code` STRING COMMENT 'Code identifying the operational system of record from which the agency data originated: producer management system, policy administration system, or agency portal.',
+    `surplus_lines_eligible` BOOLEAN COMMENT 'Indicates whether the agency is licensed and authorized to place surplus lines business with non-admitted carriers.',
+    `surplus_lines_license_number` STRING COMMENT 'State-issued surplus lines broker license number authorizing the agency to place business with non-admitted carriers.',
+    `termination_reason_code` STRING COMMENT 'Standardized code indicating the reason for agency appointment termination: voluntary, involuntary, non-renewal, regulatory action, merger, or acquisition.. Valid values are `voluntary|involuntary|non_renewal|regulatory|merger|acquisition`',
+    `tier` STRING COMMENT 'Performance tier classification based on premium volume, loss ratio, and retention metrics used for contingent commission and incentive programs.. Valid values are `platinum|gold|silver|bronze|standard`',
+    `writing_company_code` STRING COMMENT 'Internal carrier code identifying the specific insurance company entity the agency is appointed to represent for policy issuance.',
     CONSTRAINT pk_agency PRIMARY KEY(`agency_id`)
-) COMMENT 'Master record for an agency or brokerage firm through which producers operate. Captures agency name, FEIN, DBA, principal address, agency type, and E&O coverage details.';
+) COMMENT 'Master record for an insurance agency or brokerage firm. One row per agency. Captures agency name, FEIN, NAIC code, principal address, agency type, and parent agency hierarchy for MGA and wholesale relationships.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` (
-    `agency_producer_id` BIGINT COMMENT 'Unique surrogate identifier for the agency-producer association record in the producers domain.',
-    `agency_id` BIGINT COMMENT 'Reference to the agency entity with which the producer is associated.',
-    `agency_producers_producer_id` BIGINT COMMENT 'Reference to the individual producer (agent or broker) associated with the agency.',
-    `commission_schedule_id` BIGINT COMMENT 'Reference to the commission plan governing the producers compensation under this agency association.',
-    `eno_policy_id` BIGINT COMMENT 'Foreign key linking to producers.eno_policy. Business justification: Agency-producer association tracks E&O coverage via string policy_number. Adding proper FK to eno_policy enables referential integrity and eliminates redundant storage of policy details.',
-    `parent_producer_producers_producer_id` BIGINT COMMENT 'Reference to the supervising or parent producer within the agency hierarchy. Null if the producer is at the top of the hierarchy.',
-    `appointment_date` DATE COMMENT 'Date the producer was formally appointed by the carrier or state DOI under this agency relationship.',
-    `appointment_expiry_date` DATE COMMENT 'Date on which the producers state appointment under this agency expires and must be renewed to remain in good standing.',
-    `appointment_number` STRING COMMENT 'State-issued or carrier-issued appointment number confirming the producers authority to represent the agency and bind business on behalf of the insurer.',
-    `appointment_state` STRING COMMENT 'Two-letter US state code for the jurisdiction in which the producer is appointed under this agency association.. Valid values are `^[A-Z]{2}$`',
-    `association_role` STRING COMMENT 'Role the producer holds within the agency, such as principal agent, sub-agent, or broker. [ENUM-REF-CANDIDATE: principal_agent|sub_agent|broker|managing_agent|surplus_lines_agent|appointed_agent — promote to reference product]. Valid values are `principal_agent|sub_agent|broker|managing_agent|surplus_lines_agent|appointed_agent`',
-    `association_source` STRING COMMENT 'Source system or process through which this agency-producer association record was created or last updated (e.g., AgentSync, Vertafore Sircon, manual entry).. Valid values are `agentsync|vertafore_sircon|manual|api_feed|legacy_migration`',
-    `association_status` STRING COMMENT 'Current lifecycle status of the producer-agency relationship (e.g., active, suspended, terminated).. Valid values are `active|inactive|suspended|terminated|pending`',
-    `background_check_date` DATE COMMENT 'Date on which the most recent background check was completed for this producer under this agency association.',
-    `background_check_status` STRING COMMENT 'Status of the most recent background check conducted on the producer as part of agency onboarding or periodic compliance review.. Valid values are `passed|failed|pending|waived`',
-    `binding_authority_flag` BOOLEAN COMMENT 'Indicates whether the producer has delegated binding authority to commit coverage on behalf of the insurer without prior underwriting approval.',
-    `binding_authority_limit` DECIMAL(18,2) COMMENT 'Maximum single-risk premium or Total Insured Value (TIV) the producer may bind under delegated authority without referral to underwriting.',
-    `ce_credits_completed` BIGINT COMMENT 'Number of continuing education (CE) credit hours the producer has completed in the current compliance period under this agency association.',
-    `ce_credits_required` BIGINT COMMENT 'Number of continuing education (CE) credit hours required for the producer to maintain compliance under this agency and state appointment.',
-    `channel_type` STRING COMMENT 'Distribution channel classification for the producer within this agency (e.g., independent agent, captive agent, MGA, surplus lines broker).. Valid values are `independent_agent|captive_agent|broker|managing_general_agent|surplus_lines_broker`',
-    `commission_split_pct` DECIMAL(5,4) COMMENT 'Decimal fraction (0.0000–1.0000) representing the producers share of the agency commission for business written under this association.',
-    `contingent_commission_eligible` BOOLEAN COMMENT 'Indicates whether the producer is eligible for contingent or profit-sharing commission under this agency arrangement based on loss ratio and volume thresholds.',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this agency-producer association record was first created in the system.',
-    `effective_date` DATE COMMENT 'Date on which the producers association with the agency became or becomes effective.',
-    `external_association_ref` STRING COMMENT 'Identifier for this agency-producer association in the source producer management system (AgentSync or Vertafore Sircon) for reconciliation and audit.',
-    `hierarchy_level` BIGINT COMMENT 'Numeric level of the producer within the agency hierarchy (e.g., 1 = principal, 2 = senior agent, 3 = sub-agent). Used for commission override calculations.',
-    `is_primary_agency` BOOLEAN COMMENT 'Indicates whether this agency is the producers primary or home agency, as opposed to a secondary or additional appointment.',
-    `is_principal` BOOLEAN COMMENT 'Indicates whether the producer is the principal agent of the agency, holding primary authority and accountability within the agency hierarchy.',
-    `lob_authorizations` STRING COMMENT 'Comma-separated list of Lines of Business (LOB) the producer is authorized to write under this agency (e.g., GL, WC, APD, BOP). Derived from appointment scope.',
-    `mga_flag` BOOLEAN COMMENT 'Indicates whether the producer operates as a Managing General Agent (MGA) with delegated underwriting and binding authority under this agency.',
-    `naic_pdb_status` STRING COMMENT 'Status of the producer in the NAIC Producer Database (PDB), reflecting any adverse licensing or regulatory history across all states.. Valid values are `clear|flagged|under_review|restricted`',
-    `override_commission_pct` DECIMAL(5,4) COMMENT 'Additional override commission percentage earned by a principal or managing agent on business written by sub-agents within the hierarchy.',
-    `record_version` BIGINT COMMENT 'Optimistic locking version counter incremented on each update to this association record, supporting concurrency control and change tracking.',
-    `regulatory_action_flag` BOOLEAN COMMENT 'Indicates whether the producer has an open or historical regulatory action (e.g., DOI investigation, license suspension) relevant to this agency association.',
-    `surplus_lines_licensed` BOOLEAN COMMENT 'Indicates whether the producer holds a surplus lines license under this agency association, permitting placement with non-admitted carriers.',
-    `termination_date` DATE COMMENT 'Date on which the producers association with the agency was or is scheduled to be terminated. Null if still active.',
-    `termination_notes` STRING COMMENT 'Free-text notes providing additional context for the termination of the producer-agency association, used for compliance documentation.',
-    `termination_reason` STRING COMMENT 'Reason code for the termination of the producer-agency association. [ENUM-REF-CANDIDATE: voluntary|involuntary|license_lapse|e_and_o_lapse|regulatory_action|merger|other — promote to reference product]',
-    `training_compliance_status` STRING COMMENT 'Indicates whether the producer has met all required continuing education (CE) and product training obligations under this agency association.. Valid values are `compliant|non_compliant|pending|exempt`',
-    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp when this agency-producer association record was last modified.',
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` (
+    `producer_license_id` BIGINT COMMENT 'Unique identifier for the producer license record. Primary key. One row per producer per state per license class.',
+    `party_id` BIGINT COMMENT 'Reference to the party master record for this producer.',
+    `producers_producer_id` BIGINT COMMENT 'Reference to the producer who holds this license.',
+    `application_date` DATE COMMENT 'Date the producer submitted the license application to the state Department of Insurance.',
+    `appointment_required` BOOLEAN COMMENT 'Indicates whether the state requires a carrier appointment for this license class.',
+    `approval_date` DATE COMMENT 'Date the license application was approved by the state Department of Insurance.',
+    `background_check_date` DATE COMMENT 'Date the most recent background check was completed for this license.',
+    `background_check_required` BOOLEAN COMMENT 'Indicates whether the state requires a background check for this license.',
+    `background_check_status` STRING COMMENT 'Status of the background check: passed, failed, pending, not required, or expired.. Valid values are `passed|failed|pending|not_required|expired`',
+    `ce_due_date` DATE COMMENT 'Date by which continuing education requirements must be completed for renewal.',
+    `ce_ethics_hours_required` DECIMAL(5,2) COMMENT 'Ethics-specific continuing education hours required for license renewal in this state.',
+    `ce_hours_completed` DECIMAL(5,2) COMMENT 'Total continuing education hours completed toward current renewal cycle.',
+    `ce_hours_required` DECIMAL(5,2) COMMENT 'Total continuing education hours required for license renewal in this state.',
+    `denial_date` DATE COMMENT 'Date the license application was denied by the state Department of Insurance.',
+    `denial_reason` STRING COMMENT 'Reason provided by the state Department of Insurance for denying the license application.',
+    `doi_action_date` DATE COMMENT 'Date the regulatory action was taken by the state Department of Insurance.',
+    `doi_action_description` STRING COMMENT 'Detailed description of the regulatory action taken by the state Department of Insurance.',
+    `doi_action_flag` BOOLEAN COMMENT 'Indicates whether any regulatory action has been taken against this license by the state DOI.',
+    `doi_action_type` STRING COMMENT 'Type of regulatory action taken: suspension, revocation, fine, probation, consent order, or cease and desist.. Valid values are `suspension|revocation|fine|probation|consent_order|cease_and_desist`',
+    `effective_date` DATE COMMENT 'Date the license becomes active and the producer is authorized to transact insurance business.',
+    `expiration_date` DATE COMMENT 'Date the license expires and must be renewed to remain valid.',
+    `fingerprint_date` DATE COMMENT 'Date fingerprints were submitted to the state Department of Insurance.',
+    `fingerprint_required` BOOLEAN COMMENT 'Indicates whether the state requires fingerprinting for this license.',
+    `issue_date` DATE COMMENT 'Date the license was originally issued by the state Department of Insurance.',
+    `license_class` STRING COMMENT 'Classification of the license: resident, non-resident, temporary, surplus lines, adjuster, or public adjuster.. Valid values are `resident|non-resident|temporary|surplus_lines|adjuster|public_adjuster`',
+    `license_number` STRING COMMENT 'State-issued license number. Format varies by state Department of Insurance.',
+    `license_state_code` STRING COMMENT 'Two-letter state code where the license is issued. Resident or non-resident state.. Valid values are `^[A-Z]{2}$`',
+    `license_status` STRING COMMENT 'Current status of the license with the state Department of Insurance. [ENUM-REF-CANDIDATE: active|inactive|expired|suspended|revoked|pending|denied — 7 candidates stripped; promote to reference product]',
+    `license_type` STRING COMMENT 'Type of licensee: individual producer, business entity, or agency.. Valid values are `individual|business_entity|agency`',
+    `loa_casualty` BOOLEAN COMMENT 'Indicates whether the license includes authority to sell casualty insurance lines.',
+    `loa_health` BOOLEAN COMMENT 'Indicates whether the license includes authority to sell health insurance products.',
+    `loa_life` BOOLEAN COMMENT 'Indicates whether the license includes authority to sell life insurance products.',
+    `loa_personal_lines` BOOLEAN COMMENT 'Indicates whether the license includes authority to sell personal lines insurance.',
+    `loa_property` BOOLEAN COMMENT 'Indicates whether the license includes authority to sell property insurance lines.',
+    `loa_variable_annuity` BOOLEAN COMMENT 'Indicates whether the license includes authority to sell variable annuity products.',
+    `nipr_transaction_number` STRING COMMENT 'Transaction identifier from NIPR for license application, renewal, or update.',
+    `npn` STRING COMMENT 'National Producer Number assigned by NIPR. Unique federal identifier for licensed insurance producers.. Valid values are `^[0-9]{8,10}$`',
+    `reciprocity_state_code` STRING COMMENT 'Two-letter state code of the resident state if this is a non-resident license granted through reciprocity.. Valid values are `^[A-Z]{2}$`',
+    `renewal_date` DATE COMMENT 'Date the license was last renewed with the state Department of Insurance.',
+    `source_system_code` STRING COMMENT 'Code identifying the operational system of record for this license record.',
+    `source_system_reference_code` STRING COMMENT 'Unique identifier for this license record in the source operational system.',
+    `surplus_lines_eligible` BOOLEAN COMMENT 'Indicates whether the producer is eligible to place surplus lines business in this state.',
+    `termination_date` DATE COMMENT 'Date the license was terminated, either voluntarily or by regulatory action.',
+    `termination_reason` STRING COMMENT 'Reason for license termination: voluntary, non-renewal, regulatory action, death, retirement, or business closure.. Valid values are `voluntary|non_renewal|regulatory_action|death|retirement|business_closure`',
+    CONSTRAINT pk_producer_license PRIMARY KEY(`producer_license_id`)
+) COMMENT 'Individual state license held by a producer. One row per producer per state per license class. Tracks license number, line of authority, issue date, expiration date, and DOI status for compliance and appointment eligibility.';
+
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` (
+    `agency_producer_id` BIGINT COMMENT 'Unique identifier for the agency-producer relationship record. Primary key.',
+    `agency_id` BIGINT COMMENT 'Foreign key to the agency in this producer relationship.',
+    `agency_producers_producer_id` BIGINT COMMENT 'Foreign key to the producer in this agency relationship.',
+    `agency_reporting_manager_producer_producers_producer_id` BIGINT COMMENT 'Producer ID of the direct manager or supervisor for this producer within the agency.',
+    `commission_schedule_id` BIGINT COMMENT 'Foreign key linking to producers.commission_schedule. Business justification: The producer-agency affiliation relationship defines the commission schedule for that specific employment/contractor arrangement.',
+    `party_id` BIGINT COMMENT 'Foreign key to the party master record for the producer.',
+    `annual_production_target` DECIMAL(15,2) COMMENT 'Annual written premium production target assigned to the producer through this agency.',
+    `appointment_effective_date` DATE COMMENT 'Date when the carrier appointment became effective for this producer-agency pairing.',
+    `appointment_status` STRING COMMENT 'Status of the producers appointment with the carrier through this agency.. Valid values are `appointed|pending|denied|terminated|suspended`',
+    `appointment_termination_date` DATE COMMENT 'Date when the carrier appointment was terminated for this producer-agency pairing.',
+    `binding_authority_flag` BOOLEAN COMMENT 'Indicates whether the producer has authority to bind coverage on behalf of the carrier through this agency.',
+    `binding_authority_limit` DECIMAL(15,2) COMMENT 'Maximum premium or coverage amount the producer can bind without referral through this agency.',
+    `book_of_business_ownership` STRING COMMENT 'Indicates who owns the book of business generated by the producer through this agency.. Valid values are `producer|agency|shared|carrier`',
+    `commission_split_percentage` DECIMAL(5,2) COMMENT 'Percentage of commission allocated to the producer in split arrangements with the agency.',
+    `contingent_commission_eligible` BOOLEAN COMMENT 'Indicates whether the producer is eligible for contingent or bonus commission through this agency.',
+    `contract_document_reference` STRING COMMENT 'Reference identifier or URI to the producer-agency contract or agreement document.',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this agency-producer relationship record was first created in the system.',
+    `default_commission_rate` DECIMAL(5,4) COMMENT 'Default commission percentage rate for this producer-agency pairing, expressed as decimal.',
+    `desk_location` STRING COMMENT 'Physical desk or office location identifier within the agency premises.',
+    `effective_date` DATE COMMENT 'Date when the producer-agency relationship became effective.',
+    `eo_coverage_required` BOOLEAN COMMENT 'Indicates whether E&O insurance coverage is required for this producer-agency relationship.',
+    `eo_coverage_verified_date` DATE COMMENT 'Date when E&O insurance coverage was last verified for this producer-agency pairing.',
+    `expiration_date` DATE COMMENT 'Date when the producer-agency relationship ended or is scheduled to end. Null for open-ended relationships.',
+    `last_modified_timestamp` TIMESTAMP COMMENT 'Timestamp when this agency-producer relationship record was last updated.',
+    `lob_authorizations` STRING COMMENT 'Comma-separated list of LOB codes the producer is authorized to write through this agency.',
+    `non_compete_clause_flag` BOOLEAN COMMENT 'Indicates whether a non-compete clause exists in the producer-agency agreement.',
+    `non_compete_expiration_date` DATE COMMENT 'Date when the non-compete obligation expires after relationship termination.',
+    `notes` STRING COMMENT 'Free-form text notes or comments about this producer-agency relationship.',
+    `performance_tier` STRING COMMENT 'Performance classification or tier assigned to the producer within the agency structure.',
+    `primary_agency_flag` BOOLEAN COMMENT 'Indicates whether this is the producers primary or home agency affiliation.',
+    `record_version_number` BIGINT COMMENT 'Version number tracking changes to this relationship record for audit and concurrency control.',
+    `relationship_status` STRING COMMENT 'Current status of the producer-agency relationship.. Valid values are `active|inactive|suspended|terminated|pending`',
+    `relationship_type` STRING COMMENT 'Type of employment or affiliation relationship between producer and agency.. Valid values are `employee|independent_contractor|sub_agent|captive_agent|general_agent|managing_general_agent`',
+    `source_system_code` STRING COMMENT 'Code identifying the source system that created or manages this agency-producer relationship record.',
+    `source_system_reference_code` STRING COMMENT 'Unique identifier for this relationship record in the source system.',
+    `termination_date` DATE COMMENT 'Actual date the relationship was terminated if ended before expiration.',
+    `termination_reason_code` STRING COMMENT 'Standardized code indicating the reason for relationship termination.. Valid values are `voluntary_resignation|involuntary_termination|retirement|license_revocation|contract_expiration|performance`',
+    `termination_reason_description` STRING COMMENT 'Detailed narrative explanation of the termination reason.',
+    `territory_code` STRING COMMENT 'Geographic territory or region assigned to the producer within this agency.',
+    `writing_authority_level` STRING COMMENT 'Level of underwriting and binding authority granted to the producer within this agency.. Valid values are `full|limited|referral_only|none`',
     CONSTRAINT pk_agency_producer PRIMARY KEY(`agency_producer_id`)
-) COMMENT 'Junction table associating producers to agencies, capturing role, start/end dates, and whether the producer is the principal or sub-agent within the agency hierarchy.';
+) COMMENT 'Association between a producer and an agency capturing the employment or affiliation relationship. One row per producer-agency pairing. Stores role, start date, end date, and primary-agency flag.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` (
-    `eno_policy_id` BIGINT COMMENT 'Unique identifier for the eno_policy data product (auto-inserted during validation).',
-    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: E&O policies track premium amounts and coverage limits in specific currencies. Financial reporting and compliance verification require currency reference. Removes denormalized currency_code.',
-    `producers_producer_id` BIGINT COMMENT 'Reference to the licensed producer or agency entity that holds this E&O policy.',
-    `state_id` BIGINT COMMENT 'Foreign key linking to shared.state. Business justification: E&O policies have state-specific regulatory requirements and coverage terms. Producer compliance verification and appointment eligibility require state reference.',
-    `additional_insured_indicator` BOOLEAN COMMENT 'Indicates whether the appointing carrier is listed as an additional insured on the producers E&O policy.',
-    `aggregate_limit_amount` DECIMAL(18,2) COMMENT 'Maximum total dollar amount the E&O policy will pay across all covered claims within the policy period.',
-    `annual_premium_amount` DECIMAL(18,2) COMMENT 'Total annual premium paid by the producer or agency for the E&O policy. Used in cost-of-distribution and producer profitability analysis.',
-    `auto_renewal_indicator` BOOLEAN COMMENT 'Indicates whether the E&O policy is set to automatically renew upon expiration without requiring manual re-submission.',
-    `cancellation_date` DATE COMMENT 'Date on which the E&O policy was cancelled mid-term, if applicable. Null if the policy was not cancelled before its expiration date.',
-    `cancellation_reason` STRING COMMENT 'Reason code for mid-term cancellation of the E&O policy. Used in compliance reporting and producer risk assessment.. Valid values are `non_payment|underwriting|voluntary|regulatory|other`',
-    `certificate_received_date` DATE COMMENT 'Date on which the certificate of insurance evidencing E&O coverage was received and logged by the carriers producer management team.',
-    `compliance_status` STRING COMMENT 'Compliance determination for the E&O policy relative to carrier appointment requirements. Drives appointment eligibility and suspension workflows.. Valid values are `compliant|non_compliant|under_review|waived`',
-    `compliance_verified_by` STRING COMMENT 'Name or user identifier of the compliance officer or system that last verified the E&O policy meets appointment requirements.',
-    `compliance_verified_date` DATE COMMENT 'Most recent date on which the E&O policy was verified as compliant with carrier appointment requirements by the producer management team.',
-    `coverage_form_type` STRING COMMENT 'Indicates whether the E&O policy is written on a claims-made or occurrence basis, which determines when coverage is triggered.. Valid values are `claims_made|occurrence`',
-    `deductible_amount` DECIMAL(18,2) COMMENT 'Dollar amount the insured producer or agency must pay out-of-pocket per claim before E&O coverage responds.',
-    `effective_date` DATE COMMENT 'Date on which the E&O policy coverage becomes active and binding. Used to validate appointment eligibility windows.',
-    `expiration_date` DATE COMMENT 'Date on which the E&O policy coverage terminates. Triggers compliance alerts and appointment suspension workflows.',
-    `extended_reporting_period_days` BIGINT COMMENT 'Number of days after policy expiration during which claims arising from prior acts may still be reported under a claims-made E&O policy.',
-    `insurer_naic_code` STRING COMMENT 'Five-digit NAIC company code identifying the E&O insurer. Used for statutory reporting and carrier validation.. Valid values are `^[0-9]{5}$`',
-    `insurer_name` STRING COMMENT 'Legal name of the insurance carrier providing the E&O coverage to the producer or agency.',
-    `lob_covered` STRING COMMENT 'Comma-delimited list of lines of business (e.g., P&C, Life, Health) for which the E&O policy provides professional liability coverage.',
-    `minimum_required_limit_met` BOOLEAN COMMENT 'Indicates whether the policys per-occurrence and aggregate limits meet the carriers minimum E&O requirements for appointment.',
-    `multi_state_indicator` BOOLEAN COMMENT 'Indicates whether the E&O policy provides coverage across multiple state jurisdictions beyond the primary filing state.',
-    `named_insured` STRING COMMENT 'Legal name of the individual producer or agency entity listed as the named insured on the E&O policy declarations page.',
-    `notes` STRING COMMENT 'Free-text field for compliance officers to record observations, exceptions, or follow-up actions related to the E&O policy.',
-    `occurrence_limit_amount` DECIMAL(18,2) COMMENT 'Maximum dollar amount the E&O policy will pay for a single covered claim or occurrence. Validated against carrier minimum requirements.',
-    `policy_number` STRING COMMENT 'Externally-assigned policy number issued by the E&O insurer, used for correspondence, audits, and appointment compliance verification.',
-    `policy_status` STRING COMMENT 'Current lifecycle state of the E&O policy. Drives appointment eligibility and compliance holds within the producer management system.. Valid values are `active|expired|cancelled|pending|lapsed`',
-    `policy_type` STRING COMMENT 'Classifies the E&O policy as individual producer, agency-level, group program, or excess layer coverage.. Valid values are `individual|agency|group|excess`',
-    `prior_acts_coverage_indicator` BOOLEAN COMMENT 'Indicates whether the E&O policy includes prior acts coverage, extending protection to acts occurring before the retroactive date.',
-    `record_created_timestamp` TIMESTAMP COMMENT 'Timestamp when this E&O policy record was first created in the data platform. Supports audit trail and data lineage requirements.',
-    `record_updated_timestamp` TIMESTAMP COMMENT 'Timestamp when this E&O policy record was last modified in the data platform. Used for change detection and incremental processing.',
-    `renewal_reminder_days` BIGINT COMMENT 'Number of days before expiration that automated renewal reminder notifications are triggered to the producer and compliance team.',
-    `retroactive_date` DATE COMMENT 'Earliest date from which acts, errors, or omissions are covered under a claims-made E&O policy. Null for occurrence-based forms.',
-    `source_system_code` STRING COMMENT 'Identifies the operational system of record from which this E&O policy record was ingested (e.g., AgentSync, Vertafore Sircon).. Valid values are `agentsync|sircon|guidewire|duck_creek|manual`',
-    `source_system_record_code` STRING COMMENT 'Native primary key or record identifier from the originating producer management system for lineage and reconciliation purposes.',
-    `waiver_approved_by` STRING COMMENT 'Name or user identifier of the compliance authority who approved the E&O compliance waiver for this producer.',
-    `waiver_expiration_date` DATE COMMENT 'Date on which the compliance waiver expires, after which the producer must provide a compliant E&O policy to maintain appointment.',
-    `waiver_reason` STRING COMMENT 'Documented justification for granting a compliance waiver when the E&O policy does not meet standard appointment requirements.',
-    CONSTRAINT pk_eno_policy PRIMARY KEY(`eno_policy_id`)
-) COMMENT 'Errors and Omissions (E&O) insurance policy held by a producer or agency. Tracks insurer, policy number, coverage limit, effective/expiration dates, and compliance status required for appointment.';
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` (
+    `producer_appointment_id` BIGINT COMMENT 'Unique identifier for the producer appointment record. Primary key.',
+    `agency_id` BIGINT COMMENT 'Reference to the agency through which the producer is appointed.',
+    `commission_schedule_id` BIGINT COMMENT 'Foreign key linking to producers.commission_schedule. Business justification: Appointments define the commission schedule that applies to the producer for that LOB/state/company combination. Replace STRING commission_schedule_code with FK.',
+    `distribution_channel_id` BIGINT COMMENT 'Foreign key linking to producers.distribution_channel. Business justification: Appointments are made through a specific distribution channel. Replace STRING distribution_channel_code with FK to distribution_channel. N:1 relationship.',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Appointments are granted by LOB per state regulatory requirements and carrier underwriting guidelines.',
+    `party_id` BIGINT COMMENT 'Reference to the party record representing the producer.',
+    `prior_appointment_id` BIGINT COMMENT 'Reference to the previous appointment record if this is a renewal or replacement.',
+    `producer_license_id` BIGINT COMMENT 'Foreign key linking to producers.producer_license. Business justification: Appointments are granted based on a valid license in that state and LOB. Links the appointment to the underlying license that authorizes the producer to sell. N:1 relationship.',
+    `producers_producer_id` BIGINT COMMENT 'Reference to the producer who holds this appointment.',
+    `appointment_agreement_date` DATE COMMENT 'Date when the appointment agreement was signed by both parties.',
+    `appointment_agreement_number` STRING COMMENT 'Reference number of the legal contract governing this appointment.',
+    `appointment_number` STRING COMMENT 'Unique business identifier for this appointment issued by the insurer or state DOI.',
+    `appointment_source` STRING COMMENT 'Origin or method by which the producer appointment was established.. Valid values are `direct_hire|agency_transfer|acquisition|reciprocity|new_market_entry`',
+    `appointment_state_code` STRING COMMENT 'Two-letter state code where the appointment is granted and registered.. Valid values are `^[A-Z]{2}$`',
+    `appointment_status` STRING COMMENT 'Current lifecycle status of the producer appointment.. Valid values are `active|pending|suspended|terminated|expired|inactive`',
+    `appointment_tier` STRING COMMENT 'Performance or volume tier assigned to the producer for this appointment.. Valid values are `platinum|gold|silver|bronze|standard`',
+    `appointment_type` STRING COMMENT 'Classification of the appointment relationship between producer and insurer.. Valid values are `direct|sub_producer|managing_general_agent|surplus_lines|reinsurance_intermediary`',
+    `binding_authority_flag` BOOLEAN COMMENT 'Indicates whether the producer has authority to bind coverage on behalf of the insurer.',
+    `binding_authority_limit` DECIMAL(15,2) COMMENT 'Maximum policy limit or premium amount the producer can bind without underwriter approval.',
+    `contingent_commission_eligible` BOOLEAN COMMENT 'Indicates whether the producer is eligible for contingent or profit-sharing commission.',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this appointment record was first created in the system.',
+    `default_commission_rate` DECIMAL(5,4) COMMENT 'Standard commission rate as a decimal percentage for policies written under this appointment.',
+    `doi_reported_date` DATE COMMENT 'Date when the appointment was reported to the state Department of Insurance.',
+    `effective_date` DATE COMMENT 'Date when the producer appointment becomes active and binding authority begins.',
+    `eo_insurance_required_flag` BOOLEAN COMMENT 'Indicates whether the producer must maintain E&O insurance as a condition of appointment.',
+    `eo_minimum_coverage_amount` DECIMAL(15,2) COMMENT 'Minimum E&O insurance coverage amount required to maintain the appointment.',
+    `expiration_date` DATE COMMENT 'Date when the producer appointment expires or is scheduled to end.',
+    `last_modified_timestamp` TIMESTAMP COMMENT 'Timestamp when this appointment record was last updated.',
+    `lob_category` STRING COMMENT 'High-level category grouping the line of business.. Valid values are `personal_lines|commercial_lines|specialty_lines|life_health`',
+    `lob_description` STRING COMMENT 'Full description of the line of business authorized under this appointment.',
+    `naic_company_code` STRING COMMENT 'Five-digit NAIC code identifying the insurer granting the appointment.. Valid values are `^[0-9]{5}$`',
+    `nipr_transaction_number` STRING COMMENT 'Unique transaction identifier assigned by NIPR for this appointment filing.',
+    `npn` STRING COMMENT 'Ten-digit unique identifier assigned by NIPR to licensed insurance producers.. Valid values are `^[0-9]{10}$`',
+    `regulatory_reporting_required` BOOLEAN COMMENT 'Indicates whether this appointment must be reported to state DOI or NIPR.',
+    `renewal_flag` BOOLEAN COMMENT 'Indicates whether this appointment is a renewal of a prior appointment.',
+    `resident_state_code` STRING COMMENT 'Two-letter code of the state where the producer holds resident license.. Valid values are `^[A-Z]{2}$`',
+    `source_system_code` STRING COMMENT 'Code identifying the operational system from which this appointment record originated.',
+    `source_system_reference_code` STRING COMMENT 'Primary key or unique identifier of this appointment in the source system.',
+    `surplus_lines_flag` BOOLEAN COMMENT 'Indicates whether this appointment authorizes surplus lines business placement.',
+    `surplus_lines_license_number` STRING COMMENT 'License number issued by the state for surplus lines authority.',
+    `termination_date` DATE COMMENT 'Actual date when the appointment was terminated before its scheduled expiration.',
+    `termination_for_cause_flag` BOOLEAN COMMENT 'Indicates whether the appointment was terminated for cause requiring regulatory reporting.',
+    `termination_reason_code` STRING COMMENT 'Standardized code indicating the reason for appointment termination.. Valid values are `voluntary|for_cause|license_revoked|non_renewal|business_closure|regulatory_action`',
+    `termination_reason_description` STRING COMMENT 'Detailed explanation of the reason for appointment termination.',
+    `writing_company_code` STRING COMMENT 'Internal code identifying the insurance company granting the appointment.',
+    CONSTRAINT pk_producer_appointment PRIMARY KEY(`producer_appointment_id`)
+) COMMENT 'Formal appointment and binding authority granted by the insurer to a producer to sell specific lines in a state. One row per producer per insurer per state per LOB.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` (
-    `commission_schedule_id` BIGINT COMMENT 'Unique surrogate identifier for a commission schedule record. Primary key for the commission_schedule product in the producers domain.',
-    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Commission schedules specify rates and thresholds in specific currencies. Multi-currency commission calculation and financial reporting require currency reference.',
-    `lob_code_id` BIGINT COMMENT 'Foreign key linking to shared.lob_code. Business justification: Commission rates are structured by line of business due to varying risk profiles and market dynamics. Commission calculation and profitability analysis require LOB reference.',
-    `state_id` BIGINT COMMENT 'Foreign key linking to shared.state. Business justification: Commission schedules vary by state due to regulatory requirements and market conditions. Commission calculation and regulatory filing require state reference. Removes denormalized state_code.',
-    `superseded_by_commission_schedule_id` BIGINT COMMENT 'Reference to the commission_schedule_id of the newer schedule that replaced this one. Null if this is the current active version. Supports schedule lineage and audit trails.',
-    `approval_date` DATE COMMENT 'Date on which this commission schedule received final approval from the designated authority. Null if approval is still pending or the schedule was rejected.',
-    `approval_status` STRING COMMENT 'Internal approval workflow status for this commission schedule. Schedules must be approved before activation. Supports SOX-compliant change management and audit trail requirements.. Valid values are `pending|approved|rejected|withdrawn`',
-    `approved_by` STRING COMMENT 'Name or employee identifier of the underwriting or finance authority who approved this commission schedule for activation. Required for SOX audit trail and governance compliance.',
-    `base_commission_rate` DECIMAL(7,4) COMMENT 'Standard base commission rate expressed as a decimal percentage of Written Premium (WP) earned by the producer for qualifying policies under this schedule.',
-    `cancellation_chargeback_rate` DECIMAL(7,4) COMMENT 'Rate at which previously paid commission is charged back to the producer upon policy cancellation (CANC). Applied to the unearned premium returned to the policyholder.',
-    `channel` STRING COMMENT 'Distribution channel to which this commission schedule applies: independent agent, captive agent, direct, broker, or digital. Enables channel-specific commission differentiation.. Valid values are `independent_agent|captive_agent|direct|broker|digital`',
-    `combined_ratio_threshold` DECIMAL(7,4) COMMENT 'Maximum permissible Combined Ratio (CR) for the producers portfolio to qualify for profit-sharing or contingent bonus. Incorporates both Loss Ratio (LR) and Expense Ratio (ER).',
-    `contingent_bonus_rate` DECIMAL(7,4) COMMENT 'Additional contingent bonus rate payable on top of the base commission when the producer meets profitability or volume thresholds defined in the bonus tier configuration.',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this commission schedule record was first created in the system. Supports audit trail, data lineage, and SOX compliance requirements.',
-    `dac_eligible` BOOLEAN COMMENT 'Indicates whether commissions paid under this schedule qualify as Deferred Acquisition Costs (DAC) for GAAP accounting purposes under ASC 944, requiring capitalization and amortization.',
-    `commission_schedule_description` STRING COMMENT 'Free-text narrative describing the business purpose, eligibility criteria, and special conditions of this commission schedule. Used in producer agreements and internal documentation.',
-    `effective_date` DATE COMMENT 'Date on which this commission schedule becomes active and applicable to qualifying producer transactions. Policies bound on or after this date are subject to these rates.',
-    `endorsement_rate` DECIMAL(7,4) COMMENT 'Commission rate applied to mid-term endorsement (ENDT) transactions that generate additional premium. Applied to the net additional premium resulting from the endorsement.',
-    `expiration_date` DATE COMMENT 'Date on which this commission schedule ceases to be applicable. Null indicates an open-ended schedule with no defined end date. Superseded schedules retain history.',
-    `filing_reference` STRING COMMENT 'State DOI filing reference number or SERFF tracking number associated with the regulatory submission of this commission schedule. Null if no filing is required.',
-    `gl_account_code` STRING COMMENT 'General Ledger (GL) account code in Oracle Financials or SAP FI to which commission expenses under this schedule are posted. Ensures accurate financial reporting and cost allocation.. Valid values are `^[A-Z0-9-]{4,20}$`',
-    `loss_ratio_threshold` DECIMAL(7,4) COMMENT 'Maximum permissible Loss Ratio (LR) expressed as a decimal that the producers book must not exceed to remain eligible for contingent bonus or profit-sharing commission under this schedule.',
-    `max_volume_premium` DECIMAL(18,2) COMMENT 'Upper Written Premium (WP) volume cap in USD above which this schedule tier no longer applies and the producer advances to the next tier. Null indicates no upper cap.',
-    `measurement_period` STRING COMMENT 'Time period over which producer volume, loss ratio, and profitability metrics are measured to determine eligibility and payout under this commission schedule.. Valid values are `annual|semi_annual|quarterly|monthly`',
-    `min_policy_count` BIGINT COMMENT 'Minimum number of in-force policies the producer must maintain during the measurement period to qualify for this commission schedule or contingent bonus tier.',
-    `min_volume_premium` DECIMAL(18,2) COMMENT 'Minimum Written Premium (WP) volume in USD that a producer must generate within the measurement period to qualify for this commission schedule or contingent bonus tier.',
-    `new_business_rate` DECIMAL(7,4) COMMENT 'Specific commission rate applied to New Business (NB) policy transactions when the schedule differentiates NB from renewal rates. Overrides base_commission_rate for NB transactions.',
-    `notes` STRING COMMENT 'Internal operational notes or comments regarding exceptions, amendments, or special handling instructions for this commission schedule. Not exposed in producer-facing documents.',
-    `override_rate` DECIMAL(7,4) COMMENT 'Override percentage applied to the base commission rate for managing general agents or hierarchical producers who earn a spread on sub-producer business.',
-    `payment_frequency` STRING COMMENT 'Frequency at which earned commissions under this schedule are calculated and disbursed to the producer, e.g., monthly, quarterly, semi-annual, or annual.. Valid values are `monthly|quarterly|semi_annual|annual`',
-    `producer_tier` STRING COMMENT 'Producer performance or appointment tier to which this schedule applies. Tier determines eligibility for enhanced base rates, contingent bonuses, and override percentages.. Valid values are `preferred|standard|provisional|elite`',
-    `producer_type` STRING COMMENT 'Type of producer entity this schedule governs: independent agent, broker, Managing General Agent (MGA), MGA-E, or surplus lines broker. Affects regulatory disclosure and payout rules.. Valid values are `agent|broker|mga|mga_e|surplus_lines`',
-    `profit_sharing_rate` DECIMAL(7,4) COMMENT 'Rate applied to the producers eligible profit base to calculate profit-sharing commission. Payable when the producers book achieves profitability targets defined by loss and combined ratio thresholds.',
-    `regulatory_filing_required` BOOLEAN COMMENT 'Indicates whether this commission schedule must be filed with the applicable State Department of Insurance (DOI) prior to use, as required by state producer compensation disclosure regulations.',
-    `renewal_rate` DECIMAL(7,4) COMMENT 'Specific commission rate applied to Renewal (REN) policy transactions. Typically lower than the New Business (NB) rate, reflecting reduced acquisition cost for retained policies.',
-    `schedule_code` STRING COMMENT 'Externally-known alphanumeric code uniquely identifying this commission schedule, used in producer agreements, bordereaux, and system configuration references.. Valid values are `^[A-Z0-9_-]{3,30}$`',
-    `schedule_name` STRING COMMENT 'Human-readable name describing this commission schedule, used in producer-facing documents, commission statements, and reporting dashboards.',
-    `schedule_status` STRING COMMENT 'Current lifecycle status of the commission schedule: draft (pending approval), active (in force), suspended (temporarily halted), expired (past end date), or superseded (replaced by newer version).. Valid values are `draft|active|suspended|expired|superseded`',
-    `schedule_type` STRING COMMENT 'Classifies the commission schedule as base, contingent, override, profit-sharing, or bonus. Drives calculation logic and payout eligibility rules in the commission engine.. Valid values are `base|contingent|override|profit_sharing|bonus`',
-    `stat_expense_code` STRING COMMENT 'NAIC statutory expense code used to classify commission payments in the Annual Statement Underwriting and Investment Exhibit. Required for statutory financial reporting.. Valid values are `^[A-Z0-9]{2,10}$`',
-    `transaction_type` STRING COMMENT 'Policy transaction type to which this schedule applies: New Business (NB), Renewal (REN), Endorsement (ENDT), Cancellation (CANC), or Reinstatement. Enables differential commission rates by transaction.. Valid values are `NB|REN|ENDT|CANC|REINSTATE`',
-    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp of the most recent modification to this commission schedule record. Used for change detection, incremental data loads, and audit trail maintenance.',
-    `version_number` BIGINT COMMENT 'Monotonically incrementing version number for this commission schedule. Enables tracking of rate changes and amendments over time while preserving historical rate configurations.',
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` (
+    `distribution_channel_id` BIGINT COMMENT 'Unique identifier for the distribution channel. Primary key.',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Distribution channels are configured with LOB authorizations for market segmentation and channel conflict management.',
+    `agency_bill_flag` BOOLEAN COMMENT 'Indicates whether policies written through this channel use agency bill arrangements where the producer collects premium and remits to the insurer.',
+    `appointment_required` BOOLEAN COMMENT 'Indicates whether producers must be formally appointed by the insurer to write business through this channel.',
+    `background_check_required` BOOLEAN COMMENT 'Indicates whether producers must pass a background check before being authorized to write business through this channel.',
+    `binding_authority_flag` BOOLEAN COMMENT 'Indicates whether producers in this channel have authority to bind coverage on behalf of the insurer without prior underwriting approval.',
+    `binding_authority_limit` DECIMAL(15,2) COMMENT 'Maximum policy premium or total insured value that producers in this channel may bind without referral to underwriting.',
+    `channel_code` STRING COMMENT 'Short alphanumeric code uniquely identifying the channel type for system integration and reporting.. Valid values are `^[A-Z0-9_]{2,10}$`',
+    `channel_description` STRING COMMENT 'Detailed narrative describing the purpose, structure, and operational characteristics of this distribution channel.',
+    `channel_name` STRING COMMENT 'Full business name of the distribution channel.',
+    `channel_priority_rank` BIGINT COMMENT 'Numeric ranking indicating the strategic priority or preference of this channel relative to others for business development and resource allocation.',
+    `channel_status` STRING COMMENT 'Current lifecycle status of the distribution channel indicating whether it is available for new business.. Valid values are `active|inactive|suspended|pending|terminated`',
+    `channel_subtype` STRING COMMENT 'Secondary classification providing additional granularity within the primary channel type, such as affinity, digital, call center, or retail branch.',
+    `channel_type` STRING COMMENT 'Primary classification of how business reaches the insurer: captive agent, independent agent, broker, direct-to-consumer, managing general agent, or wholesale.. Valid values are `captive|independent|broker|direct|mga|wholesale`',
+    `commission_schedule_code` STRING COMMENT 'Reference code linking this channel to its default commission rate structure and payment terms.. Valid values are `^[A-Z0-9_]{2,15}$`',
+    `contingent_commission_eligible` BOOLEAN COMMENT 'Indicates whether producers in this channel are eligible for performance-based contingent commission payments.',
+    `continuing_education_required` BOOLEAN COMMENT 'Indicates whether producers in this channel must complete ongoing continuing education requirements to maintain their authorization.',
+    `created_timestamp` TIMESTAMP COMMENT 'System timestamp when this distribution channel record was first created in the data platform.',
+    `default_commission_rate` DECIMAL(5,4) COMMENT 'Standard commission percentage paid to producers operating through this channel, expressed as a decimal fraction.',
+    `direct_bill_flag` BOOLEAN COMMENT 'Indicates whether policies written through this channel are billed directly by the insurer or through agency bill arrangements.',
+    `effective_date` DATE COMMENT 'Date when this distribution channel became active and available for producer appointments and policy binding.',
+    `eo_insurance_required` BOOLEAN COMMENT 'Indicates whether producers operating through this channel must maintain errors and omissions professional liability coverage.',
+    `expiration_date` DATE COMMENT 'Date when this distribution channel is scheduled to terminate or was terminated. Null for open-ended channels.',
+    `geographic_scope` STRING COMMENT 'Description of the geographic territories or jurisdictions where this channel is authorized to operate, such as nationwide, regional, or state-specific.',
+    `lob_authorizations` STRING COMMENT 'Comma-separated list of line-of-business codes that producers in this channel are authorized to write, such as HO, PAP, CGL, BOP, WC.',
+    `minimum_eo_coverage_amount` DECIMAL(15,2) COMMENT 'Minimum required errors and omissions insurance coverage limit for producers in this channel, expressed in policy currency.',
+    `naic_company_code` STRING COMMENT 'Five-digit NAIC company code assigned to the writing company for regulatory reporting and statutory filings.. Valid values are `^[0-9]{5}$`',
+    `regulatory_reporting_required` BOOLEAN COMMENT 'Indicates whether activity through this channel triggers specific regulatory reporting obligations to state departments of insurance or NAIC.',
+    `source_system_code` STRING COMMENT 'Code identifying the operational system of record from which this distribution channel data originated, such as producer management or policy administration system.. Valid values are `^[A-Z0-9_]{2,20}$`',
+    `surplus_lines_eligible` BOOLEAN COMMENT 'Indicates whether this channel is authorized to place surplus lines or non-admitted business in jurisdictions where the carrier is not licensed.',
+    `target_market_segment` STRING COMMENT 'Description of the primary customer demographic or market segment this channel is designed to serve, such as personal lines, small commercial, or middle market.',
+    `termination_reason` STRING COMMENT 'Business reason for channel termination, such as strategic realignment, regulatory action, or performance issues.',
+    `updated_timestamp` TIMESTAMP COMMENT 'System timestamp when this distribution channel record was last modified.',
+    `writing_company_code` STRING COMMENT 'Internal code identifying the insurance company or carrier that underwrites policies through this channel.. Valid values are `^[A-Z0-9]{2,10}$`',
+    CONSTRAINT pk_distribution_channel PRIMARY KEY(`distribution_channel_id`)
+) COMMENT 'Reference classification of how business reaches the insurer (captive, independent, broker, direct, MGA, wholesale, affinity, digital). One row per channel. Drives commission schedule selection and producer underwriting authority rules.';
+
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` (
+    `commission_schedule_id` BIGINT COMMENT 'Unique identifier for the commission schedule. Primary key.',
+    `agency_id` BIGINT COMMENT 'Agency to which this commission schedule applies, if agency-level.',
+    `cat_zone_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.cat_zone. Business justification: Commission rates vary by catastrophe zone to reflect risk-based pricing and producer incentives.',
+    `distribution_channel_id` BIGINT COMMENT 'Foreign key linking to producers.distribution_channel. Business justification: Commission schedules are defined for specific distribution channels. Replace STRING distribution_channel_code with FK to distribution_channel. N:1 relationship.',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Commission schedules are structured by LOB for rate differentiation, regulatory compliance, and profitability management.',
+    `producers_producer_id` BIGINT COMMENT 'Producer to whom this commission schedule applies.',
+    `superseded_by_schedule_id` BIGINT COMMENT 'Identifier of the commission schedule that replaces this one, if superseded.',
+    `approval_date` DATE COMMENT 'Date when this commission schedule was approved by management or underwriting authority.',
+    `approved_by` STRING COMMENT 'Name or identifier of the person who approved this commission schedule.',
+    `base_commission_rate` DECIMAL(7,5) COMMENT 'Base commission rate as a decimal percentage applied to written premium for this schedule.',
+    `bonus_commission_rate` DECIMAL(7,5) COMMENT 'Bonus commission rate as a decimal percentage, awarded for exceptional performance or strategic initiatives.',
+    `chargeback_period_days` BIGINT COMMENT 'Number of days from policy effective date during which cancellation triggers commission chargeback.',
+    `chargeback_provision` BOOLEAN COMMENT 'Indicates whether commission is subject to chargeback if policy cancels within a specified period.',
+    `commission_basis` STRING COMMENT 'Premium basis on which commission is calculated: written, earned, net, or gross premium.. Valid values are `written_premium|earned_premium|net_premium|gross_premium`',
+    `contingent_commission_rate` DECIMAL(7,5) COMMENT 'Contingent commission rate as a decimal percentage, earned based on profitability or volume thresholds.',
+    `coverage_type_code` STRING COMMENT 'Specific coverage type within the line of business for which this schedule applies, if coverage-specific.',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this commission schedule record was first created in the system.',
+    `currency_code` STRING COMMENT 'Three-letter ISO 4217 currency code for commission amounts and thresholds. Typically USD for US operations.',
+    `effective_date` DATE COMMENT 'Date when this commission schedule becomes active and binding.',
+    `expiration_date` DATE COMMENT 'Date when this commission schedule expires or is no longer in force. Null for open-ended schedules.',
+    `last_modified_timestamp` TIMESTAMP COMMENT 'Timestamp when this commission schedule record was last updated or modified.',
+    `loss_ratio_threshold` DECIMAL(5,4) COMMENT 'Maximum loss ratio threshold for contingent commission eligibility, expressed as a decimal.',
+    `maximum_premium_threshold` DECIMAL(15,2) COMMENT 'Maximum written premium amount beyond which this commission schedule no longer applies or a different tier begins.',
+    `minimum_premium_threshold` DECIMAL(15,2) COMMENT 'Minimum written premium amount required for this commission schedule to apply.',
+    `naic_company_code` STRING COMMENT 'Five-digit NAIC company code identifying the insurer for regulatory reporting.',
+    `new_business_credit_rate` DECIMAL(7,5) COMMENT 'Additional commission credit rate for new business production, expressed as a decimal percentage.',
+    `notes` STRING COMMENT 'Free-text notes or comments regarding special terms, exceptions, or conditions of this commission schedule.',
+    `override_commission_rate` DECIMAL(7,5) COMMENT 'Override commission rate as a decimal percentage, typically for agency principals or managing general agents.',
+    `payment_timing` STRING COMMENT 'Timing of commission payment: immediate upon booking, monthly, quarterly, annual, or upon premium collection.. Valid values are `immediate|monthly|quarterly|annual|upon_collection`',
+    `renewal_credit_rate` DECIMAL(7,5) COMMENT 'Additional commission credit rate for renewal business, expressed as a decimal percentage.',
+    `retention_rate_threshold` DECIMAL(5,4) COMMENT 'Minimum policy retention rate required for contingent commission eligibility, expressed as a decimal.',
+    `schedule_code` STRING COMMENT 'Business identifier for the commission schedule, used for external reference and reporting.',
+    `schedule_name` STRING COMMENT 'Descriptive name of the commission schedule for business users.',
+    `schedule_status` STRING COMMENT 'Current lifecycle status of the commission schedule.. Valid values are `draft|active|suspended|expired|terminated`',
+    `schedule_type` STRING COMMENT 'Type of commission schedule: standard, override, contingent, bonus, or special arrangement.. Valid values are `standard|override|contingent|bonus|special`',
+    `source_system_code` STRING COMMENT 'Code identifying the operational system from which this commission schedule record originated.',
+    `source_system_reference_code` STRING COMMENT 'Unique identifier of this commission schedule in the source operational system for traceability.',
+    `state_code` STRING COMMENT 'Two-letter state code for which this commission schedule applies, if state-specific.',
+    `termination_date` DATE COMMENT 'Date when this commission schedule was terminated before its natural expiration.',
+    `termination_reason` STRING COMMENT 'Reason for early termination of this commission schedule: producer termination, contract renegotiation, regulatory change, etc.',
+    `tier_level` BIGINT COMMENT 'Tier level within a multi-tier commission structure, where higher tiers may have different rates.',
+    `transaction_type` STRING COMMENT 'Policy transaction type for which this commission rate applies: New Business, Renewal, Endorsement, Cancellation, Reinstatement.. Valid values are `NB|REN|END|CAN|RI`',
+    `version_number` BIGINT COMMENT 'Version number of this commission schedule, incremented with each amendment or revision.',
+    `volume_threshold_policy_count` BIGINT COMMENT 'Minimum number of policies required to qualify for this commission schedule or tier.',
+    `writing_company_code` STRING COMMENT 'Insurance company code for which this commission schedule applies, if company-specific.',
     CONSTRAINT pk_commission_schedule PRIMARY KEY(`commission_schedule_id`)
-) COMMENT 'Reference schedule defining base commission rates, contingent bonus tiers, and override percentages by LOB, policy transaction type (NB, REN), and producer tier. SSOT for commission rate configuration.';
+) COMMENT 'Contractual commission rate set for a producer or agency by LOB, transaction type (NB/REN/END), and coverage type over an effective period. One row per schedule version. Holds all rate lines (base, contingent, override) as embedded detail.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` (
-    `commission_transaction_id` BIGINT COMMENT 'Unique surrogate identifier for each commission transaction record in the producers domain. Primary key for the commission_transaction data product.',
-    `commission_schedule_id` BIGINT COMMENT 'Reference to the commission schedule that defines the applicable rate tiers and rules governing this transaction.',
-    `commission_statement_id` BIGINT COMMENT 'Reference to the commission statement (remittance advice) on which this transaction was included and settled.',
-    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Commission transactions are denominated in specific currencies. Multi-currency accounting, payment processing, and financial reporting require currency reference.',
-    `endorsement_id` BIGINT COMMENT 'Foreign key linking to coverage.coverage_endorsement. Business justification: Commissions on endorsements require direct linkage for proper accounting of mid-term premium changes, chargeback processing on cancellations, and reconciliation of',
-    `lob_code_id` BIGINT COMMENT 'Foreign key linking to shared.lob_code. Business justification: Commission transactions are categorized by line of business for profitability analysis and producer performance reporting. LOB-level commission analysis requires LOB reference.',
-    `original_transaction_id` BIGINT COMMENT 'For reversal or adjustment transactions, references the commission_transaction_id of the original transaction being corrected or reversed.',
-    `coverage_policy_coverage_id` BIGINT COMMENT 'Foreign key linking to coverage.coverage_policy_coverage. Business justification: Commission transactions must link to specific coverages for accurate allocation on multi-coverage policies, reinsurance commission calculations, and coverage-specific',
-    `policy_id` BIGINT COMMENT 'Reference to the policy that generated this commission transaction, linking commission to the underlying insured risk.',
-    `producers_producer_id` BIGINT COMMENT 'Reference to the licensed producer (agent or broker) who earned or was adjusted for this commission transaction.',
-    `state_id` BIGINT COMMENT 'Foreign key linking to shared.state. Business justification: Commission transactions are allocated to states for premium tax reporting and regulatory compliance. State-level commission analysis and tax filing require state reference.',
-    `accounting_date` DATE COMMENT 'The date on which this commission transaction is recognized in the general ledger for statutory and GAAP financial reporting purposes.',
-    `adjustment_amount` DECIMAL(18,2) COMMENT 'Dollar amount of any adjustment applied to the gross commission, including chargebacks on cancellations, pro-rata returns, or manual corrections. Negative for deductions.',
-    `approval_status` STRING COMMENT 'Workflow approval state for this commission transaction: PENDING review, APPROVED for payment, REJECTED with reason, or ESCALATED to management.. Valid values are `PENDING|APPROVED|REJECTED|ESCALATED`',
-    `approval_timestamp` TIMESTAMP COMMENT 'Date and time when this commission transaction was approved for payment, providing an audit trail for SOX and internal controls compliance.',
-    `approved_by` STRING COMMENT 'Username or employee ID of the internal staff member who approved this commission transaction for payment, supporting SOX audit trail requirements.',
-    `cancellation_reason_code` STRING COMMENT 'Standardized code indicating the reason for policy cancellation when transaction_type is CANC, used to determine chargeback applicability and proration method.',
-    `chargeback_amount` DECIMAL(18,2) COMMENT 'Amount clawed back from the producer due to policy cancellation, mid-term endorsement reduction, or non-payment of premium. Positive value represents a debit to the producer.',
-    `commission_rate` DECIMAL(7,4) COMMENT 'The percentage rate applied to the GWP basis to calculate the gross commission amount, expressed as a decimal (e.g., 0.1200 = 12%).',
-    `commission_type` STRING COMMENT 'Categorizes the nature of the commission: Standard, Contingent, Override, Bonus, Chargeback, or Supplemental. [ENUM-REF-CANDIDATE: STANDARD|CONTINGENT|OVERRIDE|BONUS|CHARGEBACK|SUPPLEMENTAL — promote to reference product]. Valid values are `STANDARD|CONTINGENT|OVERRIDE|BONUS|CHARGEBACK|SUPPLEMENTAL`',
-    `contingent_commission_flag` BOOLEAN COMMENT 'Indicates whether this transaction includes a contingent (profit-sharing) commission component subject to loss ratio performance thresholds.',
-    `cost_center_code` STRING COMMENT 'The financial cost center responsible for this commission expense, used for internal management reporting and expense allocation.',
-    `created_timestamp` TIMESTAMP COMMENT 'Date and time when this commission transaction record was first created in the data platform, used for audit trail and data lineage tracking.',
-    `dac_eligible_flag` BOOLEAN COMMENT 'Indicates whether this commission qualifies as a Deferred Acquisition Cost (DAC) under US GAAP ASC 944, requiring deferral and amortization over the policy term.',
-    `earned_commission_amount` DECIMAL(18,2) COMMENT 'The portion of net commission recognized as earned in the current accounting period, pro-rated over the policy term for DAC and Earned Premium (EP) alignment.',
-    `gl_account_code` STRING COMMENT 'The General Ledger (GL) account code to which this commission expense is posted in the statutory and GAAP financial ledger.',
-    `gross_commission_amount` DECIMAL(18,2) COMMENT 'The total commission earned before any adjustments, chargebacks, or withholdings. Calculated as GWP basis multiplied by the commission rate.',
-    `gwp_basis_amount` DECIMAL(18,2) COMMENT 'The Gross Written Premium (GWP) amount on which the commission rate is applied to calculate the earned commission for this transaction.',
-    `net_commission_amount` DECIMAL(18,2) COMMENT 'The final commission amount payable to the producer after applying all adjustments and chargebacks. Equals gross commission plus adjustment amount.',
-    `override_commission_amount` DECIMAL(18,2) COMMENT 'Additional override or bonus commission paid to a managing general agent (MGA) or supervising producer above the base commission rate.',
-    `payment_date` DATE COMMENT 'The date on which the net commission amount was disbursed to the producer via check, ACH, or wire transfer.',
-    `payment_method` STRING COMMENT 'The disbursement method used to pay the producer: ACH (direct deposit), CHECK, WIRE transfer, OFFSET against amounts owed, or CREDIT_MEMO.. Valid values are `ACH|CHECK|WIRE|OFFSET|CREDIT_MEMO`',
-    `payment_status` STRING COMMENT 'Indicates whether the commission amount has been disbursed to the producer: UNPAID, PAID, PARTIALLY_PAID, or WITHHELD (e.g., pending E&O compliance).. Valid values are `UNPAID|PAID|PARTIALLY_PAID|WITHHELD`',
-    `policy_effective_date` DATE COMMENT 'The date the underlying policy or endorsement became effective, used to align commission earning with the policy period for DAC and UEP calculations.',
-    `policy_expiration_date` DATE COMMENT 'The date the underlying policy period ends, used to prorate earned commission over the policy term and compute Deferred Acquisition Cost (DAC).',
-    `pro_rata_factor` DECIMAL(7,6) COMMENT 'The pro-rata fraction applied to compute earned or returned commission on mid-term endorsements and cancellations, based on days remaining in the policy term.',
-    `reversal_flag` BOOLEAN COMMENT 'Indicates whether this transaction is a reversal of a previously posted commission, used to identify offsetting entries in reconciliation and audit.',
-    `source_system_code` STRING COMMENT 'Identifies the operational system of record that originated this commission transaction (e.g., GUIDEWIRE, DUCK_CREEK, SAPIENS, ORACLE, SAP).. Valid values are `GUIDEWIRE|DUCK_CREEK|SAPIENS|ORACLE|SAP`',
-    `source_transaction_reference` STRING COMMENT 'The native transaction identifier from the originating system of record (e.g., Guidewire BillingCenter transaction ID), used for lineage and reconciliation.',
-    `tax_withholding_amount` DECIMAL(18,2) COMMENT 'Federal or state income tax withheld from the commission payment for 1099 or backup withholding compliance, reported on IRS Form 1099-MISC.',
-    `transaction_date` DATE COMMENT 'The business event date on which the commission was earned or adjusted, typically aligned to the policy effective date or endorsement effective date.',
-    `transaction_number` STRING COMMENT 'Externally visible business reference number for this commission transaction, used in producer remittance advice and reconciliation.. Valid values are `^CT-[0-9]{10}$`',
-    `transaction_status` STRING COMMENT 'Current lifecycle state of the commission transaction: PENDING (awaiting approval), APPROVED, PAID, REVERSED, VOIDED, or ON_HOLD. [ENUM-REF-CANDIDATE: PENDING|APPROVED|PAID|REVERSED|VOIDED|ON_HOLD — promote to reference product]. Valid values are `PENDING|APPROVED|PAID|REVERSED|VOIDED|ON_HOLD`',
-    `transaction_type` STRING COMMENT 'Classifies the policy event that triggered this commission: New Business (NB), Renewal (REN), Endorsement (ENDT), Cancellation (CANC), Reinstatement, or Adjustment.. Valid values are `NB|REN|ENDT|CANC|REINSTATEMENT|ADJUSTMENT`',
-    `unearned_commission_amount` DECIMAL(18,2) COMMENT 'The portion of net commission deferred as unearned, corresponding to the Unearned Premium (UEP) reserve for the unexpired policy period.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Date and time when this commission transaction record was last modified, used for incremental data pipeline processing and audit trail.',
-    `withholding_amount` DECIMAL(18,2) COMMENT 'Amount withheld from the producers commission payment for tax withholding, E&O premium offset, or compliance holds per regulatory or contractual requirements.',
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` (
+    `commission_rule_id` BIGINT COMMENT 'Unique identifier for the commission rule. Primary key.',
+    `commission_schedule_id` BIGINT COMMENT 'Foreign key to the parent commission schedule that owns this rule.',
+    `coverage_type_id` BIGINT COMMENT 'Foreign key linking to coverage.coverage_type. Business justification: Commission rates vary by coverage type in P&C (e.g., 15% for auto liability, 12% for property, 8% for workers comp).',
+    `distribution_channel_id` BIGINT COMMENT 'Foreign key linking to producers.distribution_channel. Business justification: Commission rules may vary by distribution channel. Replace STRING distribution_channel_code with FK to distribution_channel. N:1 relationship.',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Commission rules are configured by LOB for rate differentiation, transaction type handling, and regulatory compliance.',
+    `approval_date` DATE COMMENT 'Date this commission rule was approved by management or compliance.',
+    `approval_required_flag` BOOLEAN COMMENT 'Indicates whether this rule requires management or compliance approval before activation.',
+    `approved_by` STRING COMMENT 'Name or identifier of the person who approved this commission rule for use.',
+    `base_commission_rate` DECIMAL(7,5) COMMENT 'Standard commission rate expressed as a decimal percentage applied to written premium for this rule.',
+    `chargeback_eligible_flag` BOOLEAN COMMENT 'Indicates whether commission paid under this rule is subject to chargeback if the policy cancels or premium is returned.',
+    `chargeback_period_days` BIGINT COMMENT 'Number of days from policy effective date during which commission chargeback applies if the policy cancels.',
+    `commission_basis_code` STRING COMMENT 'Premium basis on which commission is calculated: written premium, earned premium, billed premium, or collected premium.. Valid values are `written|earned|billed|collected`',
+    `commission_split_flag` BOOLEAN COMMENT 'Indicates whether this rule supports splitting commission among multiple producers.',
+    `contingent_commission_rate` DECIMAL(7,5) COMMENT 'Additional performance-based commission rate applied when volume, profitability, or retention thresholds are met.',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this commission rule record was first created in the system.',
+    `currency_code` STRING COMMENT 'Three-letter ISO 4217 currency code for commission amounts and thresholds.. Valid values are `USD|CAD|EUR|GBP|AUD`',
+    `effective_date` DATE COMMENT 'Date this commission rule becomes active and begins applying to new transactions.',
+    `expiration_date` DATE COMMENT 'Date this commission rule expires and ceases to apply; null indicates an open-ended rule.',
+    `last_modified_timestamp` TIMESTAMP COMMENT 'Timestamp when this commission rule record was last updated or modified.',
+    `loss_ratio_threshold` DECIMAL(5,4) COMMENT 'Maximum loss ratio threshold for contingent commission eligibility; expressed as a decimal percentage.',
+    `maximum_commission_amount` DECIMAL(12,2) COMMENT 'Ceiling amount for commission payment; if calculated commission exceeds this, the maximum is paid instead.',
+    `minimum_commission_amount` DECIMAL(12,2) COMMENT 'Floor amount for commission payment; if calculated commission is below this, the minimum is paid instead.',
+    `naic_company_code` STRING COMMENT 'Five-digit NAIC company code identifying the insurer for regulatory reporting and commission allocation.',
+    `override_commission_rate` DECIMAL(7,5) COMMENT 'Hierarchical override commission rate paid to managing producers or agency principals on downline production.',
+    `payment_timing_code` STRING COMMENT 'Timing of commission payment under this rule: immediate upon transaction, monthly, quarterly, or annual settlement.. Valid values are `immediate|monthly|quarterly|annual`',
+    `policy_state_code` STRING COMMENT 'Two-letter state or jurisdiction code where the policy is written; rule applies only to policies in this state.',
+    `premium_tier_maximum` DECIMAL(12,2) COMMENT 'Maximum written premium threshold for this rule to apply; enables tiered commission structures.',
+    `premium_tier_minimum` DECIMAL(12,2) COMMENT 'Minimum written premium threshold for this rule to apply; enables tiered commission structures.',
+    `producer_type_code` STRING COMMENT 'Type of producer this rule applies to: agent, broker, managing general agent, or direct.. Valid values are `agent|broker|mga|direct`',
+    `retention_rate_threshold` DECIMAL(5,4) COMMENT 'Minimum policy retention rate threshold for contingent commission eligibility; expressed as a decimal percentage.',
+    `rule_description` STRING COMMENT 'Detailed explanation of the conditions and rates applied by this rule.',
+    `rule_name` STRING COMMENT 'Business-friendly name or label for this commission rule.',
+    `rule_notes` STRING COMMENT 'Free-text notes or comments about this commission rule for internal reference and documentation.',
+    `rule_sequence_number` BIGINT COMMENT 'Ordering of this rule within the parent schedule for evaluation precedence.',
+    `rule_status` STRING COMMENT 'Current lifecycle status of this commission rule: active, inactive, pending approval, expired, or superseded by a newer rule.. Valid values are `active|inactive|pending|expired|superseded`',
+    `source_rule_reference` STRING COMMENT 'External reference or identifier for this rule in the source producer management or commission system.',
+    `source_system_code` STRING COMMENT 'Code identifying the operational system that created or manages this commission rule.',
+    `split_percentage` DECIMAL(5,4) COMMENT 'Percentage of total commission allocated to this rule when commission splitting is enabled; expressed as a decimal.',
+    `transaction_type_code` STRING COMMENT 'Policy transaction type this rule applies to: New Business, Renewal, Endorsement, Cancellation, Reinstatement, Non-renewal.. Valid values are `NB|REN|END|CAN|RI|NR`',
+    `volume_threshold_amount` DECIMAL(15,2) COMMENT 'Cumulative premium volume threshold that must be met for contingent or bonus commission rates to apply.',
+    `writing_company_code` STRING COMMENT 'Insurance company or carrier code this rule applies to, for multi-carrier agency environments.',
+    CONSTRAINT pk_commission_rule PRIMARY KEY(`commission_rule_id`)
+) COMMENT 'Individual rate rule within a commission schedule. One row per rule. Specifies transaction type (NB, REN, END), LOB, coverage type, base rate, contingent rate, override rate, and effective date range.';
+
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` (
+    `commission_transaction_id` BIGINT COMMENT 'Unique identifier for the commission financial movement. Primary key.',
+    `agency_id` BIGINT COMMENT 'Foreign key to the agency associated with this commission.',
+    `claimfinancials_accounting_period_id` BIGINT COMMENT 'Foreign key to the accounting period in which this commission is recognized.',
+    `commission_rule_id` BIGINT COMMENT 'Foreign key linking to producers.commission_rule. Business justification: Each transaction is calculated by applying a specific rule within a schedule. The rule specifies the exact rate, tier, LOB, and conditions that produced the commission amount.',
+    `commission_schedule_id` BIGINT COMMENT 'Foreign key linking to producers.commission_schedule. Business justification: Each transaction is calculated using a specific commission schedule. Replace STRING commission_schedule_code with FK to commission_schedule. N:1 relationship.',
+    `commission_statement_id` BIGINT COMMENT 'Foreign key linking to producers.commission_statement. Business justification: Transactions roll up into periodic statements. Each transaction appears on exactly one statement for a given billing period. Standard transaction-to-statement aggregation link.',
+    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Commission transactions in multi-currency operations require currency reference for financial reporting, GL posting, and payment processing.',
+    `original_transaction_id` BIGINT COMMENT 'Foreign key to the original commission transaction if this is a reversal, adjustment, or claw-back.',
+    `policy_id` BIGINT COMMENT 'Foreign key to the policy generating this commission.',
+    `policy_term_id` BIGINT COMMENT 'Foreign key to the policy term associated with this commission.',
+    `premium_transaction_id` BIGINT COMMENT 'Foreign key to the premium transaction that generated this commission.',
+    `producers_producer_id` BIGINT COMMENT 'Foreign key to the producer earning this commission.',
+    `adjustment_amount` DECIMAL(18,2) COMMENT 'Adjustment amount applied to correct or modify the commission.',
+    `claw_back_amount` DECIMAL(18,2) COMMENT 'Amount of commission reclaimed due to policy cancellation, return premium, or other reversal event.',
+    `commission_basis` STRING COMMENT 'Basis on which commission is calculated: Gross Written Premium, Net Written Premium, Earned Premium, flat fee, or sliding scale.. Valid values are `gwp|nwp|ep|flat_fee|sliding_scale`',
+    `commission_rate` DECIMAL(7,4) COMMENT 'Percentage rate applied to the premium to calculate the commission, expressed as a decimal.',
+    `contingent_commission_flag` BOOLEAN COMMENT 'Indicates whether this commission is contingent on meeting performance or profitability targets.',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this commission transaction record was first created in the system.',
+    `earned_amount` DECIMAL(18,2) COMMENT 'Gross commission amount earned by the producer on the premium transaction.',
+    `effective_date` DATE COMMENT 'Date when the commission becomes effective for accounting purposes.',
+    `gl_account_code` STRING COMMENT 'General ledger account code to which this commission transaction is posted.',
+    `lob_code` STRING COMMENT 'Code identifying the line of business for which this commission was earned.',
+    `net_commission_amount` DECIMAL(18,2) COMMENT 'Net commission amount after applying claw-backs and adjustments.',
+    `notes` STRING COMMENT 'Free-text notes or comments related to this commission transaction.',
+    `npn` STRING COMMENT 'National Producer Number of the producer earning this commission, for regulatory reporting.',
+    `override_flag` BOOLEAN COMMENT 'Indicates whether this commission is an override commission paid to a higher-level producer or manager.',
+    `payment_date` DATE COMMENT 'Date when the commission was paid or is scheduled to be paid to the producer.',
+    `payment_method` STRING COMMENT 'Method used to pay the commission to the producer.. Valid values are `ach|wire|check|eft|direct_deposit`',
+    `payment_reference_number` STRING COMMENT 'External reference number for the payment transaction, such as check number or wire confirmation.',
+    `payment_status` STRING COMMENT 'Current payment status of the commission transaction.. Valid values are `unpaid|scheduled|paid|withheld|disputed`',
+    `policy_transaction_type` STRING COMMENT 'Type of policy transaction that triggered this commission: new business, renewal, endorsement, cancellation, or reinstatement.. Valid values are `new_business|renewal|endorsement|cancellation|reinstatement`',
+    `reversal_reason_code` STRING COMMENT 'Code indicating the reason for commission reversal or claw-back, if applicable.',
+    `reversal_reason_description` STRING COMMENT 'Detailed description of the reason for commission reversal or claw-back.',
+    `source_system_code` STRING COMMENT 'Code identifying the source system that originated this commission transaction.',
+    `source_transaction_reference` STRING COMMENT 'External reference identifier from the source system for this commission transaction.',
+    `split_percentage` DECIMAL(5,2) COMMENT 'Percentage of the total commission allocated to this producer in a split commission scenario.',
+    `state_code` STRING COMMENT 'Two-letter state code where the policy was written and commission earned.. Valid values are `^[A-Z]{2}$`',
+    `tax_withholding_amount` DECIMAL(18,2) COMMENT 'Amount of tax withheld from the commission payment, if applicable.',
+    `transaction_date` DATE COMMENT 'Date when the commission transaction was recorded in the system.',
+    `transaction_number` STRING COMMENT 'Business identifier for this commission transaction, unique within the system.',
+    `transaction_status` STRING COMMENT 'Current lifecycle status of the commission transaction.. Valid values are `pending|approved|paid|voided|disputed|reconciled`',
+    `transaction_timestamp` TIMESTAMP COMMENT 'Precise timestamp when the commission transaction was created.',
+    `transaction_type` STRING COMMENT 'Type of commission financial movement: earned, claw-back, adjustment, reversal, advance, or chargeback.. Valid values are `earned|claw_back|adjustment|reversal|advance|chargeback`',
+    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp when this commission transaction record was last modified.',
+    `writing_company_code` STRING COMMENT 'Code identifying the insurance company that wrote the policy and owes the commission.',
     CONSTRAINT pk_commission_transaction PRIMARY KEY(`commission_transaction_id`)
-) COMMENT 'Individual commission earned or adjusted for a producer on a specific policy transaction. FKs to producer, commission_schedule, and commission_statement. Captures GWP basis, rate, earned amount, type (NB, REN, ENDT, CANC), and payment status.';
+) COMMENT 'One row per commission financial movement earned by a producer on a premium transaction. Captures earned amount, claw-back amount, transaction type, accounting period, and payment status. Child of premium transaction.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` (
-    `commission_statement_id` BIGINT COMMENT 'Unique surrogate identifier for the commission statement record. Primary key for the commission_statement data product in the producers domain.',
-    `agency_id` BIGINT COMMENT 'Reference to the agency or brokerage entity associated with this statement. Supports agency-level commission aggregation and reporting.',
-    `commission_schedule_id` BIGINT COMMENT 'Reference to the commission schedule or rate table applied to calculate earned commissions on this statement. Governs base and contingent rates.',
-    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Commission statements are denominated in specific currencies. Multi-currency statement generation, payment processing, and reconciliation require currency reference.',
-    `lob_code_id` BIGINT COMMENT 'Foreign key linking to shared.lob_code. Business justification: Commission statements are often produced by line of business for producer performance tracking and profitability analysis. LOB-level statement generation requires LOB reference.',
-    `producer_agreement_id` BIGINT COMMENT 'Reference to the executed producer appointment agreement governing the commission terms, rates, and conditions applicable to this statement.',
-    `producers_producer_id` BIGINT COMMENT 'Reference to the licensed producer (agent or broker) to whom this commission statement is issued. Links to the producer master record.',
-    `adjustment_amt` DECIMAL(18,2) COMMENT 'Net miscellaneous adjustments applied to the statement, including corrections from prior periods, manual overrides, or regulatory-mandated recalculations.',
-    `bonus_commission_amt` DECIMAL(18,2) COMMENT 'Discretionary or incentive bonus commission awarded to the producer for meeting new business, retention, or quality targets during the period.',
-    `cancellation_count` BIGINT COMMENT 'Number of policy cancellations (CANC) attributed to this producer during the settlement period. Drives chargeback calculations and retention performance metrics.',
-    `chargeback_amt` DECIMAL(18,2) COMMENT 'Commission previously paid that is reclaimed due to policy cancellations, mid-term endorsements, or return premium events during the settlement period.',
-    `contingent_commission_amt` DECIMAL(18,2) COMMENT 'Profit-sharing or contingent commission earned based on loss ratio, volume, or growth performance thresholds agreed in the producer contract.',
-    `cost_center_code` STRING COMMENT 'Financial cost center to which the commission expense is allocated for management accounting and expense ratio (ER) reporting purposes.',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this commission statement record was first created in the system. Audit trail field for data lineage and SOX compliance.',
-    `dac_eligible_amt` DECIMAL(18,2) COMMENT 'Portion of commission on this statement that qualifies as Deferred Acquisition Cost (DAC) under US GAAP ASC 944 or IFRS 17 for capitalization and amortization.',
-    `dispute_reason` STRING COMMENT 'Free-text description of the reason provided by the producer or internal reviewer for disputing this commission statement. Populated when is_disputed is true.',
-    `dispute_resolution_date` DATE COMMENT 'Date on which a disputed commission statement was formally resolved and approved for payment. Null if no dispute was raised or dispute is still open.',
-    `earned_commission_amt` DECIMAL(18,2) COMMENT 'Total commission earned by the producer during the settlement period before adjustments, chargebacks, or contingent additions. Core gross commission figure.',
-    `gl_account_code` STRING COMMENT 'General Ledger (GL) account code to which the commission expense on this statement is posted in the financial ledger. Supports statutory and GAAP financial reporting.',
-    `gross_written_premium_amt` DECIMAL(18,2) COMMENT 'Total Gross Written Premium (GWP) on policies attributed to this producer during the settlement period. Basis for commission calculation.',
-    `is_disputed` BOOLEAN COMMENT 'Indicates whether the producer has formally disputed any line items or the total amount on this commission statement. Triggers dispute resolution workflow.',
-    `loss_ratio` DECIMAL(7,4) COMMENT 'Loss Ratio (LR) for the producers book of business during the settlement period. Used to determine eligibility for contingent commission and profit-sharing.',
-    `net_payable_amt` DECIMAL(18,2) COMMENT 'Final net amount payable to the producer after summing earned, contingent, and bonus commissions and subtracting chargebacks and adjustments.',
-    `new_business_policy_count` BIGINT COMMENT 'Count of newly bound policies (NB) attributed to this producer during the settlement period. Supports new business incentive and bonus commission calculations.',
-    `notes` STRING COMMENT 'Free-text notes or remarks added by commission administrators regarding special circumstances, manual overrides, or producer communications related to this statement.',
-    `payment_date` DATE COMMENT 'Date on which the commission payment was or is scheduled to be remitted to the producer. Used for cash flow and accounts payable reporting.',
-    `payment_method` STRING COMMENT 'Method used to remit the net commission payable to the producer (ACH direct deposit, paper check, wire transfer, or offset against amounts owed).. Valid values are `ACH|check|wire|offset`',
-    `payment_reference` STRING COMMENT 'Reference number of the payment transaction (ACH, check, wire) issued to settle this commission statement. Links to the accounts payable payment record.',
-    `policy_count` BIGINT COMMENT 'Number of in-force or transacted policies attributed to this producer during the settlement period. Used for volume-based commission tier evaluation.',
-    `prior_period_balance_amt` DECIMAL(18,2) COMMENT 'Outstanding balance carried forward from the previous settlement period, including unpaid amounts or disputed items not yet resolved.',
-    `producer_type` STRING COMMENT 'Classification of the producer receiving this statement. Determines applicable commission schedules, regulatory disclosures, and tax reporting requirements.. Valid values are `agent|broker|managing_general_agent|surplus_lines_broker`',
-    `regulatory_disclosure_required` BOOLEAN COMMENT 'Indicates whether this commission statement requires regulatory disclosure to the insured or state Department of Insurance per applicable market conduct rules.',
-    `renewal_policy_count` BIGINT COMMENT 'Count of renewed policies (REN) attributed to this producer during the settlement period. Supports retention-based commission and No Claims Bonus (NCB) calculations.',
-    `settlement_frequency` STRING COMMENT 'Frequency at which commission statements are generated and settled for this producer. Drives the statement cycle and payment schedule.. Valid values are `weekly|bi-weekly|monthly|quarterly`',
-    `settlement_period_end_date` DATE COMMENT 'Last calendar date of the commission settlement period covered by this statement. Defines the inclusive end of the earning window.',
-    `settlement_period_start_date` DATE COMMENT 'First calendar date of the commission settlement period covered by this statement. Defines the inclusive start of the earning window.',
-    `source_system_code` STRING COMMENT 'Code identifying the operational system of record that originated this commission statement (e.g., Duck Creek Billing, Guidewire BillingCenter, Sapiens IDIT).. Valid values are `DUCK_CREEK|GUIDEWIRE|SAPIENS|MANUAL`',
-    `statement_date` DATE COMMENT 'The business date on which the commission statement was formally generated and issued to the producer. Represents the principal real-world event date.',
-    `statement_number` STRING COMMENT 'Externally visible, human-readable identifier for the commission statement used in producer communications, remittance advice, and reconciliation.. Valid values are `^CS-[0-9]{4}-[0-9]{2}-[0-9]{6}$`',
-    `statement_status` STRING COMMENT 'Current lifecycle state of the commission statement, from initial draft through issuance, dispute resolution, approval, payment, and voiding.. Valid values are `draft|issued|disputed|approved|paid|voided`',
-    `statement_type` STRING COMMENT 'Classification of the statement indicating whether it is a standard periodic statement, a supplemental issuance, a correction of a prior statement, or a final settlement.. Valid values are `regular|supplemental|corrected|final`',
-    `tax_form_type` STRING COMMENT 'IRS tax form type applicable to the commission payments on this statement (e.g., 1099-NEC for independent agents, W-2 for captive agents, none if below threshold).. Valid values are `1099-NEC|1099-MISC|W-2|none`',
-    `tax_withheld_amt` DECIMAL(18,2) COMMENT 'Amount of income tax or backup withholding deducted from the commission payment per IRS or applicable state tax authority requirements.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp of the most recent modification to this commission statement record. Supports audit trail, change detection, and incremental data pipeline processing.',
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` (
+    `commission_statement_id` BIGINT COMMENT 'Unique identifier for the commission statement. Primary key.',
+    `agency_id` BIGINT COMMENT 'Agency associated with the producer for this statement.',
+    `claimfinancials_accounting_period_id` BIGINT COMMENT 'Accounting period to which this commission statement is assigned for financial reporting.',
+    `commission_schedule_id` BIGINT COMMENT 'Foreign key linking to producers.commission_schedule. Business justification: Statements are generated based on a specific commission schedule that defines the rates and rules. N:1 relationship.',
+    `distribution_channel_id` BIGINT COMMENT 'Foreign key linking to producers.distribution_channel. Business justification: Statements may be segmented by distribution channel for reporting and reconciliation. Replace STRING distribution_channel_code with FK. N:1 relationship.',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Commission statements aggregate transactions by LOB for producer reporting, tax reporting (1099), and reconciliation.',
+    `producers_producer_id` BIGINT COMMENT 'Producer or agent to whom this statement is issued.',
+    `chargeback_amount` DECIMAL(18,2) COMMENT 'Total commission chargebacks for cancelled or returned policies during the statement period.',
+    `contingent_commission` DECIMAL(18,2) COMMENT 'Performance-based bonus commission earned based on loss ratio, volume, or other criteria.',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this commission statement record was first created in the system.',
+    `currency_code` STRING COMMENT 'Three-letter ISO 4217 currency code for all monetary amounts on this statement.. Valid values are `USD|CAD|GBP|EUR|AUD`',
+    `dispute_date` DATE COMMENT 'Date the producer filed a dispute against this commission statement.',
+    `dispute_flag` BOOLEAN COMMENT 'Indicates whether the producer has disputed any portion of this commission statement.',
+    `dispute_resolution_date` DATE COMMENT 'Date the dispute was resolved and the statement was finalized.',
+    `endorsement_commission` DECIMAL(18,2) COMMENT 'Commission earned on policy endorsements and mid-term changes during the statement period.',
+    `eo_premium_deduction` DECIMAL(18,2) COMMENT 'Deduction for errors and omissions insurance premium paid on behalf of the producer.',
+    `last_modified_timestamp` TIMESTAMP COMMENT 'Timestamp when this commission statement record was last updated.',
+    `naic_company_code` STRING COMMENT 'Five-digit NAIC code identifying the insurance company for regulatory reporting.',
+    `net_commission_payable` DECIMAL(18,2) COMMENT 'Net commission amount payable to the producer after all adjustments and deductions.',
+    `new_business_commission` DECIMAL(18,2) COMMENT 'Commission earned on new business policies written during the statement period.',
+    `notes` STRING COMMENT 'Free-text notes or comments regarding this commission statement.',
+    `npn` STRING COMMENT 'National Producer Number of the producer receiving this statement.',
+    `payment_date` DATE COMMENT 'Date the commission payment was issued to the producer.',
+    `payment_method` STRING COMMENT 'Method used to disburse the commission payment to the producer.. Valid values are `ach|wire|check|eft|direct_deposit`',
+    `payment_reference_number` STRING COMMENT 'External reference number for the payment transaction such as check number or wire confirmation.',
+    `payment_status` STRING COMMENT 'Current payment status indicating whether the net commission has been disbursed to the producer.. Valid values are `unpaid|pending|paid|partially_paid|failed`',
+    `policy_count` BIGINT COMMENT 'Total number of policies contributing commission transactions to this statement.',
+    `renewal_commission` DECIMAL(18,2) COMMENT 'Commission earned on policy renewals during the statement period.',
+    `source_system_code` STRING COMMENT 'Code identifying the operational system that originated this commission statement record.',
+    `statement_date` DATE COMMENT 'Date the commission statement was generated and issued.',
+    `statement_delivery_method` STRING COMMENT 'Method by which the commission statement was delivered to the producer.. Valid values are `email|mail|portal|fax`',
+    `statement_document_reference` STRING COMMENT 'Reference identifier or URI to the generated commission statement document.',
+    `statement_number` STRING COMMENT 'Externally visible unique identifier for the commission statement.',
+    `statement_period_end_date` DATE COMMENT 'End date of the billing cycle covered by this statement.',
+    `statement_period_start_date` DATE COMMENT 'Start date of the billing cycle covered by this statement.',
+    `statement_status` STRING COMMENT 'Current lifecycle status of the commission statement.. Valid values are `draft|issued|paid|partially_paid|disputed|cancelled`',
+    `statement_type` STRING COMMENT 'Type of commission statement indicating whether it is a regular periodic statement or a special issuance.. Valid values are `regular|supplemental|correction|final`',
+    `tax_identification_number` STRING COMMENT 'Federal Employer Identification Number or Social Security Number for tax reporting purposes.',
+    `total_adjustments` DECIMAL(18,2) COMMENT 'Total adjustments applied to earned commission including chargebacks, corrections, and bonuses.',
+    `total_commission_earned` DECIMAL(18,2) COMMENT 'Total commission amount earned by the producer for the statement period before adjustments.',
+    `total_deductions` DECIMAL(18,2) COMMENT 'Total deductions from commission including errors and omissions insurance premiums, fees, and withholdings.',
+    `transaction_count` BIGINT COMMENT 'Total number of individual commission transactions included in this statement.',
+    `writing_company_code` STRING COMMENT 'Code identifying the insurance company or carrier issuing this commission statement.',
     CONSTRAINT pk_commission_statement PRIMARY KEY(`commission_statement_id`)
-) COMMENT 'Periodic statement issued to a producer or agency summarizing commission transactions within a settlement period. FKs to producer. Tracks statement date, total earned, adjustments, net payable, and payment reference.';
+) COMMENT 'Periodic statement issued to a producer or agency summarizing commission transactions due for a billing cycle. One row per statement. Tracks statement date, total earned, total adjustments, net payable, and payment status.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` (
-    `contingent_bonus_id` BIGINT COMMENT 'Unique surrogate identifier for a contingent or profit-sharing bonus record for a producer or agency.',
-    `agency_id` BIGINT COMMENT 'Reference to the agency entity associated with this contingent bonus, supporting agency-level aggregation.',
-    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Contingent bonuses are denominated in specific currencies. Multi-currency bonus calculation, payment processing, and financial reporting require currency reference.',
-    `lob_code_id` BIGINT COMMENT 'Foreign key linking to shared.lob_code. Business justification: Contingent bonuses are calculated based on line of business performance metrics (loss ratio, growth, volume). LOB-specific bonus calculation requires LOB reference.',
-    `producers_producer_id` BIGINT COMMENT 'Reference to the producer or agency for whom this contingent bonus is calculated.',
-    `actual_lr` DECIMAL(7,4) COMMENT 'Actual Loss Ratio (LR) achieved by the producer during the measurement period, calculated as incurred losses divided by earned premium.',
-    `adjustment_amount` DECIMAL(18,2) COMMENT 'Any positive or negative adjustment applied to the earned bonus amount for disputes, corrections, or contractual modifications prior to final payment.',
-    `approval_date` DATE COMMENT 'Date on which the contingent bonus was approved by the authorized underwriting or finance authority for payment.',
-    `approved_by` STRING COMMENT 'Name or employee identifier of the underwriting or finance authority who approved this contingent bonus for payment.',
-    `bonus_number` STRING COMMENT 'Externally-known alphanumeric identifier for this contingent bonus record, used in producer statements and settlement documents.. Valid values are `^CB-[0-9]{4}-[0-9]{6}$`',
-    `bonus_rate` DECIMAL(7,4) COMMENT 'Percentage rate applied to the eligible premium base to calculate the contingent bonus earned amount, expressed as a decimal (e.g., 0.05 = 5%).',
-    `bonus_status` STRING COMMENT 'Current lifecycle state of the contingent bonus record: calculated, approved, disputed, paid, voided, or pending review.. Valid values are `calculated|approved|disputed|paid|voided|pending_review`',
-    `bonus_type` STRING COMMENT 'Classification of the bonus arrangement: profit sharing, contingent commission, growth, retention, volume, or performance. [ENUM-REF-CANDIDATE: promote to reference product if values expand]. Valid values are `profit_sharing|contingent_commission|growth_bonus|retention_bonus|volume_bonus|performance_bonus`',
-    `calculation_date` DATE COMMENT 'Date on which the contingent bonus amount was formally calculated based on the measurement period results.',
-    `contract_reference` STRING COMMENT 'Reference number or identifier of the producer agency agreement or contingent commission contract governing this bonus arrangement.',
-    `cost_center_code` STRING COMMENT 'Finance cost center code to which the contingent bonus expense is allocated for management reporting and statutory expense reporting.',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this contingent bonus record was first created in the system, used for audit trail and data lineage.',
-    `dispute_reason` STRING COMMENT 'Free-text description of the reason for a dispute raised against this contingent bonus calculation. Populated only when bonus_status is disputed.',
-    `earned_amount` DECIMAL(18,2) COMMENT 'Gross contingent bonus amount earned by the producer based on the bonus rate applied to the eligible premium base after meeting all thresholds.',
-    `ep_amount` DECIMAL(18,2) COMMENT 'Earned Premium (EP) for the producers book during the measurement period, used as the denominator in loss ratio calculations.',
-    `gl_account_code` STRING COMMENT 'General Ledger (GL) account code in Oracle Financials or SAP FI to which the contingent bonus expense is posted.',
-    `growth_qualified` BOOLEAN COMMENT 'Indicates whether the producer met the minimum GWP growth rate target during the measurement period to qualify for the growth component.',
-    `growth_target_rate` DECIMAL(7,4) COMMENT 'Minimum GWP growth rate the producer must achieve to qualify for the growth component of the contingent bonus, expressed as a decimal.',
-    `gwp_amount` DECIMAL(18,2) COMMENT 'Total Gross Written Premium (GWP) produced by the producer during the measurement period, used as the premium volume base for bonus calculation.',
-    `gwp_growth_rate` DECIMAL(7,4) COMMENT 'Year-over-year GWP growth rate achieved by the producer during the measurement period, expressed as a decimal (e.g., 0.10 = 10%).',
-    `incurred_losses_amount` DECIMAL(18,2) COMMENT 'Total incurred losses including paid losses and case reserves for the producers book during the measurement period.',
-    `lae_amount` DECIMAL(18,2) COMMENT 'Total Loss Adjustment Expense (LAE) including ALAE and ULAE attributable to the producers book during the measurement period.',
-    `lr_qualified` BOOLEAN COMMENT 'Indicates whether the producer met the LR threshold requirement during the measurement period. True if actual LR is at or below lr_threshold.',
-    `lr_threshold` DECIMAL(7,4) COMMENT 'Maximum allowable Loss Ratio (LR) that the producer must achieve to qualify for the contingent bonus. Bonus is forfeited if actual LR exceeds this threshold.',
-    `measurement_period_end_date` DATE COMMENT 'End date of the performance measurement period over which loss ratio, premium volume, and growth are evaluated for this bonus.',
-    `measurement_period_start_date` DATE COMMENT 'Start date of the performance measurement period over which loss ratio, premium volume, and growth are evaluated for this bonus.',
-    `net_payable_amount` DECIMAL(18,2) COMMENT 'Final net contingent bonus amount payable to the producer after applying all adjustments. Equals earned_amount plus adjustment_amount.',
-    `notes` STRING COMMENT 'Free-text field for additional commentary, underwriter remarks, or audit notes related to this contingent bonus record.',
-    `nwp_amount` DECIMAL(18,2) COMMENT 'Net Written Premium (NWP) after reinsurance cessions for the producer during the measurement period, used in net-basis bonus calculations.',
-    `overall_qualified` BOOLEAN COMMENT 'Indicates whether the producer met ALL qualification criteria (LR, volume, growth) and is eligible to receive the contingent bonus payment.',
-    `payment_date` DATE COMMENT 'Date on which the contingent bonus was disbursed to the producer or agency. Null if not yet paid.',
-    `payment_method` STRING COMMENT 'Method by which the contingent bonus is disbursed to the producer: ACH, check, wire transfer, or credit memo applied to future commissions.. Valid values are `ach|check|wire|credit_memo`',
-    `prior_year_gwp_amount` DECIMAL(18,2) COMMENT 'Producers GWP in the prior measurement period, used as the baseline for year-over-year growth rate calculation.',
-    `program_year` BIGINT COMMENT 'Calendar or fiscal year of the contingent bonus program under which this record is calculated (e.g., 2024).',
-    `tax_form_type` STRING COMMENT 'IRS tax form type applicable to this contingent bonus payment (e.g., 1099-NEC for independent producers, W-2 for captive agents).. Valid values are `1099-MISC|1099-NEC|W-2|none`',
-    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp of the most recent modification to this contingent bonus record, used for audit trail and incremental data processing.',
-    `volume_qualified` BOOLEAN COMMENT 'Indicates whether the producer met the minimum premium volume target during the measurement period to qualify for the volume component.',
-    `volume_target_amount` DECIMAL(18,2) COMMENT 'Minimum GWP or NWP volume the producer must write during the measurement period to qualify for the volume component of the contingent bonus.',
-    `withholding_tax_amount` DECIMAL(18,2) COMMENT 'Federal or state withholding tax amount deducted from the contingent bonus payment where applicable per IRS or state tax regulations.',
-    CONSTRAINT pk_contingent_bonus PRIMARY KEY(`contingent_bonus_id`)
-) COMMENT 'Contingent or profit-sharing bonus calculated for a producer or agency based on loss ratio, premium volume, and growth targets over a measurement period. Tracks earned amount, LR threshold, and payment status.';
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` (
+    `commission_payment_id` BIGINT COMMENT 'Unique identifier for the commission payment record. Primary key.',
+    `agency_id` BIGINT COMMENT 'Reference to the agency receiving this commission payment, if applicable.',
+    `claimfinancials_accounting_period_id` BIGINT COMMENT 'Reference to the accounting period in which this payment was recorded for financial reporting.',
+    `commission_statement_id` BIGINT COMMENT 'Reference to the commission statement that this payment settles or partially settles.',
+    `payee_party_id` BIGINT COMMENT 'Reference to the party master record for the payee receiving this disbursement.',
+    `producers_producer_id` BIGINT COMMENT 'User identifier of the person who approved this commission payment for disbursement.',
+    `ach_trace_number` STRING COMMENT 'ACH trace number for electronic payments, used for reconciliation and tracking.',
+    `approved_timestamp` TIMESTAMP COMMENT 'Date and time when this commission payment was approved for disbursement.',
+    `bank_account_number` STRING COMMENT 'Bank account number to which the payment was disbursed for electronic payments.',
+    `bank_routing_number` STRING COMMENT 'Nine-digit ABA routing number for the payee bank account.. Valid values are `^[0-9]{9}$`',
+    `check_number` STRING COMMENT 'Check number if payment method is check. Null for electronic payments.',
+    `cleared_date` DATE COMMENT 'Date the payment cleared the bank or was confirmed as received by the payee.',
+    `created_timestamp` TIMESTAMP COMMENT 'Date and time when this commission payment record was first created in the system.',
+    `currency_code` STRING COMMENT 'Three-letter ISO 4217 currency code for the payment amount.. Valid values are `^[A-Z]{3}$`',
+    `form_1099_reportable_flag` BOOLEAN COMMENT 'Indicates whether this payment is reportable on IRS Form 1099-MISC or 1099-NEC for the producer.',
+    `gl_account_code` STRING COMMENT 'General ledger account code to which this commission payment expense is posted.',
+    `modified_timestamp` TIMESTAMP COMMENT 'Date and time when this commission payment record was last modified.',
+    `net_payment_amount` DECIMAL(18,2) COMMENT 'Net amount disbursed to the payee after all withholdings and adjustments.',
+    `payee_address_line1` STRING COMMENT 'First line of the payee mailing address for check delivery or record keeping.',
+    `payee_address_line2` STRING COMMENT 'Second line of the payee mailing address, such as suite or apartment number.',
+    `payee_city` STRING COMMENT 'City of the payee mailing address.',
+    `payee_country_code` STRING COMMENT 'Three-letter ISO country code for the payee mailing address.. Valid values are `^[A-Z]{3}$`',
+    `payee_name` STRING COMMENT 'Full legal name of the payee as it appears on the payment instrument.',
+    `payee_postal_code` STRING COMMENT 'Postal or ZIP code for the payee mailing address.',
+    `payee_state_code` STRING COMMENT 'Two-letter state or province code for the payee mailing address.. Valid values are `^[A-Z]{2}$`',
+    `payment_amount` DECIMAL(18,2) COMMENT 'Gross amount of the commission payment before any adjustments or withholdings.',
+    `payment_date` DATE COMMENT 'Date the commission payment was issued or disbursed to the producer or agency.',
+    `payment_memo` STRING COMMENT 'Free-text memo or note describing the purpose or details of this commission payment.',
+    `payment_method` STRING COMMENT 'Method used to disburse the commission payment to the payee.. Valid values are `check|ach|wire|eft|direct_deposit|paypal`',
+    `payment_number` STRING COMMENT 'Business-assigned unique number for this commission payment, used for tracking and reconciliation.',
+    `payment_status` STRING COMMENT 'Current lifecycle status of the commission payment.. Valid values are `pending|approved|issued|cleared|cancelled|voided`',
+    `reconciliation_date` DATE COMMENT 'Date on which this payment was reconciled with bank statements or producer acknowledgment.',
+    `reconciliation_status` STRING COMMENT 'Status indicating whether this payment has been reconciled with bank statements and producer records.. Valid values are `unreconciled|reconciled|disputed|adjusted`',
+    `reissue_flag` BOOLEAN COMMENT 'Indicates whether this payment is a reissue of a previously voided or lost payment.',
+    `source_system_code` STRING COMMENT 'Code identifying the operational system that originated this commission payment record.',
+    `source_system_reference_code` STRING COMMENT 'Unique identifier for this payment in the source operational system, used for traceability.',
+    `tax_year` BIGINT COMMENT 'Calendar year for which this payment is reported for tax purposes, used for 1099 reporting.',
+    `void_date` DATE COMMENT 'Date the payment was voided or cancelled, if applicable.',
+    `void_reason_code` STRING COMMENT 'Code indicating the reason the payment was voided, such as stop payment, duplicate, or error.',
+    `wire_reference_number` STRING COMMENT 'Wire transfer reference number for wire payments, used for reconciliation.',
+    `withholding_amount` DECIMAL(18,2) COMMENT 'Total amount withheld from the payment for tax, chargebacks, or other deductions.',
+    CONSTRAINT pk_commission_payment PRIMARY KEY(`commission_payment_id`)
+) COMMENT 'Actual disbursement made to a producer or agency against a commission statement. One row per payment. Records payment date, amount, payment method, check or ACH reference, and reconciliation status.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` (
-    `producer_agreement_id` BIGINT COMMENT 'Unique surrogate identifier for the producer agreement record in the Pc_Insurance data platform.',
-    `agency_id` BIGINT COMMENT 'Reference to the agency or brokerage entity that is the contracting party when the agreement is at the agency level rather than the individual producer level.',
-    `commission_schedule_id` BIGINT COMMENT 'Reference to the commission plan that governs base and contingent commission rates, profit-sharing tiers, and override structures applicable to this agreement.',
-    `lob_code_id` BIGINT COMMENT 'Foreign key linking to shared.lob_code. Business justification: Producer agreements define which lines of business the producer is authorized to write. Authority validation and commission calculation require LOB reference.',
-    `prior_agreement_producer_agreement_id` BIGINT COMMENT 'Reference to the predecessor producer agreement that this version supersedes, enabling version chain traversal for audit and compliance.',
-    `producers_producer_id` BIGINT COMMENT 'Reference to the licensed producer or agency that is party to this agreement.',
-    `state_id` BIGINT COMMENT 'Foreign key linking to shared.state. Business justification: Producer agreements specify governing law state and primary territory. Contract management, dispute resolution, and regulatory compliance require state reference.',
-    `agreement_number` STRING COMMENT 'Externally visible, human-readable identifier assigned to this producer agreement, used on correspondence, bordereaux, and commission statements.. Valid values are `^PA-[0-9]{4}-[0-9]{6}$`',
-    `agreement_status` STRING COMMENT 'Current lifecycle state of the producer agreement: draft, active, suspended, terminated, expired, or pending renewal.. Valid values are `draft|active|suspended|terminated|expired|pending_renewal`',
-    `agreement_type` STRING COMMENT 'Classification of the contractual relationship: agency (appointed agent), broker, Managing General Agent (MGA), MGA with delegated authority, surplus lines broker, or direct writer.. Valid values are `agency|broker|mga|mga_delegated|surplus_lines|direct`',
-    `appointment_state_codes` STRING COMMENT 'Pipe-delimited list of US state codes where the producer holds a valid insurance license and appointment with Pc_Insurance, e.g., CA|TX|NY.',
-    `audit_rights_flag` BOOLEAN COMMENT 'Indicates whether Pc_Insurance retains the contractual right to audit the producers books, records, and premium trust accounts under this agreement.',
-    `auto_renewal_flag` BOOLEAN COMMENT 'Indicates whether this producer agreement automatically renews for successive terms upon expiration unless either party provides written notice of non-renewal.',
-    `base_commission_rate` DECIMAL(7,4) COMMENT 'Standard commission rate expressed as a decimal fraction of Written Premium (WP) payable to the producer for new business and renewals under this agreement.',
-    `binding_authority_flag` BOOLEAN COMMENT 'Indicates whether the producer has delegated binding authority to commit coverage on behalf of Pc_Insurance without prior underwriting approval.',
-    `binding_authority_limit` DECIMAL(18,2) COMMENT 'Maximum single-risk Total Insured Value (TIV) or premium amount in USD that the producer may bind without referral to Pc_Insurance underwriting.',
-    `compliance_training_required_flag` BOOLEAN COMMENT 'Indicates whether the producer must complete Pc_Insurance-mandated compliance and product training as a condition of maintaining active agreement status.',
-    `contingent_commission_flag` BOOLEAN COMMENT 'Indicates whether the producer is eligible for contingent or profit-sharing commission based on loss ratio or volume performance thresholds defined in the commission plan.',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this producer agreement record was first created in the Pc_Insurance data platform, used for audit trail and data lineage.',
-    `e_and_o_coverage_limit` DECIMAL(18,2) COMMENT 'Minimum required Errors and Omissions (E&O) professional liability coverage limit in USD that the producer must maintain as a condition of this agreement.',
-    `e_and_o_expiration_date` DATE COMMENT 'Expiration date of the producers current Errors and Omissions (E&O) insurance policy on file with Pc_Insurance for compliance monitoring.',
-    `e_and_o_required_flag` BOOLEAN COMMENT 'Indicates whether the producer is contractually required to maintain Errors and Omissions (E&O) professional liability insurance as a condition of this agreement.',
-    `effective_date` DATE COMMENT 'Date on which the producer agreement becomes legally binding and the producer is authorized to transact business on behalf of Pc_Insurance.',
-    `exclusivity_flag` BOOLEAN COMMENT 'Indicates whether the producer is contractually restricted from placing competing lines of business with other insurers for the LOBs covered by this agreement.',
-    `execution_date` DATE COMMENT 'Date on which both parties signed and executed the producer agreement. May differ from effective_date if the agreement is backdated or post-dated.',
-    `expiration_date` DATE COMMENT 'Date on which the producer agreement expires or is scheduled to terminate. Null for evergreen agreements with no fixed end date.',
-    `insurer_signatory_name` STRING COMMENT 'Full name of the Pc_Insurance officer or authorized representative who executed this agreement on behalf of the company.',
-    `last_compliance_review_date` DATE COMMENT 'Date of the most recent compliance review or market conduct audit conducted on this producer agreement by Pc_Insurance or a state regulator.',
-    `lob_scope` STRING COMMENT 'Pipe-delimited list of Lines of Business (LOBs) the producer is authorized to write under this agreement, e.g., personal_auto|homeowners|commercial_gl|bop|wc.',
-    `loss_ratio_threshold` DECIMAL(7,4) COMMENT 'Maximum permissible Loss Ratio (LR) expressed as a decimal fraction above which contingent commission is forfeited or binding authority may be suspended.',
-    `ncb_eligible_flag` BOOLEAN COMMENT 'Indicates whether the producers book of business qualifies for No Claims Bonus (NCB) incentive adjustments under the commission plan.',
-    `notice_period_days` BIGINT COMMENT 'Number of calendar days advance written notice required by either party to terminate this agreement, as specified in the contract terms.',
-    `override_commission_rate` DECIMAL(7,4) COMMENT 'Additional override or bonus commission rate payable on top of the base rate, typically granted to Managing General Agents (MGAs) or high-volume producers.',
-    `premium_trust_required_flag` BOOLEAN COMMENT 'Indicates whether the producer is required to maintain a separate premium trust account for policyholder funds collected on behalf of Pc_Insurance.',
-    `premium_volume_minimum` DECIMAL(18,2) COMMENT 'Minimum annual Written Premium (WP) volume in USD the producer commits to place with Pc_Insurance to maintain agreement terms and avoid renegotiation.',
-    `premium_volume_target` DECIMAL(18,2) COMMENT 'Annual Written Premium (WP) production target in USD agreed between Pc_Insurance and the producer for performance tracking and contingent commission qualification.',
-    `producer_signatory_name` STRING COMMENT 'Full legal name of the individual who executed this agreement on behalf of the producer or agency.',
-    `renewal_term_months` BIGINT COMMENT 'Duration in months of each automatic renewal term when auto_renewal_flag is true. Typically 12 months for annual agreements.',
-    `sub_producer_allowed_flag` BOOLEAN COMMENT 'Indicates whether the producer is permitted to appoint sub-producers or sub-agents under this agreement to solicit business on their behalf.',
-    `surplus_lines_flag` BOOLEAN COMMENT 'Indicates whether the producer is authorized to place surplus lines (non-admitted) business under this agreement, subject to state surplus lines regulations.',
-    `termination_date` DATE COMMENT 'Actual date on which the producer agreement was terminated, cancelled, or non-renewed. Distinct from expiration_date which is the scheduled end date.',
-    `termination_reason` STRING COMMENT 'Reason code for agreement termination when agreement_status is terminated or expired. [ENUM-REF-CANDIDATE: voluntary|non_renewal|regulatory_action|performance|fraud|mutual_consent|other — promote to reference product]',
-    `territory_scope` STRING COMMENT 'Pipe-delimited list of US state codes or territories where the producer is authorized to solicit and bind business under this agreement, e.g., CA|TX|NY|FL.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp of the most recent modification to this producer agreement record, used for change tracking, audit trail, and incremental data loading.',
-    `version_number` BIGINT COMMENT 'Sequential version counter incremented each time the agreement terms are amended and a new version is executed. Version 1 is the original agreement.',
-    CONSTRAINT pk_producer_agreement PRIMARY KEY(`producer_agreement_id`)
-) COMMENT 'Contractual producer agreement between Pc_Insurance and a producer or agency defining compensation terms, binding authority, LOB scope, territory, and compliance obligations. Tracks version, effective dates, and signatory.';
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` (
+    `contingent_commission_id` BIGINT COMMENT 'Unique identifier for the contingent commission agreement. Primary key.',
+    `agency_id` BIGINT COMMENT 'Agency participating in the contingent commission agreement.',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Contingent commission agreements are LOB-specific for performance measurement against loss ratio, combined ratio, and growth targets.',
+    `premium_accounting_period_id` BIGINT COMMENT 'Foreign key linking to premium.premium_accounting_period. Business justification: Contingent commissions are earned based on performance period results but must be booked in specific carrier accounting periods for GL posting, statutory reporting, and GAAP',
+    `producers_producer_id` BIGINT COMMENT 'Producer associated with the contingent commission agreement, if applicable.',
+    `actual_combined_ratio` DECIMAL(5,4) COMMENT 'Actual combined ratio achieved during the performance period. Expressed as decimal.',
+    `actual_growth_rate` DECIMAL(5,4) COMMENT 'Actual premium growth rate achieved during the performance period. Expressed as decimal.',
+    `actual_loss_ratio` DECIMAL(5,4) COMMENT 'Actual loss ratio achieved during the performance period. Expressed as decimal.',
+    `actual_retention_rate` DECIMAL(5,4) COMMENT 'Actual policy retention rate achieved during the performance period. Expressed as decimal.',
+    `agreement_name` STRING COMMENT 'Descriptive name of the contingent commission agreement.',
+    `agreement_number` STRING COMMENT 'Business identifier for the contingent commission agreement.',
+    `agreement_status` STRING COMMENT 'Current lifecycle status of the contingent commission agreement.. Valid values are `draft|active|suspended|terminated|expired|pending_approval`',
+    `agreement_type` STRING COMMENT 'Type of contingent commission agreement structure.. Valid values are `profit_sharing|volume_bonus|loss_ratio_based|growth_incentive|retention_bonus|combined_ratio_based`',
+    `approval_date` DATE COMMENT 'Date when the contingent commission was approved for payment.',
+    `approval_status` STRING COMMENT 'Approval status of the contingent commission calculation and payment.. Valid values are `pending|approved|rejected|under_review`',
+    `approved_by` STRING COMMENT 'Name or identifier of the person who approved the contingent commission.',
+    `calculation_basis` STRING COMMENT 'Basis for calculating contingent commission. GWP (Gross Written Premium), NWP (Net Written Premium), EP (Earned Premium).. Valid values are `gwp|nwp|ep|policy_count|retention_rate|new_business_premium`',
+    `commission_rate` DECIMAL(5,4) COMMENT 'Contingent commission rate applied to the calculation basis. Expressed as decimal.',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when the contingent commission agreement record was first created.',
+    `currency_code` STRING COMMENT 'ISO 4217 three-letter currency code for commission amounts.. Valid values are `^[A-Z]{3}$`',
+    `earned_commission_amount` DECIMAL(15,2) COMMENT 'Total contingent commission amount earned for the performance period.',
+    `effective_date` DATE COMMENT 'Date when the contingent commission agreement becomes binding.',
+    `expiration_date` DATE COMMENT 'Date when the contingent commission agreement expires or terminates.',
+    `last_modified_timestamp` TIMESTAMP COMMENT 'Timestamp when the contingent commission agreement record was last updated.',
+    `maximum_commission_amount` DECIMAL(15,2) COMMENT 'Maximum contingent commission amount payable under the agreement.',
+    `minimum_premium_threshold` DECIMAL(15,2) COMMENT 'Minimum premium volume required to qualify for contingent commission.',
+    `naic_company_code` STRING COMMENT 'Five-digit NAIC company code for the writing company.. Valid values are `^[0-9]{5}$`',
+    `notes` STRING COMMENT 'Additional notes or comments regarding the contingent commission agreement.',
+    `outstanding_commission_amount` DECIMAL(15,2) COMMENT 'Contingent commission amount earned but not yet paid.',
+    `paid_commission_amount` DECIMAL(15,2) COMMENT 'Total contingent commission amount paid to date.',
+    `performance_met_flag` BOOLEAN COMMENT 'Indicates whether performance targets were met for contingent commission eligibility.',
+    `performance_period_end_date` DATE COMMENT 'End date of the performance measurement period for the agreement.',
+    `performance_period_start_date` DATE COMMENT 'Start date of the performance measurement period for the agreement.',
+    `settlement_date` DATE COMMENT 'Date when contingent commission is calculated and settled for the performance period.',
+    `settlement_frequency` STRING COMMENT 'Frequency at which contingent commission is calculated and paid.. Valid values are `annual|semi_annual|quarterly|monthly`',
+    `source_system_code` STRING COMMENT 'Code identifying the source system that created or manages this agreement record.',
+    `source_system_reference_code` STRING COMMENT 'Unique identifier from the source system for traceability and reconciliation.',
+    `target_combined_ratio` DECIMAL(5,4) COMMENT 'Target combined ratio threshold for contingent commission eligibility. Expressed as decimal.',
+    `target_growth_rate` DECIMAL(5,4) COMMENT 'Target premium growth rate for contingent commission eligibility. Expressed as decimal (e.g., 0.1000 for 10%).',
+    `target_loss_ratio` DECIMAL(5,4) COMMENT 'Target loss ratio threshold for contingent commission eligibility. Expressed as decimal (e.g., 0.6500 for 65%).',
+    `target_retention_rate` DECIMAL(5,4) COMMENT 'Target policy retention rate for contingent commission eligibility. Expressed as decimal.',
+    `termination_reason` STRING COMMENT 'Reason for termination of the contingent commission agreement, if applicable.',
+    `writing_company_code` STRING COMMENT 'Insurance company code offering the contingent commission agreement.',
+    CONSTRAINT pk_contingent_commission PRIMARY KEY(`contingent_commission_id`)
+) COMMENT 'Profit-sharing or contingent commission agreement between the insurer and an agency. One row per agreement per performance period. Stores target LR, target growth, earned amount, and calculation basis for year-end settlement.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` (
-    `binding_authority_id` BIGINT COMMENT 'Unique surrogate identifier for a delegated binding authority record granted to a producer or Managing General Agent (MGA).',
-    `coverage_form_id` BIGINT COMMENT 'Foreign key linking to coverage.coverage_form. Business justification: Binding authority grants specify which coverage forms producers can bind. Essential for underwriting controls, compliance validation, and preventing unauthorized coverage binding.',
-    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Binding authority limits are denominated in specific currencies. Multi-currency authority validation and risk management require currency reference. Removes denormalized currency_code.',
-    `lob_code_id` BIGINT COMMENT 'Foreign key linking to shared.lob_code. Business justification: Binding authorities are granted for specific lines of business. Authority validation and underwriting control require LOB reference.',
-    `producer_agreement_id` BIGINT COMMENT 'Foreign key linking to producers.producer_agreement. Business justification: Binding authority is granted under a producer agreement. Currently tracked via string reference (agreement_ref).',
-    `producers_producer_id` BIGINT COMMENT 'Reference to the licensed producer, agent, broker, or MGA to whom this binding authority is delegated.',
-    `admitted_carrier_flag` BOOLEAN COMMENT 'Indicates whether the insurer backing this binding authority is an admitted (licensed) carrier in the applicable state jurisdictions.',
-    `aggregate_annual_limit` DECIMAL(18,2) COMMENT 'Maximum total gross written premium (GWP) or total insured value the producer may bind under this authority within a single policy year.',
-    `approval_date` DATE COMMENT 'Date on which the binding authority was formally approved by the insurers underwriting authority committee.',
-    `approved_by` STRING COMMENT 'Name or employee ID of the underwriting officer or delegated authority committee member who approved this binding authority.',
-    `audit_frequency` STRING COMMENT 'Frequency at which the insurer conducts underwriting audits of policies bound under this authority to verify compliance with guidelines.. Valid values are `monthly|quarterly|semi_annual|annual|on_demand`',
-    `authority_name` STRING COMMENT 'Descriptive name or title of the binding authority arrangement, e.g., Commercial Property MGA Facility 2024.',
-    `authority_number` STRING COMMENT 'Externally-known unique reference number assigned to this binding authority agreement, used on bordereaux and regulatory filings.. Valid values are `^BA-[A-Z0-9]{4,20}$`',
-    `authority_status` STRING COMMENT 'Current lifecycle state of the binding authority. Drives eligibility to bind new policies. [ENUM-REF-CANDIDATE: active|suspended|expired|terminated|pending_approval|under_review — promote to reference product]. Valid values are `active|suspended|expired|terminated|pending_approval|under_review`',
-    `authority_type` STRING COMMENT 'Classification of the delegated authority arrangement. [ENUM-REF-CANDIDATE: MGA|Coverholder|Wholesale_Broker|Surplus_Lines|Program_Administrator|Lloyd_Coverholder — promote to reference product]. Valid values are `MGA|Coverholder|Wholesale_Broker|Surplus_Lines|Program_Administrator|Lloyd_Coverholder`',
-    `cat_exposed_flag` BOOLEAN COMMENT 'Indicates whether risks bound under this authority may include catastrophe (CAT) exposed properties such as coastal wind or earthquake zones.',
-    `commission_rate_pct` DECIMAL(7,4) COMMENT 'Standard commission rate (as a percentage of gross written premium) payable to the producer for policies bound under this authority.',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this binding authority record was first created in the system of record, used for audit trail and data lineage.',
-    `effective_date` DATE COMMENT 'Date on which the binding authority becomes operative and the producer may begin binding risks on behalf of the insurer.',
-    `eligible_coverage_classes` STRING COMMENT 'Comma-delimited list of coverage class or program codes (e.g., personal_auto, commercial_property, inland_marine) permitted under this authority.',
-    `eligible_lob_codes` STRING COMMENT 'Comma-delimited list of NAIC or ISO line-of-business codes (e.g., GL, CPP, BOP, WC, APD) that the producer is authorized to bind under this authority.',
-    `eligible_risk_classes` STRING COMMENT 'Comma-delimited list of risk class or NAICS/SIC codes the producer may bind. Restricts authority to specific occupancy or industry segments.',
-    `excluded_risk_classes` STRING COMMENT 'Comma-delimited list of NAICS/SIC or ISO risk class codes explicitly prohibited from being bound under this authority.',
-    `excluded_zip_codes` STRING COMMENT 'Comma-delimited list of US ZIP codes or postal code prefixes explicitly excluded from the binding authority territory, e.g., CAT-prone coastal zones.',
-    `expiration_date` DATE COMMENT 'Date on which the binding authority ceases to be valid. Null indicates an open-ended authority subject to termination notice.',
-    `is_suspended` BOOLEAN COMMENT 'Indicates whether the binding authority is currently suspended. True prevents new policy binding; used for real-time eligibility checks.',
-    `last_audit_date` DATE COMMENT 'Date of the most recent underwriting compliance audit conducted against this binding authority.',
-    `loss_ratio_threshold_pct` DECIMAL(7,4) COMMENT 'Maximum permissible loss ratio (LR) on business bound under this authority before suspension or commission clawback is triggered.',
-    `max_cat_tiv` DECIMAL(18,2) COMMENT 'Maximum aggregate total insured value (TIV) for CAT-exposed risks the producer may bind under this authority in a single policy year.',
-    `max_deductible_amount` DECIMAL(18,2) COMMENT 'Maximum deductible or SIR permitted on any single policy bound under this authority, in the authority currency.',
-    `max_policy_limit` DECIMAL(18,2) COMMENT 'The ceiling on the total insured value (TIV) or per-occurrence policy limit that the producer is authorized to bind on a single policy, in USD.',
-    `max_single_risk_limit` DECIMAL(18,2) COMMENT 'Maximum sum insured (SI) the producer may bind for any single risk location or insured object, in USD. Distinct from aggregate policy limit.',
-    `min_deductible_amount` DECIMAL(18,2) COMMENT 'Minimum deductible or self-insured retention (SIR) that must be applied to any policy bound under this authority, in the authority currency.',
-    `naic_company_code` STRING COMMENT 'Five-digit NAIC company code of the insurer (carrier) on whose behalf the producer is authorized to bind policies under this authority.. Valid values are `^[0-9]{5}$`',
-    `next_audit_date` DATE COMMENT 'Scheduled date for the next underwriting compliance audit of policies bound under this authority.',
-    `notice_period_days` BIGINT COMMENT 'Number of calendar days advance notice required by either party to cancel or non-renew this binding authority agreement.',
-    `profit_commission_rate_pct` DECIMAL(7,4) COMMENT 'Contingent profit commission rate payable to the producer if the loss ratio (LR) on bound business falls below the agreed threshold.',
-    `program_code` STRING COMMENT 'Internal program or facility code linking this binding authority to a specific underwriting program, rate filing, or product configuration in PolicyCenter.',
-    `rate_filing_reference` STRING COMMENT 'State DOI rate and form filing reference number applicable to the products bound under this authority, ensuring regulatory compliance.',
-    `reinsurance_required_flag` BOOLEAN COMMENT 'Indicates whether facultative (FAC) or treaty reinsurance (RI) placement is mandatory before the producer may bind risks under this authority.',
-    `renewal_type` STRING COMMENT 'Indicates whether this binding authority renews automatically (auto), requires manual review (manual), or will not be renewed (non_renew) at expiration.. Valid values are `auto|manual|non_renew`',
-    `surplus_lines_flag` BOOLEAN COMMENT 'Indicates whether this binding authority covers surplus lines (non-admitted) business, triggering surplus lines tax and stamping office filing requirements.',
-    `suspension_date` DATE COMMENT 'Date on which the binding authority was suspended, preventing new policy binding until reinstatement. Null if never suspended.',
-    `suspension_reason` STRING COMMENT 'Free-text explanation of why the binding authority was suspended, e.g., regulatory action, loss ratio breach, or compliance failure.',
-    `territory_country_code` STRING COMMENT 'ISO 3166-1 alpha-3 country code for the primary country jurisdiction of this binding authority, e.g., USA, CAN, GBR.. Valid values are `^[A-Z]{3}$`',
-    `territory_states` STRING COMMENT 'Comma-delimited list of US state abbreviations (e.g., CA,TX,FL) defining the geographic territory within which the producer may bind risks.',
-    `underwriting_guidelines_version` STRING COMMENT 'Version identifier of the underwriting guidelines document that governs risk selection and pricing for policies bound under this authority.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp of the most recent modification to this binding authority record, supporting audit trail and change management requirements.',
-    CONSTRAINT pk_binding_authority PRIMARY KEY(`binding_authority_id`)
-) COMMENT 'Delegated binding authority granted to a producer or MGA specifying maximum policy limit, eligible LOBs, geographic territory, and risk class restrictions. Tracks authority ceiling, expiration, and suspension flags.';
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` (
+    `producers_producer_policy_id` BIGINT COMMENT 'Unique identifier for the producer-policy association record. Primary key.',
+    `agency_id` BIGINT COMMENT 'Foreign key to the agency entity the producer represents on this policy.',
+    `commission_schedule_id` BIGINT COMMENT 'Foreign key linking to producers.commission_schedule. Business justification: The producer-policy assignment specifies the commission schedule for that policy. Replace STRING commission_schedule_code with FK to commission_schedule. N:1 relationship.',
+    `distribution_channel_id` BIGINT COMMENT 'Foreign key linking to producers.distribution_channel. Business justification: Producer-policy assignments occur through a specific distribution channel. Replace STRING distribution_channel_code with FK to distribution_channel. N:1 relationship.',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Producer-policy assignments require LOB reference for commission rate lookup, authority verification, and license validation.',
+    `current_policy_id` BIGINT COMMENT 'Foreign key to the policy record this producer is associated with.',
+    `prior_producer_policy_id` BIGINT COMMENT 'Foreign key to the previous producer-policy record this assignment replaces, used to maintain historical chain of producer assignments.',
+    `producers_producer_id` BIGINT COMMENT 'Foreign key to the producer (agent, broker, MGA) associated with this policy.',
+    `superseded_by_producer_policy_producers_producer_policy_id` BIGINT COMMENT 'Foreign key to the producer-policy record that supersedes this assignment, used to track broker of record changes and producer reassignments.',
+    `appointment_verification_date` DATE COMMENT 'Date when the producer appointment was last verified for this policy.',
+    `appointment_verified_flag` BOOLEAN COMMENT 'Indicates whether the producer appointment with the writing company has been verified for this policy.',
+    `assignment_notes` STRING COMMENT 'Free-text notes or comments regarding this producer-policy assignment, including special arrangements or exceptions.',
+    `assignment_reason_code` STRING COMMENT 'Code indicating the reason for this producer assignment: initial sale, broker of record change, servicing transfer, or split commission arrangement.',
+    `assignment_source_code` STRING COMMENT 'Source system or process that created this producer-policy assignment: policy issuance, broker of record change, endorsement, renewal, or manual adjustment.. Valid values are `policy_issuance|bor_change|endorsement|renewal|manual_adjustment`',
+    `assignment_status` STRING COMMENT 'Current lifecycle status of the producer assignment to this policy.. Valid values are `active|inactive|pending|terminated|suspended`',
+    `binding_authority_flag` BOOLEAN COMMENT 'Indicates whether the producer has binding authority to commit coverage on behalf of the carrier for this policy.',
+    `binding_authority_limit` DECIMAL(15,2) COMMENT 'Maximum premium or coverage limit the producer is authorized to bind without underwriter approval for this policy.',
+    `commission_basis_code` STRING COMMENT 'Basis on which commission is calculated: written premium, earned premium, net premium, gross premium, or policy fee.. Valid values are `written_premium|earned_premium|net_premium|gross_premium|policy_fee`',
+    `commission_rate` DECIMAL(5,4) COMMENT 'Commission rate percentage applicable to this producer for this policy, expressed as a decimal (e.g., 0.1250 for 12.50%).',
+    `commission_split_percentage` DECIMAL(5,2) COMMENT 'Percentage of total commission allocated to this producer in split-commission scenarios. Sum across all producers on a policy equals 100.00.',
+    `contingent_commission_eligible_flag` BOOLEAN COMMENT 'Indicates whether this producer-policy assignment is eligible for contingent or bonus commission based on performance metrics.',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this producer-policy association record was first created in the system.',
+    `effective_date` DATE COMMENT 'Date when the producer assignment to this policy becomes effective.',
+    `expiration_date` DATE COMMENT 'Date when the producer assignment to this policy expires or is terminated. Null for active assignments.',
+    `last_modified_timestamp` TIMESTAMP COMMENT 'Timestamp when this producer-policy association record was last updated.',
+    `naic_company_code` STRING COMMENT 'Five-digit NAIC company code identifying the writing carrier for regulatory reporting purposes.. Valid values are `^[0-9]{5}$`',
+    `npn` STRING COMMENT 'National Producer Number assigned by NIPR to uniquely identify the producer across all states.. Valid values are `^[0-9]{10}$`',
+    `override_commission_flag` BOOLEAN COMMENT 'Indicates whether the commission rate for this producer-policy assignment overrides the default schedule rate.',
+    `override_reason_code` STRING COMMENT 'Code indicating the reason for commission rate override, if applicable.',
+    `policy_state_code` STRING COMMENT 'Two-letter state code where the policy is domiciled or written, used for regulatory and commission compliance.. Valid values are `^[A-Z]{2}$`',
+    `policy_transaction_type` STRING COMMENT 'Type of policy transaction at the time this producer assignment was established: new business, renewal, endorsement, cancellation, or reinstatement.. Valid values are `new_business|renewal|endorsement|cancellation|reinstatement`',
+    `primary_producer_flag` BOOLEAN COMMENT 'Indicates whether this producer is the primary producer of record for the policy. Only one producer per policy should have this flag set to true.',
+    `producer_license_number` STRING COMMENT 'State-issued license number of the producer for the jurisdiction where the policy is written.',
+    `producer_license_state_code` STRING COMMENT 'Two-letter state code where the producer holds the license applicable to this policy.. Valid values are `^[A-Z]{2}$`',
+    `producer_role_code` STRING COMMENT 'Role the producer plays on this policy: writing agent, servicing agent, broker of record, sub-producer, referring agent, or managing general agent.. Valid values are `writing_agent|servicing_agent|broker_of_record|sub_producer|referring_agent|MGA`',
+    `producer_role_description` STRING COMMENT 'Detailed description of the producer role and responsibilities on this policy.',
+    `servicing_producer_flag` BOOLEAN COMMENT 'Indicates whether this producer is responsible for ongoing policy servicing and customer support.',
+    `source_system_code` STRING COMMENT 'Code identifying the source system that originated this producer-policy assignment record (e.g., PAS, agency management system).',
+    `source_system_reference_code` STRING COMMENT 'Unique identifier or reference key from the source system for traceability and reconciliation purposes.',
+    `termination_date` DATE COMMENT 'Date when the producer assignment was terminated. Null for active assignments.',
+    `termination_reason_code` STRING COMMENT 'Code indicating the reason for termination of this producer assignment: broker of record change, policy cancellation, producer termination, or voluntary withdrawal.',
+    `writing_company_code` STRING COMMENT 'Code identifying the insurance company or carrier that issued the policy.',
+    CONSTRAINT pk_producers_producer_policy PRIMARY KEY(`producers_producer_policy_id`)
+) COMMENT 'Association linking a producer to a policy with role (writing agent, servicing agent, broker of record). One row per producer-policy-role. Supports split-commission scenarios and broker-of-record changes with effective dating.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` (
-    `onboarding_case_id` BIGINT COMMENT 'Unique surrogate identifier for the producer onboarding and compliance case record in the silver layer.',
-    `commission_schedule_id` BIGINT COMMENT 'Foreign key linking to producers.commission_schedule. Business justification: Onboarding case references commission schedule via string code. Adding proper FK enables referential integrity and eliminates need to JOIN on business key.',
-    `producers_producer_id` BIGINT COMMENT 'Reference to the producer party record associated with this onboarding case.',
-    `state_id` BIGINT COMMENT 'Foreign key linking to shared.state. Business justification: Onboarding cases track producer resident state for licensing and appointment processing. State-specific onboarding workflows and regulatory compliance require state reference.',
-    `application_received_date` DATE COMMENT 'Date the producer onboarding application was formally received and logged, marking the start of the onboarding case lifecycle.',
-    `appointment_effective_date` DATE COMMENT 'Date the producer appointment becomes legally effective in each appointment state, enabling the producer to bind business on behalf of Pc_Insurance.',
-    `appointment_filing_date` DATE COMMENT 'Date the producer appointment was formally filed with the applicable state Departments of Insurance following successful completion of all onboarding checks.',
-    `appointment_state_codes` STRING COMMENT 'Pipe-delimited list of two-letter state codes where the producer is being appointed or has active appointments with Pc_Insurance, per DOI filing requirements.',
-    `assigned_uw_reviewer` STRING COMMENT 'Name or employee identifier of the underwriting or compliance officer assigned to review and adjudicate the producer onboarding case.',
-    `background_check_date` DATE COMMENT 'Date the background check screening was completed and results were received from the third-party screening provider during producer onboarding.',
-    `background_check_provider` STRING COMMENT 'Name of the third-party vendor engaged to conduct the producer background screening, used for audit trail and vendor management tracking.',
-    `background_check_status` STRING COMMENT 'Current status of the criminal background check conducted on the producer applicant as part of the onboarding compliance screening process.. Valid values are `not_started|in_progress|clear|adverse|pending_review`',
-    `binding_authority_granted` BOOLEAN COMMENT 'Indicates whether the producer has been granted binding authority to commit Pc_Insurance to coverage without prior underwriting approval, per the producer agreement.',
-    `binding_authority_limit` DECIMAL(18,2) COMMENT 'Maximum single-risk premium or total insured value the producer is authorized to bind without prior UW approval, expressed in USD per the producer agreement.',
-    `case_closed_timestamp` TIMESTAMP COMMENT 'Timestamp when the onboarding case was formally closed, either through approval and system activation, rejection, or withdrawal.',
-    `case_number` STRING COMMENT 'Externally visible business identifier for the onboarding case, used in correspondence and regulatory filings with state Departments of Insurance.. Valid values are `^OB-[0-9]{4}-[0-9]{6}$`',
-    `case_opened_timestamp` TIMESTAMP COMMENT 'Precise timestamp when the onboarding case record was created in the producer management system, serving as the audit creation marker.',
-    `case_status` STRING COMMENT 'Current workflow state of the producer onboarding case lifecycle from application intake through appointment activation or rejection.. Valid values are `pending|in_review|approved|rejected|withdrawn|suspended`',
-    `channel_type` STRING COMMENT 'Distribution channel classification for the producer, distinguishing independent agents, captive agents, brokers, and MGAs for commission structure and contract assignment.. Valid values are `independent_agent|captive_agent|broker|mga|direct`',
-    `contingent_commission_eligible` BOOLEAN COMMENT 'Indicates whether the producer qualifies for contingent or profit-sharing commission arrangements based on loss ratio and volume performance thresholds.',
-    `contracting_entity` STRING COMMENT 'Legal name of the Pc_Insurance entity or subsidiary with which the producer agreement is being executed, relevant for multi-company carrier groups.',
-    `doi_disciplinary_review_date` DATE COMMENT 'Date the DOI disciplinary history and market-conduct review was completed for the producer applicant during the onboarding compliance process.',
-    `doi_disciplinary_review_status` STRING COMMENT 'Status of the review of DOI disciplinary actions, market-conduct orders, and license revocations against the producer across all appointment states.. Valid values are `not_started|in_progress|clear|adverse|pending_review`',
-    `e_o_coverage_verified` BOOLEAN COMMENT 'Indicates whether the producers Errors and Omissions (E&O) professional liability insurance coverage has been verified as meeting Pc_Insurance minimum requirements.',
-    `e_o_policy_expiry_date` DATE COMMENT 'Expiration date of the producers E&O professional liability policy, used to trigger renewal verification and prevent appointment lapses.',
-    `estimated_annual_premium_volume` DECIMAL(18,2) COMMENT 'Producers estimated annual gross written premium (GWP) volume to be placed with Pc_Insurance, used for capacity planning and commission tier assignment.',
-    `last_updated_timestamp` TIMESTAMP COMMENT 'Timestamp of the most recent modification to the onboarding case record, used for change tracking and audit trail compliance.',
-    `license_verification_date` DATE COMMENT 'Date on which the most recent producer license verification was completed against NIPR or state DOI records during the onboarding process.',
-    `license_verification_status` STRING COMMENT 'Current status of the producer license verification check performed via NIPR or state DOI systems to confirm active, valid licensure in all appointment states.. Valid values are `not_started|in_progress|verified|failed|expired`',
-    `lob_authorizations` STRING COMMENT 'Pipe-delimited list of P&C lines of business the producer is authorized to sell, such as personal auto, homeowners, CGL, WC, BOP, and CPP.',
-    `naic_producer_code` STRING COMMENT 'NAIC-assigned unique producer code used for interstate licensing, appointment filings, and statutory reporting across all state Departments of Insurance.. Valid values are `^[0-9]{7}$`',
-    `npn` STRING COMMENT 'Unique National Producer Number assigned by NIPR/NAIC, used as the primary cross-state identifier for producer licensing and appointment verification.. Valid values are `^[0-9]{1,10}$`',
-    `ofac_screening_date` DATE COMMENT 'Date the OFAC and sanctions screening was last performed on the producer applicant, required for BSA/AML compliance documentation.',
-    `ofac_screening_status` STRING COMMENT 'Result of the OFAC Specially Designated Nationals (SDN) and sanctions list screening performed on the producer applicant as required by BSA/AML compliance.. Valid values are `not_started|clear|potential_match|confirmed_match|escalated`',
-    `prior_carrier_loss_ratio` DECIMAL(5,4) COMMENT 'Historical loss ratio (LR) reported by the producer from prior carrier relationships, used by UW to assess book quality during onboarding risk evaluation.',
-    `producer_agreement_type` STRING COMMENT 'Type of producer agreement governing the relationship, determining commission schedules, binding authority, and regulatory obligations.. Valid values are `standard_agency|broker|mga|surplus_lines|program_administrator`',
-    `producer_dba_name` STRING COMMENT 'Trade or DBA name under which the producer operates, if different from the legal name. Required for agency and broker appointment filings.',
-    `producer_legal_name` STRING COMMENT 'Full legal name of the producer entity or individual as submitted on the onboarding application, used for DOI appointment filings and NAIC records.',
-    `producer_tax_number` STRING COMMENT 'Federal Employer Identification Number (FEIN) for agencies or Social Security Number (SSN) for individual producers, required for IRS 1099 commission reporting.. Valid values are `^[0-9]{2}-[0-9]{7}$|^[0-9]{3}-[0-9]{2}-[0-9]{4}$`',
-    `producer_type` STRING COMMENT 'Classification of the producer entity type, distinguishing individual agents from agencies, brokers, MGAs, and surplus lines brokers for licensing and commission purposes.. Valid values are `individual|agency|broker|managing_general_agent|surplus_lines_broker`',
-    `regulatory_compliance_notes` STRING COMMENT 'Free-text field capturing compliance officer observations, state DOI correspondence notes, or market-conduct findings relevant to the onboarding case review.',
-    `rejection_reason_code` STRING COMMENT 'Standardized code indicating the primary reason an onboarding case was rejected, used for regulatory reporting and adverse action notification compliance.. Valid values are `adverse_background|license_invalid|ofac_match|doi_disciplinary|e_o_insufficient|incomplete_application`',
-    `rejection_reason_notes` STRING COMMENT 'Free-text narrative providing additional detail on the reason for onboarding case rejection, supplementing the rejection reason code for underwriting and compliance review.',
-    `system_activation_date` DATE COMMENT 'Date the producer was activated in Pc_Insurance operational systems (PolicyCenter, BillingCenter) enabling quoting, binding, and commission processing.',
-    `years_in_business` BIGINT COMMENT 'Number of years the producer entity or individual has been actively operating in the P&C insurance distribution market, used in UW risk scoring.',
-    CONSTRAINT pk_onboarding_case PRIMARY KEY(`onboarding_case_id`)
-) COMMENT 'Single authoritative producer onboarding and compliance case covering application intake, background check, license verification, DOI disciplinary and market-conduct review, and OFAC/sanctions screening through appointment filing and system activation.';
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` (
+    `underwriting_authority_id` BIGINT COMMENT 'Unique identifier for the underwriting authority grant record.',
+    `agency_id` BIGINT COMMENT 'Reference to the agency organization holding this authority.',
+    `cat_zone_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.cat_zone. Business justification: Binding authority is explicitly restricted by catastrophe zone. Producers in coastal wind zones or earthquake zones require higher authority levels or mandatory referral.',
+    `catastrophegeography_peril_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.peril. Business justification: Binding authority is granted per peril (wind, earthquake, flood, wildfire). Producers must have explicit peril-specific authority to bind coverage.',
+    `coverage_type_id` BIGINT COMMENT 'Foreign key linking to coverage.coverage_type. Business justification: Underwriting authority rules specify which coverage types a producer/agency can bind without referral.',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Authority grants are LOB-specific per regulatory and risk management requirements. LOB reference provides admitted/surplus lines status, state filing requirements, and default policy',
+    `producers_producer_id` BIGINT COMMENT 'Reference to the producer or agent receiving this binding authority.',
+    `approval_date` DATE COMMENT 'Date when the underwriting authority was approved by the carrier or underwriting management.',
+    `approved_by` STRING COMMENT 'Name or identifier of the underwriting manager or executive who approved this authority grant.',
+    `audit_frequency` STRING COMMENT 'Frequency at which policies bound under this authority must be audited: monthly, quarterly, semi-annual, annual, or per policy.. Valid values are `monthly|quarterly|semi_annual|annual|per_policy`',
+    `audit_required` BOOLEAN COMMENT 'Indicates whether policies bound under this authority require post-binding underwriting audit or review.',
+    `authority_status` STRING COMMENT 'Current lifecycle status of the underwriting authority grant.. Valid values are `active|suspended|revoked|expired|pending|inactive`',
+    `authority_type` STRING COMMENT 'Classification of the authority level granted: binding, quoting, referral, limited binding, full binding, or conditional.. Valid values are `binding|quoting|referral|limited_binding|full_binding|conditional`',
+    `blanket_coverage_allowed` BOOLEAN COMMENT 'Indicates whether the producer may bind blanket coverage policies under this authority.',
+    `cancellation_allowed` BOOLEAN COMMENT 'Indicates whether this authority permits canceling policies.',
+    `coinsurance_allowed` BOOLEAN COMMENT 'Indicates whether the producer may bind policies with coinsurance clauses under this authority.',
+    `construction_restrictions` STRING COMMENT 'Construction types or building classes excluded from this authority per COPE criteria.',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this authority record was first created in the data platform.',
+    `currency_code` STRING COMMENT 'Three-letter ISO 4217 currency code for all monetary thresholds and limits in this authority grant.. Valid values are `USD|CAD|EUR|GBP|AUD|MXN`',
+    `deductible_max` DECIMAL(18,2) COMMENT 'Maximum deductible amount the producer may offer when binding coverage under this authority.',
+    `deductible_min` DECIMAL(18,2) COMMENT 'Minimum deductible amount the producer must apply when binding coverage under this authority.',
+    `effective_date` DATE COMMENT 'Date when the underwriting authority becomes active and binding authority may be exercised.',
+    `eligible_states` STRING COMMENT 'Comma-separated list of state codes where this authority is valid and may be exercised.',
+    `endorsement_allowed` BOOLEAN COMMENT 'Indicates whether this authority permits issuing policy endorsements.',
+    `excluded_states` STRING COMMENT 'Comma-separated list of state codes explicitly excluded from this authority grant.',
+    `expiration_date` DATE COMMENT 'Date when the underwriting authority expires and can no longer be exercised unless renewed.',
+    `last_modified_timestamp` TIMESTAMP COMMENT 'Timestamp when this authority record was last updated in the data platform.',
+    `limit_tier` STRING COMMENT 'Tiered classification of authority limits: tier 1 (lowest), tier 2, tier 3, tier 4, or unlimited.. Valid values are `tier_1|tier_2|tier_3|tier_4|unlimited`',
+    `max_premium_threshold` DECIMAL(18,2) COMMENT 'Maximum written premium amount the producer may bind without underwriting referral.',
+    `max_single_risk_limit` DECIMAL(18,2) COMMENT 'Maximum policy limit the producer may bind on a single insured risk without referral to underwriting.',
+    `max_tiv` DECIMAL(18,2) COMMENT 'Maximum total insured value the producer may bind without underwriting referral.',
+    `min_premium_threshold` DECIMAL(18,2) COMMENT 'Minimum written premium amount required for the producer to exercise binding authority on a policy.',
+    `new_business_allowed` BOOLEAN COMMENT 'Indicates whether this authority permits binding new business policies.',
+    `notes` STRING COMMENT 'Free-text notes or comments regarding special conditions, exceptions, or clarifications for this authority grant.',
+    `occupancy_restrictions` STRING COMMENT 'Specific occupancy types or uses excluded from this binding authority per Construction, Occupancy, Protection, Exposure (COPE) criteria.',
+    `protection_class_max` BIGINT COMMENT 'Maximum ISO protection class rating allowed for binding under this authority without referral.',
+    `protection_class_min` BIGINT COMMENT 'Minimum ISO protection class rating required for the producer to bind coverage under this authority.',
+    `referral_criteria` STRING COMMENT 'Business rules or conditions that trigger mandatory referral to underwriting despite binding authority.',
+    `reinstatement_allowed` BOOLEAN COMMENT 'Indicates whether this authority permits reinstating lapsed or canceled policies.',
+    `renewal_allowed` BOOLEAN COMMENT 'Indicates whether this authority permits binding renewal policies.',
+    `renewal_eligible` BOOLEAN COMMENT 'Indicates whether this authority grant is eligible for renewal upon expiration.',
+    `revocation_date` DATE COMMENT 'Date when the underwriting authority was revoked or terminated prior to expiration.',
+    `revocation_reason` STRING COMMENT 'Business reason or cause for revoking the underwriting authority prior to expiration.',
+    `risk_class_restrictions` STRING COMMENT 'Comma-separated list of risk classes or NAICS codes for which this authority is restricted or excluded.',
+    `source_system_code` STRING COMMENT 'Code identifying the operational system of record where this authority grant was created.',
+    `source_system_reference_code` STRING COMMENT 'Unique identifier or key for this authority record in the source operational system.',
+    CONSTRAINT pk_underwriting_authority PRIMARY KEY(`underwriting_authority_id`)
+) COMMENT 'Defines the binding authority granted to a producer or agency by LOB, coverage type, and limit tier. One row per authority grant. Tracks max TIV, max single-risk limit, eligible states, and authority expiration date.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`producers`.`termination` (
-    `termination_id` BIGINT COMMENT 'Unique surrogate identifier for a producer appointment or agreement termination record in the Producer Management and Licensing System.',
-    `appointment_id` BIGINT COMMENT 'Reference to the producer appointment record being terminated. Links this termination to the originating appointment in the producer management system.',
-    `lob_code_id` BIGINT COMMENT 'Foreign key linking to shared.lob_code. Business justification: Terminations may be line-of-business specific when appointments are LOB-specific. Regulatory reporting and producer authority tracking require LOB reference. Removes denormalized lob_code.',
-    `producer_agreement_id` BIGINT COMMENT 'Reference to the producer agency or broker agreement being terminated, if the termination applies to a contractual agreement rather than a state appointment.',
-    `state_id` BIGINT COMMENT 'Foreign key linking to shared.state. Business justification: Terminations are state-specific regulatory events requiring DOI notification. Regulatory reporting and compliance tracking require state reference. Removes denormalized state_of_appointment.',
-    `termination_producers_producer_id` BIGINT COMMENT 'Reference to the producer (agent or broker) whose appointment or agreement is being terminated.',
-    `termination_successor_producer_producers_producer_id` BIGINT COMMENT 'Reference to the producer appointed to service the terminated producers book of business following the termination.',
-    `approval_date` DATE COMMENT 'Date on which the termination action was formally approved internally, prior to issuance of notice to the producer and regulatory filing.',
-    `approved_by_user_code` BIGINT COMMENT 'Internal user or employee ID of the person who approved the termination action, supporting dual-control and SOX audit requirements.',
-    `book_of_business_transfer_date` DATE COMMENT 'Date on which the terminated producers book of business was fully transferred to the successor producer or insurer servicing team.',
-    `book_of_business_transfer_status` STRING COMMENT 'Status of the transfer of the terminated producers book of business (policies) to another appointed producer or to the insurers direct servicing team.. Valid values are `not_applicable|pending|in_progress|completed|cancelled`',
-    `commission_currency_code` STRING COMMENT 'ISO 4217 three-letter currency code for the pending commission amount (e.g., USD). Supports multi-currency operations for international entities.. Valid values are `^[A-Z]{3}$`',
-    `commission_settlement_status` STRING COMMENT 'Status of the final commission settlement process following termination, tracking whether outstanding commissions have been paid, disputed, or written off.. Valid values are `not_applicable|pending|settled|disputed|written_off`',
-    `contest_outcome` STRING COMMENT 'Result of the producers formal contest or appeal of the termination decision.. Valid values are `upheld|overturned|settled|withdrawn|pending`',
-    `contest_resolution_date` DATE COMMENT 'Date on which a contested termination was resolved, either upholding the termination or reinstating the appointment. Null if not contested or unresolved.',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this termination record was first created in the data platform, used for audit trail and data lineage tracking.',
-    `e_and_o_coverage_expiry_date` DATE COMMENT 'Date on which the producers Errors and Omissions (E&O) professional liability coverage expires post-termination, relevant for tail coverage obligations.',
-    `effective_date` DATE COMMENT 'The date on which the producer appointment or agreement termination becomes legally effective, as agreed or mandated by the applicable state DOI.',
-    `initiated_by_party` STRING COMMENT 'Identifies which party initiated the termination: the insurer, the producer, a regulatory authority, or by mutual agreement.. Valid values are `insurer|producer|regulator|mutual`',
-    `initiated_by_user_code` BIGINT COMMENT 'Internal user or employee ID of the person who initiated the termination action in the producer management system, for audit trail purposes.',
-    `internal_notes` STRING COMMENT 'Confidential internal notes recorded by underwriting or compliance staff regarding the circumstances of the termination, not shared externally.',
-    `is_contested` BOOLEAN COMMENT 'Indicates whether the producer has formally contested or appealed the termination, triggering a dispute resolution or regulatory review process.',
-    `is_for_cause` BOOLEAN COMMENT 'Indicates whether the termination is for cause (e.g., fraud, misrepresentation, license violation), triggering mandatory state regulatory reporting obligations.',
-    `is_regulatory_reportable` BOOLEAN COMMENT 'Indicates whether this termination must be reported to the state Department of Insurance (DOI) or NAIC within the mandated reporting window.',
-    `naic_company_code` STRING COMMENT 'Five-digit NAIC company code identifying the insurer entity filing the termination, required for state DOI regulatory submissions.. Valid values are `^[0-9]{5}$`',
-    `notice_date` DATE COMMENT 'Date on which formal written notice of termination was issued to the producer, used to calculate required notice periods per state regulation.',
-    `notice_period_days` BIGINT COMMENT 'Number of calendar days of advance notice required by state regulation or contract before the termination becomes effective.',
-    `number` STRING COMMENT 'Externally visible business identifier for this termination action, used in regulatory filings, correspondence, and bordereaux submissions.. Valid values are `^TERM-[0-9]{4}-[0-9]{6}$`',
-    `pending_commission_amount` DECIMAL(18,2) COMMENT 'Total commission amount owed to the producer at the time of termination that remains unpaid, subject to final settlement per the agency agreement terms.',
-    `reason_code` STRING COMMENT 'Standardized NAIC or state DOI reason code for the termination, used in regulatory filings and state notification submissions (e.g., NAIC reason codes for appointment terminations).. Valid values are `^[A-Z0-9]{2,10}$`',
-    `reason_description` STRING COMMENT 'Free-text narrative explaining the business reason for the termination, supplementing the standardized reason code for internal documentation and audit purposes.',
-    `regulatory_report_due_date` DATE COMMENT 'Deadline by which the termination must be reported to the applicable state DOI or NAIC, typically 30 days from the effective date per state statute.',
-    `regulatory_report_status` STRING COMMENT 'Current status of the regulatory termination notification filing with the state DOI or NAIC, tracking compliance with mandatory reporting requirements.. Valid values are `not_required|pending|submitted|accepted|rejected`',
-    `regulatory_report_submitted_date` DATE COMMENT 'Actual date on which the termination notification was submitted to the state DOI or NAIC, used to confirm timely compliance with reporting obligations.',
-    `reinstatement_eligible` BOOLEAN COMMENT 'Indicates whether the terminated producer is eligible for future reinstatement of their appointment, based on the termination reason and regulatory standing.',
-    `reinstatement_eligible_date` DATE COMMENT 'Earliest date on which the terminated producer may apply for reinstatement of their appointment, if applicable under state regulation or contract terms.',
-    `rescission_date` DATE COMMENT 'Date on which a previously issued termination was rescinded or reversed, restoring the producer appointment. Null if the termination was not rescinded.',
-    `source_system_code` STRING COMMENT 'Code identifying the operational system of record from which this termination record originated (e.g., AgentSync, Vertafore Sircon, Guidewire PolicyCenter).. Valid values are `AGENTSYNC|SIRCON|GUIDEWIRE_PC|DUCK_CREEK|SAPIENS`',
-    `source_system_record_code` STRING COMMENT 'Native record identifier from the originating operational system (AgentSync, Vertafore Sircon, etc.) for lineage tracing and reconciliation.',
-    `state_notification_required` BOOLEAN COMMENT 'Indicates whether the terminating state requires a formal notification filing with the DOI, distinct from the broader regulatory reportable flag.',
-    `termination_status` STRING COMMENT 'Current workflow state of the termination action, tracking progress from initiation through regulatory confirmation or rescission.. Valid values are `pending|submitted|confirmed|rescinded|appealed`',
-    `termination_type` STRING COMMENT 'Classifies the nature of the termination. [ENUM-REF-CANDIDATE: voluntary|involuntary|non_renewal|mutual_agreement|regulatory_action|death_disability — promote to reference product]. Valid values are `voluntary|involuntary|non_renewal|mutual_agreement|regulatory_action|death_disability`',
-    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp of the most recent update to this termination record in the data platform, supporting change tracking and audit compliance.',
-    CONSTRAINT pk_termination PRIMARY KEY(`termination_id`)
-) COMMENT 'Records the termination or non-renewal of a producer appointment or agreement, including termination reason code, for-cause flag, effective date, state notification requirement, and regulatory reporting status.';
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` (
+    `producer_performance_id` BIGINT COMMENT 'Unique identifier for the producer performance record. Primary key.',
+    `agency_id` BIGINT COMMENT 'Foreign key to the agency this producer is affiliated with during the evaluation period.',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Performance metrics are measured and reported by LOB for tier assignment, contingent commission eligibility, and territory management.',
+    `premium_accounting_period_id` BIGINT COMMENT 'Foreign key linking to premium.premium_accounting_period. Business justification: Producer performance metrics (GWP, loss ratio, retention rate) must align with carrier accounting periods for accurate commission calculations, contingent commission',
+    `producer_tier_id` BIGINT COMMENT 'Foreign key linking to producers.producer_tier. Business justification: Performance evaluations assign a tier to the producer based on performance criteria. Replace STRING tier_assignment and tier_definition_code with FK to producer_tier. N:1 relationship.',
+    `producers_producer_id` BIGINT COMMENT 'Identifier of the person or system that conducted the performance evaluation.',
+    `approval_date` DATE COMMENT 'Date when the performance evaluation was approved by management.',
+    `average_claim_severity` DECIMAL(18,2) COMMENT 'Average incurred loss per claim for policies produced by the producer during the evaluation period.',
+    `average_policy_premium` DECIMAL(18,2) COMMENT 'Average written premium per policy for the producer during the evaluation period.',
+    `cancellation_count` BIGINT COMMENT 'Number of policies cancelled during the evaluation period for this producer.',
+    `claim_count` BIGINT COMMENT 'Number of claims reported for policies produced by the producer during the evaluation period.',
+    `claim_frequency` DECIMAL(5,4) COMMENT 'Number of claims per policy in force for the producer during the evaluation period.',
+    `combined_ratio` DECIMAL(5,2) COMMENT 'Sum of loss ratio and expense ratio for the producer during the evaluation period.',
+    `commission_earned_amount` DECIMAL(18,2) COMMENT 'Total commission earned by the producer during the evaluation period.',
+    `compliance_violations_count` BIGINT COMMENT 'Number of compliance violations recorded for the producer during the evaluation period.',
+    `contingent_commission_amount` DECIMAL(18,2) COMMENT 'Contingent commission earned by the producer based on performance during the evaluation period.',
+    `currency_code` STRING COMMENT 'ISO 4217 three-letter currency code for all monetary amounts in this record.. Valid values are `^[A-Z]{3}$`',
+    `customer_complaint_count` BIGINT COMMENT 'Number of customer complaints filed against the producer during the evaluation period.',
+    `dwp_amount` DECIMAL(18,2) COMMENT 'Direct premium written by the producer before reinsurance during the evaluation period.',
+    `earned_premium_amount` DECIMAL(18,2) COMMENT 'Total earned premium for policies produced by the producer during the evaluation period.',
+    `endorsement_count` BIGINT COMMENT 'Number of policy endorsements processed by the producer during the evaluation period.',
+    `eo_claim_count` BIGINT COMMENT 'Number of errors and omissions claims filed against the producer during the evaluation period.',
+    `evaluation_date` DATE COMMENT 'Date when the performance evaluation was completed.',
+    `evaluation_period_end_date` DATE COMMENT 'End date of the performance evaluation period.',
+    `evaluation_period_start_date` DATE COMMENT 'Start date of the performance evaluation period.',
+    `evaluation_status` STRING COMMENT 'Current status of the performance evaluation record.. Valid values are `draft|final|under_review|approved|appealed`',
+    `expense_ratio` DECIMAL(5,2) COMMENT 'Ratio of underwriting expenses to written premium for the producer during the evaluation period.',
+    `gwp_amount` DECIMAL(18,2) COMMENT 'Total gross written premium produced by the producer during the evaluation period.',
+    `incurred_losses_amount` DECIMAL(18,2) COMMENT 'Total incurred losses for policies produced by the producer during the evaluation period.',
+    `lob_mix_score` DECIMAL(5,2) COMMENT 'Score reflecting the diversity and strategic alignment of lines of business written by the producer.',
+    `loss_ratio` DECIMAL(5,2) COMMENT 'Ratio of incurred losses to earned premium for policies produced by the producer during the evaluation period.',
+    `new_business_count` BIGINT COMMENT 'Number of new business policies written by the producer during the evaluation period.',
+    `npn` STRING COMMENT 'National Producer Number assigned by NIPR for the producer.. Valid values are `^[0-9]{10}$`',
+    `nwp_amount` DECIMAL(18,2) COMMENT 'Net written premium after reinsurance cessions for the producer during the evaluation period.',
+    `paid_losses_amount` DECIMAL(18,2) COMMENT 'Total paid losses for policies produced by the producer during the evaluation period.',
+    `performance_score` DECIMAL(5,2) COMMENT 'Composite performance score calculated from weighted metrics for the producer during the evaluation period.',
+    `period_type` STRING COMMENT 'Type of evaluation period: monthly, quarterly, semi-annual, or annual.. Valid values are `monthly|quarterly|semi-annual|annual`',
+    `pif_count` BIGINT COMMENT 'Number of active policies in force at the end of the evaluation period for this producer.',
+    `quote_count` BIGINT COMMENT 'Number of quotes generated by the producer during the evaluation period.',
+    `quote_to_bind_ratio` DECIMAL(5,2) COMMENT 'Percentage of quotes that resulted in bound policies during the evaluation period.',
+    `rank_within_agency` BIGINT COMMENT 'Producers rank within their agency based on performance score for the evaluation period.',
+    `rank_within_region` BIGINT COMMENT 'Producers rank within their geographic region based on performance score for the evaluation period.',
+    `renewal_count` BIGINT COMMENT 'Number of policies renewed by the producer during the evaluation period.',
+    `retention_rate` DECIMAL(5,2) COMMENT 'Percentage of policies retained at renewal during the evaluation period.',
+    `tier_effective_date` DATE COMMENT 'Date when the assigned tier becomes effective for the producer.',
+    CONSTRAINT pk_producer_performance PRIMARY KEY(`producer_performance_id`)
+) COMMENT 'Periodic operational scorecard and tier assignment for a producer or agency. One row per producer per period. Stores GWP, NWP, PIF count, LR, retention, new-business count, and the assigned tier (Preferred/Standard/Probationary) with the tier definition';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` (
-    `producer_compliance_id` BIGINT COMMENT 'Unique surrogate identifier for the producer compliance onboarding and monitoring case record within the Pc_Insurance producer management system.',
-    `compliance_reviewer_producers_producer_id` BIGINT COMMENT 'Identifier of the internal compliance officer or analyst assigned to review and adjudicate this producer compliance case. Links to the employee or user master record.',
-    `compliance_owner_producers_producer_id` BIGINT COMMENT 'Reference to the producer (agent or broker) whose compliance case this record tracks. Links to the producer master record in the producer management system.',
-    `state_id` BIGINT COMMENT 'Foreign key linking to shared.state. Business justification: Compliance cases are state-specific for licensing verification and regulatory action tracking. State DOI compliance monitoring requires state reference. Removes denormalized license_state.',
-    `activation_date` DATE COMMENT 'Date on which the producer was formally activated and authorized to bind business on behalf of Pc_Insurance following successful completion of all compliance checks.',
-    `aml_training_date` DATE COMMENT 'Date on which the producer completed the most recent AML training course. Used to determine whether re-training is required based on the applicable refresh cycle.',
-    `anti_money_laundering_trained` BOOLEAN COMMENT 'Indicates whether the producer has completed mandatory AML training as required by FinCEN and NAIC guidelines. Required for appointment in certain lines of business.',
-    `appointed_lob_codes` STRING COMMENT 'Comma-separated list of NAIC line of business codes for which the producer is authorized to sell under this compliance case (e.g., 04=Fire, 05=Allied Lines, 17=CGL).',
-    `appointment_eligibility_status` STRING COMMENT 'Overall eligibility determination for producer appointment based on the aggregate outcome of all compliance checks. Drives the final activation decision in the producer management system.. Valid values are `eligible|ineligible|conditional|under_review`',
-    `background_check_date` DATE COMMENT 'Date on which the background check was completed and results were received from the screening vendor. Null if the check has not yet been completed.',
-    `background_check_reference` STRING COMMENT 'Vendor-assigned reference or order number for the background check transaction. Used to retrieve detailed results from the screening vendor portal.',
-    `background_check_status` STRING COMMENT 'Current status of the criminal background check conducted on the producer as part of the onboarding compliance process. Adverse findings require underwriting review.. Valid values are `not_started|in_progress|clear|adverse|pending_review`',
-    `background_check_vendor` STRING COMMENT 'Name of the third-party screening vendor that performed the background check (e.g., Sterling, First Advantage). Used for vendor management and audit trail.',
-    `case_close_date` DATE COMMENT 'Calendar date on which the compliance case reached final disposition (approved, rejected, or closed). Null if the case is still open.',
-    `case_number` STRING COMMENT 'Externally visible, human-readable identifier assigned to this compliance onboarding case. Used in correspondence with the producer and state DOI filings.. Valid values are `^PC-[0-9]{4}-[0-9]{6}$`',
-    `case_open_date` DATE COMMENT 'Calendar date on which the compliance case was formally opened and submitted for review. Serves as the start anchor for SLA and regulatory turnaround tracking.',
-    `case_status` STRING COMMENT 'Current lifecycle state of the compliance case from initial submission through final disposition. Drives workflow routing in the producer management system.. Valid values are `pending|in_review|approved|rejected|suspended|closed`',
-    `case_type` STRING COMMENT 'Categorizes the nature of the compliance case: initial producer appointment, license renewal, reinstatement after lapse, disciplinary review, or periodic audit.. Valid values are `initial_appointment|renewal|reinstatement|disciplinary_review|periodic_audit`',
-    `ce_credit_hours_verified` DECIMAL(5,2) COMMENT 'Number of continuing education credit hours confirmed as completed by the producer for the current license period. Compared against state-mandated minimums.',
-    `compliance_notes` STRING COMMENT 'Free-text field for compliance officer annotations, escalation notes, or exception documentation related to this producer compliance case. Restricted to authorized compliance staff.',
-    `continuing_education_compliant` BOOLEAN COMMENT 'Indicates whether the producer has met all state-mandated continuing education (CE) credit hour requirements for the current license period as verified through NIPR or state DOI.',
-    `created_timestamp` TIMESTAMP COMMENT 'System timestamp when this compliance case record was first created in the data platform. Used for audit trail and data lineage purposes.',
-    `doi_disciplinary_detail` STRING COMMENT 'Summary description of DOI disciplinary orders or regulatory actions against the producer, including state, order type, and effective date. Populated when doi_disciplinary_flag is true.',
-    `doi_disciplinary_flag` BOOLEAN COMMENT 'Indicates whether the producer has any active or historical disciplinary orders on record with any state Department of Insurance. True triggers mandatory compliance review.',
-    `doi_disciplinary_order_date` DATE COMMENT 'Date of the most recent DOI disciplinary order or regulatory action recorded against the producer. Used to assess recency and severity of compliance risk.',
-    `e_o_coverage_verified` BOOLEAN COMMENT 'Indicates whether the producers Errors and Omissions (E&O) professional liability insurance coverage has been verified as active and meeting minimum limits required by Pc_Insurance.',
-    `e_o_expiration_date` DATE COMMENT 'Expiration date of the producers E&O professional liability insurance policy. Triggers renewal alert workflow when within 60 days of expiry.',
-    `e_o_policy_number` STRING COMMENT 'Policy number of the producers active E&O professional liability insurance policy. Required for appointment and verified during onboarding compliance review.',
-    `ineligibility_reason` STRING COMMENT 'Free-text explanation of why the producer was determined ineligible for appointment. Populated when appointment_eligibility_status is ineligible or conditional.',
-    `license_expiration_date` DATE COMMENT 'Expiration date of the producer license as recorded in NIPR or the state DOI system. Used to trigger renewal reminders and compliance alerts.',
-    `license_verification_date` DATE COMMENT 'Date on which the most recent license verification check was completed against NIPR or state DOI records for this compliance case.',
-    `license_verification_status` STRING COMMENT 'Current status of the license verification check performed against NIPR or state DOI records. A verified status is required before producer activation.. Valid values are `not_started|in_progress|verified|failed|expired`',
-    `market_conduct_finding_detail` STRING COMMENT 'Narrative description of market conduct examination findings associated with the producer, including the examining state and finding category. Populated when flag is true.',
-    `market_conduct_finding_flag` BOOLEAN COMMENT 'Indicates whether the producer has been cited in a state market conduct examination finding. True requires review by the compliance officer before appointment approval.',
-    `next_review_date` DATE COMMENT 'Scheduled date for the next periodic compliance review of this producer, based on risk tier, license renewal cycle, or regulatory requirement. Drives automated review scheduling.',
-    `nipr_transaction_number` STRING COMMENT 'Transaction identifier returned by NIPR when the appointment or license verification request was submitted. Used to reconcile NIPR responses with internal compliance records.',
-    `ofac_match_detail` STRING COMMENT 'Descriptive detail of any OFAC match found during screening, including the matched list name and match score. Populated only when ofac_screening_status is match_found or escalated.',
-    `ofac_screening_date` DATE COMMENT 'Date on which the most recent OFAC sanctions screening was performed for this producer. Periodic re-screening is required per AML compliance policy.',
-    `ofac_screening_status` STRING COMMENT 'Result of the OFAC (Office of Foreign Assets Control) sanctions screening check. A clear status is required before the producer can be activated and bound to policies.. Valid values are `not_started|clear|match_found|false_positive|escalated`',
-    `producer_license_number` STRING COMMENT 'State-issued insurance producer license number being verified as part of this compliance case. Sourced from NIPR or state DOI licensing database.',
-    `review_completed_date` DATE COMMENT 'Date on which the assigned compliance reviewer completed their assessment of all checks and rendered an appointment eligibility determination for this case.',
-    `state_appointment_filed` BOOLEAN COMMENT 'Indicates whether the formal producer appointment has been filed with the applicable state DOI through NIPR. Required in states that mandate company-filed appointments.',
-    `state_appointment_filed_date` DATE COMMENT 'Date on which the producer appointment was filed with the state DOI via NIPR. Populated only when state_appointment_filed is true.',
-    `updated_timestamp` TIMESTAMP COMMENT 'System timestamp of the most recent modification to this compliance case record. Supports incremental data pipeline processing and audit trail requirements.',
-    CONSTRAINT pk_producer_compliance PRIMARY KEY(`producer_compliance_id`)
-) COMMENT 'Compliance and onboarding case for a producer tracking background check, license verification, DOI disciplinary orders, market conduct findings, and OFAC/sanctions screening status through activation.';
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` (
+    `producer_tier_id` BIGINT COMMENT 'Unique identifier for the producer tier classification definition. Primary key.',
+    `approval_authority_level` STRING COMMENT 'Minimum management level required to approve producer assignment to this tier (manager, director, vp, svp, executive).. Valid values are `manager|director|vp|svp|executive`',
+    `approval_required_flag` BOOLEAN COMMENT 'Indicates whether management approval is required to assign a producer to this tier.',
+    `auto_downgrade_eligible` BOOLEAN COMMENT 'Indicates whether producers in this tier are automatically downgraded to lower tiers upon failing to meet criteria.',
+    `auto_upgrade_eligible` BOOLEAN COMMENT 'Indicates whether producers in this tier are automatically considered for upgrade to higher tiers upon meeting criteria.',
+    `binding_authority_flag` BOOLEAN COMMENT 'Indicates whether producers in this tier have binding authority to issue policies without underwriter approval.',
+    `binding_authority_limit` DECIMAL(15,2) COMMENT 'Maximum policy premium or sum insured that producers in this tier can bind without referral, in USD.',
+    `bonus_eligible` BOOLEAN COMMENT 'Indicates whether producers in this tier qualify for performance bonus programs.',
+    `commission_override_rate` DECIMAL(5,4) COMMENT 'Default commission rate override percentage applied to producers in this tier, expressed as decimal (e.g., 0.0250 for 2.5%).',
+    `contingent_commission_eligible` BOOLEAN COMMENT 'Indicates whether producers in this tier are eligible for contingent commission programs.',
+    `created_by_user` STRING COMMENT 'User identifier or name of the person who created this tier definition.',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this tier definition record was first created in the system.',
+    `dedicated_support_flag` BOOLEAN COMMENT 'Indicates whether producers in this tier receive dedicated account management or underwriting support.',
+    `effective_date` DATE COMMENT 'Date when this tier definition becomes active and available for producer assignment.',
+    `evaluation_period_months` BIGINT COMMENT 'Number of months over which producer performance is evaluated for tier assignment or maintenance.',
+    `expiration_date` DATE COMMENT 'Date when this tier definition expires and is no longer available for new assignments. Null for open-ended tiers.',
+    `lob_authorizations` STRING COMMENT 'Comma-separated list of line of business codes that producers in this tier are authorized to write.',
+    `lob_restrictions` STRING COMMENT 'Comma-separated list of line of business codes that producers in this tier are restricted from writing.',
+    `marketing_support_level` STRING COMMENT 'Level of marketing and promotional support provided to producers in this tier (basic, standard, premium, platinum).. Valid values are `basic|standard|premium|platinum`',
+    `maximum_loss_ratio_threshold` DECIMAL(5,4) COMMENT 'Maximum acceptable loss ratio for producers in this tier, expressed as decimal (e.g., 0.6500 for 65%).',
+    `minimum_gwp_threshold` DECIMAL(15,2) COMMENT 'Minimum annual gross written premium required to qualify for or maintain this tier, in USD.',
+    `minimum_policy_count_threshold` BIGINT COMMENT 'Minimum number of active policies required to qualify for or maintain this tier.',
+    `minimum_retention_rate_threshold` DECIMAL(5,4) COMMENT 'Minimum policy retention rate required to qualify for or maintain this tier, expressed as decimal (e.g., 0.8500 for 85%).',
+    `modified_by_user` STRING COMMENT 'User identifier or name of the person who last modified this tier definition.',
+    `modified_timestamp` TIMESTAMP COMMENT 'Timestamp when this tier definition record was last modified.',
+    `notes` STRING COMMENT 'Free-form notes or comments about this tier definition, including special considerations or historical context.',
+    `priority_service_flag` BOOLEAN COMMENT 'Indicates whether producers in this tier receive priority processing for quotes, endorsements, and claims.',
+    `probation_period_months` BIGINT COMMENT 'Number of months a producer remains in probationary status before tier re-evaluation, if applicable.',
+    `special_program_access` STRING COMMENT 'Comma-separated list of special underwriting programs or niche products accessible to producers in this tier.',
+    `technology_access_level` STRING COMMENT 'Level of technology tools and digital platforms available to producers in this tier (basic, standard, advanced, premium).. Valid values are `basic|standard|advanced|premium`',
+    `territory_restrictions` STRING COMMENT 'Comma-separated list of territory or state codes where producers in this tier have writing restrictions.',
+    `tier_code` STRING COMMENT 'Short alphanumeric code uniquely identifying the tier (e.g., PREF, STD, PROB, ELITE, BRONZE).. Valid values are `^[A-Z0-9_]{2,10}$`',
+    `tier_description` STRING COMMENT 'Detailed description of the tier classification, including eligibility criteria and benefits.',
+    `tier_name` STRING COMMENT 'Full business name of the tier (e.g., Preferred, Standard, Probationary, Elite, Bronze).',
+    `tier_rank` BIGINT COMMENT 'Numeric ranking of the tier within the hierarchy, where lower numbers indicate higher performance tiers.',
+    `tier_status` STRING COMMENT 'Current lifecycle status of the tier definition (active, inactive, suspended, retired).. Valid values are `active|inactive|suspended|retired`',
+    `training_access_level` STRING COMMENT 'Level of training programs and educational resources available to producers in this tier.. Valid values are `basic|standard|advanced|executive`',
+    `underwriting_authority_level` STRING COMMENT 'Level of underwriting authority granted to producers in this tier (none, limited, standard, enhanced, full).. Valid values are `none|limited|standard|enhanced|full`',
+    CONSTRAINT pk_producer_tier PRIMARY KEY(`producer_tier_id`)
+) COMMENT 'Classification tier assigned to a producer or agency based on performance criteria (Preferred, Standard, Probationary). One row per tier definition. Drives commission override rates, underwriting authority levels, and marketing support.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`producers`.`territory` (
-    `territory_id` BIGINT COMMENT 'Unique identifier for the territory data product (auto-inserted during validation).',
-    `agency_id` BIGINT COMMENT 'Reference to the agency or brokerage organization associated with this territory assignment.',
-    `commission_schedule_id` BIGINT COMMENT 'Foreign key linking to producers.commission_schedule. Business justification: Territory assignments reference commission schedules via string code. Adding proper FK enables referential integrity and eliminates need to JOIN on business key.',
-    `producers_producer_id` BIGINT COMMENT 'Reference to the producer (agent or broker) to whom this geographic territory is assigned.',
-    `state_id` BIGINT COMMENT 'Foreign key linking to shared.state. Business justification: Territories are defined by state boundaries for producer assignment and commission allocation. Territory management and producer performance reporting require state reference.',
-    `appointment_date` DATE COMMENT 'Date the producer was formally appointed by Pc_Insurance to write business in this territory, as filed with the state Department of Insurance (DOI).',
-    `cat_zone_code` STRING COMMENT 'Designated Catastrophe (CAT) zone code (e.g., hurricane tier, earthquake zone, wildfire risk zone) assigned to this territory for PML and reinsurance purposes.',
-    `channel_code` STRING COMMENT 'Distribution channel through which business is written in this territory: independent agent, captive agent, broker, direct, or Managing General Agent (MGA).. Valid values are `independent_agent|captive_agent|broker|direct|mgа`',
-    `territory_code` STRING COMMENT 'Externally-known alphanumeric code uniquely identifying the territory, used in bordereaux, commission statements, and regulatory filings.. Valid values are `^[A-Z0-9]{2,20}$`',
-    `conflict_priority` BIGINT COMMENT 'Integer priority rank used to resolve overlapping territory assignments for the same geography and LOB. Lower value indicates higher precedence.',
-    `county_fips_code` STRING COMMENT 'Five-digit Federal Information Processing Standards (FIPS) county code scoping the territory to a specific county within the state.. Valid values are `^[0-9]{5}$`',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this territory assignment record was first created in the system, used for audit trail and data lineage in the Databricks Silver Layer.',
-    `currency_code` STRING COMMENT 'ISO 4217 three-letter currency code applicable to monetary limits (e.g., max_tiv, premium targets) for this territory. Typically USD for domestic P&C.. Valid values are `^[A-Z]{3}$`',
-    `division_code` STRING COMMENT 'Internal division code (e.g., personal lines, commercial lines, specialty) used for production roll-up and P&L reporting in Oracle Financials GL.. Valid values are `^[A-Z0-9]{1,10}$`',
-    `effective_date` DATE COMMENT 'Date on which the territory assignment becomes binding and the producer is authorized to solicit and bind business within the defined geographic scope.',
-    `expiration_date` DATE COMMENT 'Date on which the territory assignment ends. Null indicates an open-ended assignment with no scheduled termination.',
-    `geographic_scope` STRING COMMENT 'Granularity level of the geographic boundary definition: statewide, county, ZIP-code range, Metropolitan Statistical Area (MSA), or custom polygon.. Valid values are `statewide|county|zip_range|msa|custom`',
-    `is_cat_exposed` BOOLEAN COMMENT 'Flags whether the territory falls within a designated Catastrophe (CAT) zone (e.g., hurricane, earthquake, wildfire), triggering underwriting restrictions.',
-    `is_exclusive` BOOLEAN COMMENT 'Indicates whether the producer holds exclusive rights to solicit and bind business within this territory, preventing appointment of competing producers.',
-    `iso_territory_code` STRING COMMENT 'Insurance Services Office (ISO) / Verisk territory code used for rate filings, loss cost multipliers, and actuarial territory relativities.. Valid values are `^[A-Z0-9]{1,10}$`',
-    `lob_code` STRING COMMENT 'NAIC or internal Line of Business (LOB) code scoping the territory to specific insurance products (e.g., HO, AUTO, CGL, WC, BOP). [ENUM-REF-CANDIDATE: promote to reference product]',
-    `lob_description` STRING COMMENT 'Human-readable description of the Line of Business (LOB) scope for this territory (e.g., Personal Auto, Commercial General Liability).',
-    `market_segment` STRING COMMENT 'Broad market segment classification for the territory: personal lines, commercial lines, specialty, or excess and surplus (E&S) lines.. Valid values are `personal|commercial|specialty|excess_surplus`',
-    `max_tiv` DECIMAL(18,2) COMMENT 'Maximum aggregate Total Insured Value (TIV) the producer is authorized to bind within this territory, enforcing capacity and concentration limits.',
-    `msa_code` STRING COMMENT 'US Census Bureau Metropolitan Statistical Area (MSA) code when the territory is scoped to an MSA rather than individual counties or ZIP codes.. Valid values are `^[0-9]{5}$`',
-    `naic_territory_code` STRING COMMENT 'National Association of Insurance Commissioners (NAIC) territory code used in statutory reporting and state rate filings.. Valid values are `^[0-9]{1,6}$`',
-    `territory_name` STRING COMMENT 'Human-readable name of the territory (e.g., Northeast Commercial, Gulf Coast Personal Lines) used in producer portals and management reports.',
-    `new_business_allowed` BOOLEAN COMMENT 'Indicates whether the producer is permitted to write New Business (NB) in this territory. May be restricted during CAT moratoriums or UW suspensions.',
-    `notes` STRING COMMENT 'Free-text field for underwriting or territory management notes, such as special conditions, moratorium details, or conflict resolution decisions.',
-    `rating_territory_code` STRING COMMENT 'Internal rating territory code used by the policy rating engine (Guidewire PolicyCenter / Duck Creek Rating) to apply territory-specific rate factors.. Valid values are `^[A-Z0-9]{1,10}$`',
-    `region_code` STRING COMMENT 'Internal regional grouping code (e.g., NE, SE, MW, SW, W) used for production roll-up reporting and regional management oversight.. Valid values are `^[A-Z0-9]{1,10}$`',
-    `renewal_allowed` BOOLEAN COMMENT 'Indicates whether policy renewals (REN) are permitted within this territory. May differ from new business authority during non-renewal orders.',
-    `source_system_code` STRING COMMENT 'Identifies the operational system of record from which this territory record originated (e.g., AgentSync, Vertafore Sircon, Guidewire PolicyCenter).. Valid values are `agentsync|sircon|guidewire|duck_creek|sapiens|manual`',
-    `source_system_record_code` STRING COMMENT 'Native primary key or record identifier from the originating source system, enabling traceability and reconciliation back to AgentSync, Sircon, or PolicyCenter.',
-    `termination_date` DATE COMMENT 'Date the territory assignment was formally terminated. Null if the assignment is still active or has not yet been terminated.',
-    `termination_reason` STRING COMMENT 'Reason code for the termination of the territory assignment, required for state DOI termination filings and producer management audit trails.. Valid values are `voluntary|non_renewal|performance|regulatory|merger_acquisition|other`',
-    `territory_status` STRING COMMENT 'Current lifecycle state of the territory assignment. Controls whether the producer may bind new business within the defined geographic scope.. Valid values are `active|inactive|pending|suspended|expired`',
-    `territory_type` STRING COMMENT 'Classification of the territory assignment indicating exclusivity and access rights granted to the producer. Drives conflict resolution and appointment rules.. Valid values are `exclusive|non_exclusive|preferred|restricted|open`',
-    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp of the most recent update to this territory assignment record, supporting change tracking and incremental load processing in the Silver Layer.',
-    `uw_restriction_code` STRING COMMENT 'Current underwriting (UW) restriction level applied to this territory. Drives policy binding authority and referral requirements in PolicyCenter.. Valid values are `none|moratorium|restricted|suspended|referral_required`',
-    `written_premium_target` DECIMAL(18,2) COMMENT 'Annual Written Premium (WP) production target assigned to the producer for this territory, used in performance tracking and commission tier calculations.',
-    `zip_code_end` STRING COMMENT 'Ending ZIP code of the contiguous ZIP-code range defining the geographic boundary of this territory assignment.. Valid values are `^[0-9]{5}$`',
-    `zip_code_start` STRING COMMENT 'Starting ZIP code of the contiguous ZIP-code range defining the geographic boundary of this territory assignment.. Valid values are `^[0-9]{5}$`',
-    CONSTRAINT pk_territory PRIMARY KEY(`territory_id`)
-) COMMENT 'Geographic territory assigned to a producer or agency by state, county, and ZIP-code range with LOB scope. Supports territory management, conflict resolution, and production roll-up.';
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` (
+    `errors_omissions_policy_id` BIGINT COMMENT 'Unique identifier for the E&O insurance policy record.',
+    `agency_id` BIGINT COMMENT 'Agency organization that holds this E&O policy.',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: E&O policies specify lines of business covered for appointment compliance verification.',
+    `producers_producer_id` BIGINT COMMENT 'Producer or agent who holds this E&O policy.',
+    `aggregate_limit` DECIMAL(18,2) COMMENT 'Total maximum coverage amount for all claims during the policy period in USD.',
+    `appointment_requirement_met` BOOLEAN COMMENT 'Indicates whether this E&O policy meets the minimum requirements for producer appointment.',
+    `cancellation_date` DATE COMMENT 'Date when the E&O policy was cancelled if applicable.',
+    `cancellation_reason` STRING COMMENT 'Reason for E&O policy cancellation if applicable.',
+    `carrier_naic_code` STRING COMMENT 'Five-digit NAIC code identifying the E&O carrier.. Valid values are `^[0-9]{5}$`',
+    `carrier_name` STRING COMMENT 'Name of the insurance carrier providing E&O coverage.',
+    `certificate_document_reference` STRING COMMENT 'Document management system reference for the stored certificate of insurance.',
+    `certificate_of_insurance_received` BOOLEAN COMMENT 'Indicates whether a certificate of insurance has been received for this E&O policy.',
+    `certificate_received_date` DATE COMMENT 'Date when the certificate of insurance was received.',
+    `claims_made_or_occurrence` STRING COMMENT 'Indicates whether the E&O policy is written on a claims-made or occurrence basis.. Valid values are `claims_made|occurrence`',
+    `compliance_verification_date` DATE COMMENT 'Date when the E&O policy compliance was last verified.',
+    `compliance_verified` BOOLEAN COMMENT 'Indicates whether the E&O policy has been verified for compliance with appointment requirements.',
+    `coverage_limit` DECIMAL(18,2) COMMENT 'Maximum coverage amount provided by the E&O policy in USD.',
+    `coverage_territory` STRING COMMENT 'Geographic territory where the E&O coverage applies.',
+    `deductible_amount` DECIMAL(18,2) COMMENT 'Deductible amount the insured must pay before coverage applies in USD.',
+    `effective_date` DATE COMMENT 'Date when the E&O policy coverage becomes active.',
+    `exclusions` STRING COMMENT 'Description of major exclusions or limitations in the E&O policy coverage.',
+    `expiration_date` DATE COMMENT 'Date when the E&O policy coverage terminates.',
+    `extended_reporting_period` STRING COMMENT 'Extended reporting period option for claims-made coverage after policy expiration.. Valid values are `none|12_months|24_months|36_months|unlimited`',
+    `lines_of_business_covered` STRING COMMENT 'Comma-separated list of insurance lines of business covered by this E&O policy.',
+    `notes` STRING COMMENT 'Additional notes or comments regarding the E&O policy.',
+    `payment_frequency` STRING COMMENT 'Frequency of premium payments for the E&O policy.. Valid values are `annual|semi_annual|quarterly|monthly`',
+    `per_claim_limit` DECIMAL(18,2) COMMENT 'Maximum coverage amount per individual claim in USD.',
+    `policy_form_number` STRING COMMENT 'Standard form number used for the E&O policy contract.',
+    `policy_number` STRING COMMENT 'Unique policy number assigned by the E&O carrier.',
+    `policy_status` STRING COMMENT 'Current status of the E&O policy.. Valid values are `active|expired|cancelled|pending|suspended|lapsed`',
+    `policy_type` STRING COMMENT 'Type of E&O policy coverage structure.. Valid values are `individual|agency|corporate|group`',
+    `premium_amount` DECIMAL(18,2) COMMENT 'Annual premium amount for the E&O policy in USD.',
+    `prior_acts_coverage` BOOLEAN COMMENT 'Indicates whether the E&O policy includes coverage for acts prior to the policy effective date.',
+    `record_created_timestamp` TIMESTAMP COMMENT 'Timestamp when this E&O policy record was first created in the system.',
+    `record_updated_timestamp` TIMESTAMP COMMENT 'Timestamp when this E&O policy record was last updated in the system.',
+    `renewal_date` DATE COMMENT 'Date when the E&O policy is scheduled for renewal.',
+    `renewal_notice_sent_date` DATE COMMENT 'Date when renewal notice was sent to the producer or agency.',
+    `retroactive_date` DATE COMMENT 'Date from which claims-made coverage applies retroactively.',
+    `source_system_code` STRING COMMENT 'Code identifying the source system from which this E&O policy record originated.',
+    `source_system_reference_code` STRING COMMENT 'Unique identifier for this E&O policy in the source system.',
+    `state_filing_confirmation_number` STRING COMMENT 'Confirmation number received from state Department of Insurance for E&O policy filing.',
+    `state_filing_date` DATE COMMENT 'Date when the E&O policy was filed with the state Department of Insurance.',
+    `state_filing_required` BOOLEAN COMMENT 'Indicates whether this E&O policy must be filed with state Department of Insurance.',
+    `verified_by` STRING COMMENT 'Name or identifier of the person who verified the E&O policy compliance.',
+    CONSTRAINT pk_errors_omissions_policy PRIMARY KEY(`errors_omissions_policy_id`)
+) COMMENT 'E&O insurance policy held by a producer or agency as required for appointment. One row per E&O policy. Tracks insurer, policy number, coverage limit, effective date, expiration date, and compliance verification status.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`producers`.`authority_territory` (
-    `authority_territory_id` BIGINT COMMENT 'Unique surrogate identifier for this binding authority territory record',
-    `binding_authority_id` BIGINT COMMENT 'Foreign key linking to the binding authority record granted to the producer or MGA',
-    `state_id` BIGINT COMMENT 'Foreign key linking to the state or territory where this binding authority is operative',
-    `aggregate_limit_per_state` DECIMAL(18,2) COMMENT 'Maximum total gross written premium or total insured value the producer may bind annually within this state',
-    `compliance_status` STRING COMMENT 'Current regulatory compliance status of the binding authority within this state jurisdiction',
-    `effective_date` DATE COMMENT 'Date on which the binding authority becomes operative in this specific state jurisdiction',
-    `expiration_date` DATE COMMENT 'Date on which the binding authority ceases to be valid in this specific state jurisdiction',
-    `max_policy_limit_per_state` DECIMAL(18,2) COMMENT 'State-specific ceiling on the total insured value or per-occurrence policy limit the producer may bind',
-    `premium_tax_rate_override` DECIMAL(5,4) COMMENT 'State-specific premium tax rate override applicable to policies bound under this authority in this state',
-    `state_approval_date` DATE COMMENT 'Date on which the state Department of Insurance approved this binding authority for operation in the state',
-    `state_filing_reference` STRING COMMENT 'Regulatory filing reference number or approval code issued by the state DOI for this binding authority',
-    `surplus_lines_eligible` BOOLEAN COMMENT 'Indicates whether this binding authority permits surplus lines placements within this specific state',
-    CONSTRAINT pk_authority_territory PRIMARY KEY(`authority_territory_id`)
-) COMMENT 'Represents the delegated binding authority granted to a producer within a specific state jurisdiction. Captures state-specific limits, effective dates, and regulatory compliance requirements for each producer-state combination..';
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` (
+    `producer_compliance_event_id` BIGINT COMMENT 'Unique surrogate identifier for each producer compliance event record. Primary key. One row per compliance-relevant event per producer.',
+    `agency_id` BIGINT COMMENT 'Reference to the Agency with which the producer is affiliated at the time of this compliance event, if applicable.',
+    `party_id` BIGINT COMMENT 'Reference to the Party record representing the individual or organization associated with this compliance event.',
+    `producer_license_id` BIGINT COMMENT 'Foreign key linking to producers.producer_license. Business justification: Compliance events (license renewal, CE completion, background check, DOI actions) are tied to a specific license.',
+    `producers_producer_id` BIGINT COMMENT 'Reference to the producer (agent or broker) to whom this compliance event applies. Links to the Producer master record.',
+    `appeal_filed` BOOLEAN COMMENT 'Indicates whether the producer has filed a formal appeal against this compliance event or DOI action.',
+    `appeal_resolution` STRING COMMENT 'Outcome of the producers appeal against this compliance event. Populated only when appeal_filed is True and the appeal has been adjudicated.. Valid values are `UPHELD|OVERTURNED|MODIFIED|WITHDRAWN|PENDING`',
+    `appeal_resolution_date` DATE COMMENT 'Date on which the appeal was formally resolved. Populated when appeal_resolution is not PENDING.',
+    `appointment_eligibility_flag` BOOLEAN COMMENT 'Indicates whether the producer remains eligible for appointment following this compliance event. False if DOI action, adverse background check, or termination for cause.',
+    `background_check_result` STRING COMMENT 'Outcome of the background check screening. ADVERSE results may trigger appointment ineligibility review per NAIC and state DOI guidelines.. Valid values are `CLEAR|ADVERSE|PENDING|INCONCLUSIVE`',
+    `background_check_vendor` STRING COMMENT 'Name of the third-party vendor that conducted the background check. Populated for BACKGROUND_CHECK event types.',
+    `ce_course_code` STRING COMMENT 'State-assigned or provider-assigned identifier for the CE course completed. Used for regulatory verification of CE compliance.',
+    `ce_course_name` STRING COMMENT 'Name of the continuing education course completed by the producer. Populated for CE_COMPLETION event types.',
+    `ce_credit_hours` DECIMAL(5,2) COMMENT 'Number of CE credit hours earned by the producer for this course or event. Contributes to the state-mandated CE hour requirement.',
+    `ce_provider_name` STRING COMMENT 'Name of the approved CE provider or institution that delivered the course. Used for provider compliance verification.',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this compliance event record was first created in the data platform. Used for audit trail and data lineage.',
+    `doi_action_effective_date` DATE COMMENT 'Date on which the DOI regulatory action became effective. Used to determine the period during which the producer was subject to the action.',
+    `doi_action_expiration_date` DATE COMMENT 'Date on which the DOI regulatory action expires or is lifted. Null if the action is permanent or ongoing.',
+    `doi_action_number` STRING COMMENT 'Official reference or docket number assigned by the DOI for the regulatory action. Used for regulatory audit trail and cross-referencing.',
+    `doi_action_type` STRING COMMENT 'Type of regulatory action taken by the DOI against the producer. Populated for DOI_ACTION event types. Drives appointment eligibility flags.. Valid values are `SUSPENSION|REVOCATION|FINE|CEASE_AND_DESIST|PROBATION|WARNING`',
+    `event_date` DATE COMMENT 'The real-world date on which the compliance event occurred or was formally recorded (e.g., CE course completion date, DOI action effective date).',
+    `event_notes` STRING COMMENT 'Free-text notes or narrative details recorded by compliance staff regarding this event. Supports audit trail and investigative context.',
+    `event_status` STRING COMMENT 'Current lifecycle status of the compliance event. PENDING indicates initiated but not resolved; COMPLETED indicates successfully closed.. Valid values are `PENDING|IN_PROGRESS|COMPLETED|FAILED|WAIVED|APPEALED`',
+    `event_subtype` STRING COMMENT 'Further classification within the event type (e.g., for DOI_ACTION: SUSPENSION, REVOCATION, FINE, CEASE_AND_DESIST; for CE_COMPLETION: ETHICS, FLOOD, GENERAL). [ENUM-REF-CANDIDATE: promote to reference product]',
+    `event_timestamp` TIMESTAMP COMMENT 'Precise date and time the compliance event was captured or reported in the Producer/Agency Management System, including timezone offset.',
+    `event_type` STRING COMMENT 'Category of the compliance event. Drives downstream eligibility and audit logic. [ENUM-REF-CANDIDATE: LICENSE_RENEWAL|CE_COMPLETION|BACKGROUND_CHECK|DOI_ACTION|TERMINATION_FOR_CAUSE|APPOINTMENT_CHANGE — promote to reference product]. Valid values are `LICENSE_RENEWAL|CE_COMPLETION|BACKGROUND_CHECK|DOI_ACTION|TERMINATION_FOR_CAUSE|APPOINTMENT_CHANGE`',
+    `fine_amount` DECIMAL(15,2) COMMENT 'Monetary fine assessed against the producer as part of a DOI action. Expressed in USD. Populated for DOI_ACTION events with FINE subtype.',
+    `license_expiration_date` DATE COMMENT 'Date on which the producer license expires or expired, as relevant to this compliance event. Used to track renewal deadlines.',
+    `license_renewal_date` DATE COMMENT 'Date on which the producer license was successfully renewed. Populated for LICENSE_RENEWAL event types upon completion.',
+    `nipr_transaction_number` STRING COMMENT 'Transaction identifier returned by NIPR upon successful submission of a compliance event or license transaction. Used for reconciliation.',
+    `npn` STRING COMMENT 'NIPR-assigned National Producer Number uniquely identifying the licensed producer across all US states. Used for regulatory cross-referencing.. Valid values are `^[0-9]{1,10}$`',
+    `regulatory_reported_date` DATE COMMENT 'Date on which this compliance event was reported to the state DOI or NIPR. Null if not yet reported or reporting not required.',
+    `regulatory_reporting_required` BOOLEAN COMMENT 'Indicates whether this compliance event must be reported to the state DOI or NIPR. True for DOI actions and terminations for cause per NAIC Model Law.',
+    `reported_by` STRING COMMENT 'The party or system that reported or initiated this compliance event. Supports audit trail and source-of-truth tracking.. Valid values are `PRODUCER|AGENCY|DOI|NIPR|INTERNAL_AUDIT|BACKGROUND_VENDOR`',
+    `reporting_state_code` STRING COMMENT 'Two-letter US state code of the Department of Insurance or jurisdiction that issued, recorded, or is the subject of this compliance event.. Valid values are `^[A-Z]{2}$`',
+    `source_event_reference` STRING COMMENT 'The native identifier of this event in the originating source system (e.g., NIPR transaction ID, DOI docket number, agency management system record ID).',
+    `source_system_code` STRING COMMENT 'Code identifying the operational system of record from which this compliance event was sourced (e.g., Producer/Agency Management System, NIPR feed, DOI portal).. Valid values are `PAS|AGENCY_MGMT|NIPR|DOI_PORTAL|BACKGROUND_VENDOR|MANUAL`',
+    `termination_date` DATE COMMENT 'Date on which the producer appointment or contract was terminated for cause. Populated for TERMINATION_FOR_CAUSE event types.',
+    `termination_reason` STRING COMMENT 'Narrative reason for producer termination for cause. Populated for TERMINATION_FOR_CAUSE events. Subject to state DOI reporting requirements.',
+    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp when this compliance event record was last modified in the data platform. Used for change tracking and audit trail.',
+    CONSTRAINT pk_producer_compliance_event PRIMARY KEY(`producer_compliance_event_id`)
+) COMMENT 'Record of a compliance-relevant event for a producer: license renewal, CE completion, background check, DOI action, or termination for cause. One row per event. Supports appointment eligibility and regulatory audit trails.';
+
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` (
+    `broker_of_record_change_id` BIGINT COMMENT 'Unique surrogate identifier for each Broker of Record change request. One row per BOR change event on a policy.',
+    `broker_approved_by_party_id` BIGINT COMMENT 'Reference to the internal party (underwriter or operations staff) who approved the BOR change within the insurers workflow.',
+    `broker_incoming_agency_id` BIGINT COMMENT 'Reference to the agency associated with the incoming producer. Supports commission routing and agency-level reporting.',
+    `broker_outgoing_agency_id` BIGINT COMMENT 'Reference to the agency associated with the outgoing producer. Used for commission clawback and reconciliation.',
+    `broker_outgoing_producer_producers_producer_id` BIGINT COMMENT 'Reference to the producer who is being replaced as the Broker of Record. Null if no prior producer was assigned.',
+    `broker_producers_producer_id` BIGINT COMMENT 'Reference to the producer (agent or broker) who is being designated as the new Broker of Record for the policy.',
+    `broker_requested_by_party_id` BIGINT COMMENT 'Reference to the party (insured, incoming producer, or insurer representative) who initiated the BOR change request.',
+    `distribution_channel_id` BIGINT COMMENT 'Foreign key linking to producers.distribution_channel. Business justification: BOR changes may involve a change in distribution channel. Replace STRING distribution_channel_code with FK to distribution_channel. N:1 relationship.',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: BOR changes require LOB reference for commission split calculation, appointment verification, and license validation.',
+    `policy_id` BIGINT COMMENT 'Reference to the policy on which the Broker of Record change is being executed.',
+    `superseded_by_bor_change_id` BIGINT COMMENT 'Reference to a subsequent BOR change record that supersedes this one. Supports chained BOR change history on a single policy.',
+    `approval_date` DATE COMMENT 'Date on which the insurer internally approved the Broker of Record change request after validating consent and producer appointment status.',
+    `bor_letter_received_date` DATE COMMENT 'Date the signed Broker of Record letter (ACORD 36 or equivalent) was received by the insurer from the incoming producer.',
+    `change_reason_code` STRING COMMENT 'Coded reason for the Broker of Record change. Supports market conduct analysis and producer retention reporting. [ENUM-REF-CANDIDATE: INSURED_REQUEST|PRODUCER_MERGER|PRODUCER_TERMINATION|SERVICE_DISSATISFACTION|AGENCY_TRANSFER|OTHER — promote to reference. Valid values are `INSURED_REQUEST|PRODUCER_MERGER|PRODUCER_TERMINATION|SERVICE_DISSATISFACTION|AGENCY_TRANSFER|OTHER`',
+    `change_reason_description` STRING COMMENT 'Free-text narrative explaining the reason for the Broker of Record change, supplementing the coded reason for audit and compliance purposes.',
+    `change_status` STRING COMMENT 'Current workflow status of the Broker of Record change request within the Producer/Agency Management System lifecycle.. Valid values are `Pending|Approved|Rejected|Cancelled|Superseded`',
+    `commission_split_basis` STRING COMMENT 'Method used to calculate the commission split between incoming and outgoing producers when the BOR change occurs mid-term.. Valid values are `PRO_RATA|SHORT_RATE|FLAT|NEGOTIATED`',
+    `commission_split_incoming_pct` DECIMAL(7,4) COMMENT 'Percentage of the policy commission allocated to the incoming producer for the period from the BOR effective date to the policy term end.',
+    `commission_split_outgoing_pct` DECIMAL(7,4) COMMENT 'Percentage of the policy commission retained by the outgoing producer for the period from policy term start to the BOR effective date.',
+    `consent_document_reference` STRING COMMENT 'Document management system reference or identifier for the insured consent letter or ACORD BOR form on file. Supports audit and market conduct exams.',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this BOR change record was first created in the data platform. Used for audit trail and data lineage.',
+    `currency_code` STRING COMMENT 'ISO 4217 three-letter currency code for all monetary amounts on this record. Typically USD for domestic P&C business.. Valid values are `^[A-Z]{3}$`',
+    `effective_date` DATE COMMENT 'Date on which the Broker of Record change takes effect for the policy. Governs commission splits and servicing rights from this date forward.',
+    `incoming_commission_rate` DECIMAL(7,4) COMMENT 'Commission rate (as a decimal percentage) to be applied to the incoming producer from the BOR effective date. Expressed as a proportion (e.g., 0.1200 = 12%).',
+    `incoming_producer_appointment_verified` BOOLEAN COMMENT 'Indicates whether the incoming producers appointment with the insurer in the policy state was verified as active at the time of the BOR change approval.',
+    `incoming_producer_license_number` STRING COMMENT 'State-issued producer license number of the incoming producer in the policy state at the time of the BOR change. Required for appointment validation.',
+    `incoming_producer_npn` STRING COMMENT 'NIPR-issued National Producer Number of the incoming producer at the time of the BOR change request. Stored for regulatory audit trail.. Valid values are `^[0-9]{1,10}$`',
+    `insured_consent_date` DATE COMMENT 'Date on which the named insured provided written consent authorizing the Broker of Record change, as required by most state DOI regulations.',
+    `insured_consent_method` STRING COMMENT 'Method by which the named insured provided consent for the BOR change. Required for state DOI market conduct compliance documentation.. Valid values are `WRITTEN_LETTER|ELECTRONIC_SIGNATURE|ACORD_FORM|VERBAL_RECORDED|PORTAL`',
+    `mid_term_change_flag` BOOLEAN COMMENT 'Indicates whether the BOR change is effective mid-term (True) or at renewal (False). Drives commission split logic and endorsement processing.',
+    `notes` STRING COMMENT 'Free-text operational notes entered by underwriting or operations staff regarding the BOR change, such as special handling instructions or compliance observations.',
+    `outgoing_commission_rate` DECIMAL(7,4) COMMENT 'Commission rate that was in effect for the outgoing producer prior to the BOR change. Used for commission clawback and reconciliation calculations.',
+    `outgoing_producer_npn` STRING COMMENT 'NIPR-issued National Producer Number of the outgoing producer at the time of the BOR change. Stored for regulatory audit trail.. Valid values are `^[0-9]{1,10}$`',
+    `policy_state` STRING COMMENT 'Two-letter US state code of the policys principal garaging or risk location. Determines which state DOI rules govern the BOR change process.. Valid values are `^[A-Z]{2}$`',
+    `policy_term_expiration_date` DATE COMMENT 'Expiration date of the current policy term at the time of the BOR change. Used to calculate remaining term for commission split purposes.',
+    `policy_term_start_date` DATE COMMENT 'Start date of the current policy term at the time of the BOR change. Used to calculate pro-rata commission splits and earned premium attribution.',
+    `rejection_date` DATE COMMENT 'Date on which the BOR change request was rejected. Populated only when change_status is Rejected.',
+    `rejection_reason_code` STRING COMMENT 'Coded reason for rejection of the BOR change request. Populated only when change_status is Rejected.. Valid values are `NO_INSURED_CONSENT|PRODUCER_NOT_APPOINTED|DUPLICATE_REQUEST|POLICY_CANCELLED|COMPLIANCE_HOLD`',
+    `renewal_bor_flag` BOOLEAN COMMENT 'Indicates whether this BOR change is designated to take effect at the next policy renewal rather than mid-term.',
+    `request_date` DATE COMMENT 'Calendar date on which the Broker of Record change request was formally submitted by the incoming producer or insured.',
+    `source_system_code` STRING COMMENT 'Code identifying the operational system of record from which this BOR change record originated (e.g., PAS, Agency Management System, manual entry).. Valid values are `PAS|AGENCY_MGMT|MANUAL|PORTAL`',
+    `source_system_reference_code` STRING COMMENT 'Native identifier of this BOR change record in the originating source system. Enables lineage tracing back to the system of record.',
+    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp of the most recent update to this BOR change record. Used for change data capture and audit trail.',
+    `written_premium_at_change` DECIMAL(18,2) COMMENT 'Total written premium on the policy at the time of the BOR change. Used as the basis for commission split calculations and financial reporting.',
+    CONSTRAINT pk_broker_of_record_change PRIMARY KEY(`broker_of_record_change_id`)
+) COMMENT 'Formal BOR change request and approval record transferring a policy from one producer to another. One row per BOR change. Tracks requesting producer, outgoing producer, effective date, insured consent date, and commission split impact.';
+
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_coverage_appointment` (
+    `agency_coverage_appointment_id` BIGINT COMMENT 'Unique identifier for the agency coverage appointment. Primary key.',
+    `agency_id` BIGINT COMMENT 'Foreign key to agency. Part of the agency-coverage appointment relationship.',
+    `coverage_type_id` BIGINT COMMENT 'Foreign key to coverage_type. Part of the agency-coverage appointment relationship.',
+    `appointment_status` STRING COMMENT 'Current status of the agency appointment for this coverage type: active, suspended, terminated, pending. Tracks lifecycle state of the authorization.',
+    `binding_authority_flag` BOOLEAN COMMENT 'Indicates whether the agency has binding authority to issue policies with this coverage type on behalf of the carrier without prior underwriter approval.',
+    `commission_rate` DECIMAL(5,4) COMMENT 'Commission rate as a decimal percentage applied to written premium for this agency-coverage combination. Overrides agency default commission rate when specified.',
+    `effective_date` DATE COMMENT 'Date from which this agency is authorized to write this coverage type and the commission rate becomes effective.',
+    `expiration_date` DATE COMMENT 'Date when the agency appointment authority for this coverage type expires or was terminated.',
+    `max_single_risk_limit` DECIMAL(15,2) COMMENT 'Maximum total insured value or coverage limit the agency is authorized to bind for a single risk under this coverage type without referral to underwriting.',
+    `termination_reason_code` STRING COMMENT 'Standardized code indicating the reason for appointment termination for this coverage type: voluntary withdrawal, performance issues, regulatory action, carrier decision.',
+    CONSTRAINT pk_agency_coverage_appointment PRIMARY KEY(`agency_coverage_appointment_id`)
+) COMMENT 'Represents the appointment authority granting an agency the right to write a specific coverage type. Captures commission rate, binding authority, limits, and appointment status per agency-coverage combination. One row per agency per coverage type..';
+
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_agency_appointment` (
+    `producer_agency_appointment_id` BIGINT COMMENT 'Unique surrogate identifier for each producer-agency appointment record. Primary key.',
+    `agency_id` BIGINT COMMENT 'Foreign key linking to the agency in this appointment relationship.',
+    `producers_producer_id` BIGINT COMMENT 'Foreign key linking to the producer in this appointment relationship.',
+    `binding_authority_flag` BOOLEAN COMMENT 'Indicates whether the producer has delegated binding authority under this specific agency appointment to issue policies without underwriter approval.',
+    `binding_authority_limit` DECIMAL(18,2) COMMENT 'Maximum single-risk premium or total insured value the producer may bind under this agency appointment without referral to underwriting. Null if no binding authority granted.',
+    `commission_split_percentage` DECIMAL(7,4) COMMENT 'Percentage of commission allocated to this producer under this specific agency appointment, expressed as decimal. Used when commission is split between producer and agency or among multiple producers.',
+    `created_timestamp` TIMESTAMP COMMENT 'System timestamp when this producer-agency appointment record was created in the system.',
+    `effective_date` DATE COMMENT 'Date when this producer-agency appointment became effective and the producer was authorized to write business for this agency.',
+    `expiration_date` DATE COMMENT 'Date when this producer-agency appointment expires or was terminated. Null if appointment is currently active with no scheduled end date.',
+    `last_modified_timestamp` TIMESTAMP COMMENT 'System timestamp when this producer-agency appointment record was last modified.',
+    `lob_authorizations` STRING COMMENT 'Comma-delimited list of lines of business codes the producer is authorized to write under this specific agency appointment. May be more restrictive than producers overall LOB authorizations.',
+    `primary_agency_flag` BOOLEAN COMMENT 'Indicates whether this is the producers primary agency appointment. Used for default agency assignment and commission routing when producer writes business.',
+    `relationship_status` STRING COMMENT 'Current lifecycle status of this specific producer-agency appointment: active, inactive, suspended, terminated, or pending activation.',
+    `relationship_type` STRING COMMENT 'Classification of the producer-agency relationship: primary appointment, secondary appointment, sub-producer arrangement, or referral relationship.',
+    `termination_reason_code` STRING COMMENT 'Standardized code indicating reason for termination of this producer-agency appointment: voluntary separation, performance issues, compliance violation, agency closure, or producer retirement.',
+    CONSTRAINT pk_producer_agency_appointment PRIMARY KEY(`producer_agency_appointment_id`)
+) COMMENT 'Association between a producer and an agency capturing appointment-specific authority, commission splits, and LOB restrictions. One row per producer per agency appointment.';
 
 -- ========= FOREIGN KEYS =========
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ADD CONSTRAINT `fk_producers_producers_producer_agency_id` FOREIGN KEY (`agency_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`agency`(`agency_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ADD CONSTRAINT `fk_producers_producers_producer_commission_schedule_id` FOREIGN KEY (`commission_schedule_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`commission_schedule`(`commission_schedule_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ADD CONSTRAINT `fk_producers_producer_license_eno_policy_id` FOREIGN KEY (`eno_policy_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`eno_policy`(`eno_policy_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ADD CONSTRAINT `fk_producers_producer_license_producers_producer_id` FOREIGN KEY (`producers_producer_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`producers_producer`(`producers_producer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ADD CONSTRAINT `fk_producers_appointment_agency_id` FOREIGN KEY (`agency_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`agency`(`agency_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ADD CONSTRAINT `fk_producers_appointment_commission_schedule_id` FOREIGN KEY (`commission_schedule_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`commission_schedule`(`commission_schedule_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ADD CONSTRAINT `fk_producers_appointment_eno_policy_id` FOREIGN KEY (`eno_policy_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`eno_policy`(`eno_policy_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ADD CONSTRAINT `fk_producers_appointment_producers_producer_id` FOREIGN KEY (`producers_producer_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`producers_producer`(`producers_producer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ADD CONSTRAINT `fk_producers_agency_commission_schedule_id` FOREIGN KEY (`commission_schedule_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`commission_schedule`(`commission_schedule_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ADD CONSTRAINT `fk_producers_agency_parent_agency_id` FOREIGN KEY (`parent_agency_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`agency`(`agency_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ADD CONSTRAINT `fk_producers_agency_producer_agency_id` FOREIGN KEY (`agency_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`agency`(`agency_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ADD CONSTRAINT `fk_producers_agency_producer_agency_producers_producer_id` FOREIGN KEY (`agency_producers_producer_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`producers_producer`(`producers_producer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ADD CONSTRAINT `fk_producers_agency_producer_commission_schedule_id` FOREIGN KEY (`commission_schedule_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`commission_schedule`(`commission_schedule_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ADD CONSTRAINT `fk_producers_agency_producer_eno_policy_id` FOREIGN KEY (`eno_policy_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`eno_policy`(`eno_policy_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ADD CONSTRAINT `fk_producers_agency_producer_parent_producer_producers_producer_id` FOREIGN KEY (`parent_producer_producers_producer_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`producers_producer`(`producers_producer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ADD CONSTRAINT `fk_producers_eno_policy_producers_producer_id` FOREIGN KEY (`producers_producer_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`producers_producer`(`producers_producer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ADD CONSTRAINT `fk_producers_commission_schedule_superseded_by_commission_schedule_id` FOREIGN KEY (`superseded_by_commission_schedule_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`commission_schedule`(`commission_schedule_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ADD CONSTRAINT `fk_producers_commission_transaction_commission_schedule_id` FOREIGN KEY (`commission_schedule_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`commission_schedule`(`commission_schedule_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ADD CONSTRAINT `fk_producers_commission_transaction_commission_statement_id` FOREIGN KEY (`commission_statement_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`commission_statement`(`commission_statement_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ADD CONSTRAINT `fk_producers_commission_transaction_original_transaction_id` FOREIGN KEY (`original_transaction_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`commission_transaction`(`commission_transaction_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ADD CONSTRAINT `fk_producers_commission_transaction_producers_producer_id` FOREIGN KEY (`producers_producer_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`producers_producer`(`producers_producer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ADD CONSTRAINT `fk_producers_commission_statement_agency_id` FOREIGN KEY (`agency_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`agency`(`agency_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ADD CONSTRAINT `fk_producers_commission_statement_commission_schedule_id` FOREIGN KEY (`commission_schedule_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`commission_schedule`(`commission_schedule_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ADD CONSTRAINT `fk_producers_commission_statement_producer_agreement_id` FOREIGN KEY (`producer_agreement_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`producer_agreement`(`producer_agreement_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ADD CONSTRAINT `fk_producers_commission_statement_producers_producer_id` FOREIGN KEY (`producers_producer_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`producers_producer`(`producers_producer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ADD CONSTRAINT `fk_producers_contingent_bonus_agency_id` FOREIGN KEY (`agency_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`agency`(`agency_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ADD CONSTRAINT `fk_producers_contingent_bonus_producers_producer_id` FOREIGN KEY (`producers_producer_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`producers_producer`(`producers_producer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ADD CONSTRAINT `fk_producers_producer_agreement_agency_id` FOREIGN KEY (`agency_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`agency`(`agency_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ADD CONSTRAINT `fk_producers_producer_agreement_commission_schedule_id` FOREIGN KEY (`commission_schedule_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`commission_schedule`(`commission_schedule_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ADD CONSTRAINT `fk_producers_producer_agreement_prior_agreement_producer_agreement_id` FOREIGN KEY (`prior_agreement_producer_agreement_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`producer_agreement`(`producer_agreement_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ADD CONSTRAINT `fk_producers_producer_agreement_producers_producer_id` FOREIGN KEY (`producers_producer_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`producers_producer`(`producers_producer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ADD CONSTRAINT `fk_producers_binding_authority_producer_agreement_id` FOREIGN KEY (`producer_agreement_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`producer_agreement`(`producer_agreement_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ADD CONSTRAINT `fk_producers_binding_authority_producers_producer_id` FOREIGN KEY (`producers_producer_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`producers_producer`(`producers_producer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ADD CONSTRAINT `fk_producers_onboarding_case_commission_schedule_id` FOREIGN KEY (`commission_schedule_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`commission_schedule`(`commission_schedule_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ADD CONSTRAINT `fk_producers_onboarding_case_producers_producer_id` FOREIGN KEY (`producers_producer_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`producers_producer`(`producers_producer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ADD CONSTRAINT `fk_producers_termination_appointment_id` FOREIGN KEY (`appointment_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`appointment`(`appointment_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ADD CONSTRAINT `fk_producers_termination_producer_agreement_id` FOREIGN KEY (`producer_agreement_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`producer_agreement`(`producer_agreement_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ADD CONSTRAINT `fk_producers_termination_termination_producers_producer_id` FOREIGN KEY (`termination_producers_producer_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`producers_producer`(`producers_producer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ADD CONSTRAINT `fk_producers_termination_termination_successor_producer_producers_producer_id` FOREIGN KEY (`termination_successor_producer_producers_producer_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`producers_producer`(`producers_producer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ADD CONSTRAINT `fk_producers_producer_compliance_compliance_reviewer_producers_producer_id` FOREIGN KEY (`compliance_reviewer_producers_producer_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`producers_producer`(`producers_producer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ADD CONSTRAINT `fk_producers_producer_compliance_compliance_owner_producers_producer_id` FOREIGN KEY (`compliance_owner_producers_producer_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`producers_producer`(`producers_producer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ADD CONSTRAINT `fk_producers_territory_agency_id` FOREIGN KEY (`agency_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`agency`(`agency_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ADD CONSTRAINT `fk_producers_territory_commission_schedule_id` FOREIGN KEY (`commission_schedule_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`commission_schedule`(`commission_schedule_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ADD CONSTRAINT `fk_producers_territory_producers_producer_id` FOREIGN KEY (`producers_producer_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`producers_producer`(`producers_producer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`authority_territory` ADD CONSTRAINT `fk_producers_authority_territory_binding_authority_id` FOREIGN KEY (`binding_authority_id`) REFERENCES `vibe_pc_insurance_v499`.`producers`.`binding_authority`(`binding_authority_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ADD CONSTRAINT `fk_producers_producers_producer_distribution_channel_id` FOREIGN KEY (`distribution_channel_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel`(`distribution_channel_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ADD CONSTRAINT `fk_producers_agency_distribution_channel_id` FOREIGN KEY (`distribution_channel_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel`(`distribution_channel_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ADD CONSTRAINT `fk_producers_agency_parent_agency_id` FOREIGN KEY (`parent_agency_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`agency`(`agency_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ADD CONSTRAINT `fk_producers_producer_license_producers_producer_id` FOREIGN KEY (`producers_producer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer`(`producers_producer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ADD CONSTRAINT `fk_producers_agency_producer_agency_id` FOREIGN KEY (`agency_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`agency`(`agency_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ADD CONSTRAINT `fk_producers_agency_producer_agency_producers_producer_id` FOREIGN KEY (`agency_producers_producer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer`(`producers_producer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ADD CONSTRAINT `fk_producers_agency_producer_agency_reporting_manager_producer_producers_producer_id` FOREIGN KEY (`agency_reporting_manager_producer_producers_producer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer`(`producers_producer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ADD CONSTRAINT `fk_producers_agency_producer_commission_schedule_id` FOREIGN KEY (`commission_schedule_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule`(`commission_schedule_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ADD CONSTRAINT `fk_producers_producer_appointment_agency_id` FOREIGN KEY (`agency_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`agency`(`agency_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ADD CONSTRAINT `fk_producers_producer_appointment_commission_schedule_id` FOREIGN KEY (`commission_schedule_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule`(`commission_schedule_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ADD CONSTRAINT `fk_producers_producer_appointment_distribution_channel_id` FOREIGN KEY (`distribution_channel_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel`(`distribution_channel_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ADD CONSTRAINT `fk_producers_producer_appointment_prior_appointment_id` FOREIGN KEY (`prior_appointment_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment`(`producer_appointment_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ADD CONSTRAINT `fk_producers_producer_appointment_producer_license_id` FOREIGN KEY (`producer_license_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`producer_license`(`producer_license_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ADD CONSTRAINT `fk_producers_producer_appointment_producers_producer_id` FOREIGN KEY (`producers_producer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer`(`producers_producer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ADD CONSTRAINT `fk_producers_commission_schedule_agency_id` FOREIGN KEY (`agency_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`agency`(`agency_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ADD CONSTRAINT `fk_producers_commission_schedule_distribution_channel_id` FOREIGN KEY (`distribution_channel_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel`(`distribution_channel_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ADD CONSTRAINT `fk_producers_commission_schedule_producers_producer_id` FOREIGN KEY (`producers_producer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer`(`producers_producer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ADD CONSTRAINT `fk_producers_commission_schedule_superseded_by_schedule_id` FOREIGN KEY (`superseded_by_schedule_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule`(`commission_schedule_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ADD CONSTRAINT `fk_producers_commission_rule_commission_schedule_id` FOREIGN KEY (`commission_schedule_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule`(`commission_schedule_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ADD CONSTRAINT `fk_producers_commission_rule_distribution_channel_id` FOREIGN KEY (`distribution_channel_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel`(`distribution_channel_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ADD CONSTRAINT `fk_producers_commission_transaction_agency_id` FOREIGN KEY (`agency_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`agency`(`agency_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ADD CONSTRAINT `fk_producers_commission_transaction_commission_rule_id` FOREIGN KEY (`commission_rule_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule`(`commission_rule_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ADD CONSTRAINT `fk_producers_commission_transaction_commission_schedule_id` FOREIGN KEY (`commission_schedule_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule`(`commission_schedule_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ADD CONSTRAINT `fk_producers_commission_transaction_commission_statement_id` FOREIGN KEY (`commission_statement_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement`(`commission_statement_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ADD CONSTRAINT `fk_producers_commission_transaction_original_transaction_id` FOREIGN KEY (`original_transaction_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction`(`commission_transaction_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ADD CONSTRAINT `fk_producers_commission_transaction_producers_producer_id` FOREIGN KEY (`producers_producer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer`(`producers_producer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ADD CONSTRAINT `fk_producers_commission_statement_agency_id` FOREIGN KEY (`agency_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`agency`(`agency_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ADD CONSTRAINT `fk_producers_commission_statement_commission_schedule_id` FOREIGN KEY (`commission_schedule_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule`(`commission_schedule_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ADD CONSTRAINT `fk_producers_commission_statement_distribution_channel_id` FOREIGN KEY (`distribution_channel_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel`(`distribution_channel_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ADD CONSTRAINT `fk_producers_commission_statement_producers_producer_id` FOREIGN KEY (`producers_producer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer`(`producers_producer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ADD CONSTRAINT `fk_producers_commission_payment_agency_id` FOREIGN KEY (`agency_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`agency`(`agency_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ADD CONSTRAINT `fk_producers_commission_payment_commission_statement_id` FOREIGN KEY (`commission_statement_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement`(`commission_statement_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ADD CONSTRAINT `fk_producers_commission_payment_producers_producer_id` FOREIGN KEY (`producers_producer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer`(`producers_producer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ADD CONSTRAINT `fk_producers_contingent_commission_agency_id` FOREIGN KEY (`agency_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`agency`(`agency_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ADD CONSTRAINT `fk_producers_contingent_commission_producers_producer_id` FOREIGN KEY (`producers_producer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer`(`producers_producer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ADD CONSTRAINT `fk_producers_producers_producer_policy_agency_id` FOREIGN KEY (`agency_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`agency`(`agency_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ADD CONSTRAINT `fk_producers_producers_producer_policy_commission_schedule_id` FOREIGN KEY (`commission_schedule_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule`(`commission_schedule_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ADD CONSTRAINT `fk_producers_producers_producer_policy_distribution_channel_id` FOREIGN KEY (`distribution_channel_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel`(`distribution_channel_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ADD CONSTRAINT `fk_producers_producers_producer_policy_producers_producer_id` FOREIGN KEY (`producers_producer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer`(`producers_producer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ADD CONSTRAINT `fk_producers_producers_producer_policy_superseded_by_producer_policy_producers_producer_policy_id` FOREIGN KEY (`superseded_by_producer_policy_producers_producer_policy_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy`(`producers_producer_policy_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ADD CONSTRAINT `fk_producers_underwriting_authority_agency_id` FOREIGN KEY (`agency_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`agency`(`agency_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ADD CONSTRAINT `fk_producers_underwriting_authority_producers_producer_id` FOREIGN KEY (`producers_producer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer`(`producers_producer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ADD CONSTRAINT `fk_producers_producer_performance_agency_id` FOREIGN KEY (`agency_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`agency`(`agency_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ADD CONSTRAINT `fk_producers_producer_performance_producer_tier_id` FOREIGN KEY (`producer_tier_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier`(`producer_tier_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ADD CONSTRAINT `fk_producers_producer_performance_producers_producer_id` FOREIGN KEY (`producers_producer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer`(`producers_producer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ADD CONSTRAINT `fk_producers_errors_omissions_policy_agency_id` FOREIGN KEY (`agency_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`agency`(`agency_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ADD CONSTRAINT `fk_producers_errors_omissions_policy_producers_producer_id` FOREIGN KEY (`producers_producer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer`(`producers_producer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ADD CONSTRAINT `fk_producers_producer_compliance_event_agency_id` FOREIGN KEY (`agency_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`agency`(`agency_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ADD CONSTRAINT `fk_producers_producer_compliance_event_producer_license_id` FOREIGN KEY (`producer_license_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`producer_license`(`producer_license_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ADD CONSTRAINT `fk_producers_producer_compliance_event_producers_producer_id` FOREIGN KEY (`producers_producer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer`(`producers_producer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ADD CONSTRAINT `fk_producers_broker_of_record_change_broker_incoming_agency_id` FOREIGN KEY (`broker_incoming_agency_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`agency`(`agency_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ADD CONSTRAINT `fk_producers_broker_of_record_change_broker_outgoing_agency_id` FOREIGN KEY (`broker_outgoing_agency_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`agency`(`agency_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ADD CONSTRAINT `fk_producers_broker_of_record_change_broker_outgoing_producer_producers_producer_id` FOREIGN KEY (`broker_outgoing_producer_producers_producer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer`(`producers_producer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ADD CONSTRAINT `fk_producers_broker_of_record_change_broker_producers_producer_id` FOREIGN KEY (`broker_producers_producer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer`(`producers_producer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ADD CONSTRAINT `fk_producers_broker_of_record_change_distribution_channel_id` FOREIGN KEY (`distribution_channel_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel`(`distribution_channel_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ADD CONSTRAINT `fk_producers_broker_of_record_change_superseded_by_bor_change_id` FOREIGN KEY (`superseded_by_bor_change_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change`(`broker_of_record_change_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_coverage_appointment` ADD CONSTRAINT `fk_producers_agency_coverage_appointment_agency_id` FOREIGN KEY (`agency_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`agency`(`agency_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_agency_appointment` ADD CONSTRAINT `fk_producers_producer_agency_appointment_agency_id` FOREIGN KEY (`agency_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`agency`(`agency_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_agency_appointment` ADD CONSTRAINT `fk_producers_producer_agency_appointment_producers_producer_id` FOREIGN KEY (`producers_producer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer`(`producers_producer_id`);
 
 -- ========= TAGS =========
-ALTER SCHEMA `vibe_pc_insurance_v499`.`producers` SET TAGS ('dbx_division' = 'business');
-ALTER SCHEMA `vibe_pc_insurance_v499`.`producers` SET TAGS ('dbx_domain' = 'producers');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` SET TAGS ('dbx_data_type' = 'master_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` SET TAGS ('dbx_subdomain' = 'agent_management');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Primary Key for producers_producer');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `agency_id` SET TAGS ('dbx_business_glossary_term' = 'Agency ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `agency_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `agency_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `commission_schedule_id` SET TAGS ('dbx_business_glossary_term' = 'Commission Schedule Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `state_id` SET TAGS ('dbx_business_glossary_term' = 'State Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `aml_certification_date` SET TAGS ('dbx_business_glossary_term' = 'Anti-Money Laundering (AML) Certification Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `anti_money_laundering_certified` SET TAGS ('dbx_business_glossary_term' = 'Anti-Money Laundering (AML) Certified Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `appointment_effective_date` SET TAGS ('dbx_business_glossary_term' = 'Appointment Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `appointment_status` SET TAGS ('dbx_business_glossary_term' = 'Producer Appointment Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `appointment_status` SET TAGS ('dbx_value_regex' = 'active|inactive|suspended|terminated|pending');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `appointment_termination_date` SET TAGS ('dbx_business_glossary_term' = 'Appointment Termination Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `background_check_date` SET TAGS ('dbx_business_glossary_term' = 'Background Check Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `background_check_status` SET TAGS ('dbx_business_glossary_term' = 'Background Check Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `background_check_status` SET TAGS ('dbx_value_regex' = 'passed|failed|pending|waived|expired');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `binding_authority_granted` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Granted Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `binding_authority_limit` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Limit (USD)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `binding_authority_limit` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `business_address_city` SET TAGS ('dbx_business_glossary_term' = 'Producer Business City');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `business_address_city` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `business_address_city` SET TAGS ('dbx_pii_address' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `business_address_line1` SET TAGS ('dbx_business_glossary_term' = 'Producer Business Address Line 1');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `business_address_line1` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `business_address_line1` SET TAGS ('dbx_pii_address' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `business_address_state` SET TAGS ('dbx_business_glossary_term' = 'Producer Business State');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `business_address_state` SET TAGS ('dbx_value_regex' = '^[A-Z]{2}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `business_address_state` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `business_address_state` SET TAGS ('dbx_pii_address' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `business_address_zip` SET TAGS ('dbx_business_glossary_term' = 'Producer Business ZIP Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `business_address_zip` SET TAGS ('dbx_value_regex' = '^[0-9]{5}(-[0-9]{4})?$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `business_address_zip` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `business_address_zip` SET TAGS ('dbx_pii_address' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `business_email` SET TAGS ('dbx_business_glossary_term' = 'Producer Business Email Address');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `business_email` SET TAGS ('dbx_value_regex' = '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `business_email` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `business_email` SET TAGS ('dbx_pii_email' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `business_phone` SET TAGS ('dbx_business_glossary_term' = 'Producer Business Phone Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `business_phone` SET TAGS ('dbx_value_regex' = '^+?[0-9]{10,15}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `business_phone` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `business_phone` SET TAGS ('dbx_pii_phone' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `contingent_commission_eligible` SET TAGS ('dbx_business_glossary_term' = 'Contingent Commission Eligible Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `contingent_commission_eligible` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `contingent_commission_eligible` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `continuing_education_compliant` SET TAGS ('dbx_business_glossary_term' = 'Continuing Education (CE) Compliant Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `continuing_education_compliant` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `continuing_education_compliant` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `dba_name` SET TAGS ('dbx_business_glossary_term' = 'Doing Business As (DBA) Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `dba_name` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `dba_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `dba_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `e_and_o_carrier` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Carrier Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `e_and_o_expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Expiration Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `e_and_o_limit_amount` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Coverage Limit Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `e_and_o_limit_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `e_and_o_policy_number` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `e_and_o_policy_number` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `entity_type` SET TAGS ('dbx_business_glossary_term' = 'Producer Entity Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `entity_type` SET TAGS ('dbx_value_regex' = 'individual|agency|broker|managing_general_agent|surplus_lines_broker');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `fein` SET TAGS ('dbx_business_glossary_term' = 'Federal Employer Identification Number (FEIN)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `fein` SET TAGS ('dbx_value_regex' = '^[0-9]{2}-[0-9]{7}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `fein` SET TAGS ('dbx_restricted' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `fein` SET TAGS ('dbx_pii_identifier' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `last_updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Last Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `legal_name` SET TAGS ('dbx_business_glossary_term' = 'Producer Legal Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `legal_name` SET TAGS ('dbx_restricted' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `legal_name` SET TAGS ('dbx_pii_name' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `license_class` SET TAGS ('dbx_business_glossary_term' = 'License Class');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `license_expiration_date` SET TAGS ('dbx_business_glossary_term' = 'License Expiration Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `license_number` SET TAGS ('dbx_business_glossary_term' = 'State Insurance License Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `license_number` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `license_number` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `license_number` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `lines_of_authority` SET TAGS ('dbx_business_glossary_term' = 'Lines of Authority (LOA)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `managing_general_agent_code` SET TAGS ('dbx_business_glossary_term' = 'Managing General Agent (MGA) Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `managing_general_agent_code` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `managing_general_agent_code` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `npn` SET TAGS ('dbx_business_glossary_term' = 'National Producer Number (NPN)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `npn` SET TAGS ('dbx_value_regex' = '^[0-9]{1,10}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `npn` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `onboarding_date` SET TAGS ('dbx_business_glossary_term' = 'Producer Onboarding Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `preferred_lob` SET TAGS ('dbx_business_glossary_term' = 'Preferred Line of Business (LOB)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `producer_code` SET TAGS ('dbx_business_glossary_term' = 'Producer Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `producer_code` SET TAGS ('dbx_value_regex' = '^[A-Z0-9_-]{3,20}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `producer_type` SET TAGS ('dbx_business_glossary_term' = 'Producer Distribution Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `producer_type` SET TAGS ('dbx_value_regex' = 'captive|independent|direct|wholesale|retail');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `ssn_last4` SET TAGS ('dbx_business_glossary_term' = 'Social Security Number (SSN) Last Four Digits');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `ssn_last4` SET TAGS ('dbx_value_regex' = '^[0-9]{4}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `ssn_last4` SET TAGS ('dbx_restricted' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `ssn_last4` SET TAGS ('dbx_pii_identifier' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `surplus_lines_licensed` SET TAGS ('dbx_business_glossary_term' = 'Surplus Lines Licensed Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `termination_reason` SET TAGS ('dbx_business_glossary_term' = 'Appointment Termination Reason');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `termination_reason` SET TAGS ('dbx_value_regex' = 'voluntary|for_cause|non_renewal|license_lapse|regulatory_action');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `uw_authority_level` SET TAGS ('dbx_business_glossary_term' = 'Underwriting (UW) Authority Level');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producers_producer` ALTER COLUMN `uw_authority_level` SET TAGS ('dbx_value_regex' = 'none|limited|standard|enhanced|full');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` SET TAGS ('dbx_data_type' = 'master_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` SET TAGS ('dbx_subdomain' = 'agent_management');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `producer_license_id` SET TAGS ('dbx_business_glossary_term' = 'Producer License ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `eno_policy_id` SET TAGS ('dbx_business_glossary_term' = 'Eno Policy Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `state_id` SET TAGS ('dbx_business_glossary_term' = 'State Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `appointment_date` SET TAGS ('dbx_business_glossary_term' = 'Carrier Appointment Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `appointment_required` SET TAGS ('dbx_business_glossary_term' = 'Appointment Required Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `appointment_status` SET TAGS ('dbx_business_glossary_term' = 'Carrier Appointment Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `appointment_status` SET TAGS ('dbx_value_regex' = 'appointed|not_appointed|terminated|pending');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `appointment_termination_date` SET TAGS ('dbx_business_glossary_term' = 'Carrier Appointment Termination Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `background_check_date` SET TAGS ('dbx_business_glossary_term' = 'Background Check Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `background_check_status` SET TAGS ('dbx_business_glossary_term' = 'Background Check Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `background_check_status` SET TAGS ('dbx_value_regex' = 'passed|failed|pending|waived|not_required');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `ce_compliance_status` SET TAGS ('dbx_business_glossary_term' = 'Continuing Education (CE) Compliance Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `ce_compliance_status` SET TAGS ('dbx_value_regex' = 'compliant|non_compliant|exempt|pending_review');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `ce_credits_completed` SET TAGS ('dbx_business_glossary_term' = 'Continuing Education (CE) Credits Completed');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `ce_credits_required` SET TAGS ('dbx_business_glossary_term' = 'Continuing Education (CE) Credits Required');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `ce_due_date` SET TAGS ('dbx_business_glossary_term' = 'Continuing Education (CE) Due Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `continuing_education_required` SET TAGS ('dbx_business_glossary_term' = 'Continuing Education (CE) Required Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `continuing_education_required` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `continuing_education_required` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `doi_last_verified_date` SET TAGS ('dbx_business_glossary_term' = 'Department of Insurance (DOI) Last Verified Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `doi_verification_status` SET TAGS ('dbx_business_glossary_term' = 'Department of Insurance (DOI) Verification Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `doi_verification_status` SET TAGS ('dbx_value_regex' = 'verified|unverified|discrepancy|pending_verification');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'License Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'License Expiration Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `inactivation_date` SET TAGS ('dbx_business_glossary_term' = 'License Inactivation Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `issue_date` SET TAGS ('dbx_business_glossary_term' = 'License Issue Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `license_number` SET TAGS ('dbx_business_glossary_term' = 'State Insurance License Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `license_number` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `license_number` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `license_number` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `license_status` SET TAGS ('dbx_business_glossary_term' = 'License Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `license_status` SET TAGS ('dbx_value_regex' = 'active|expired|suspended|revoked|cancelled|pending');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `license_type` SET TAGS ('dbx_business_glossary_term' = 'License Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `license_type` SET TAGS ('dbx_value_regex' = 'individual|business_entity|surplus_lines|adjuster|public_adjuster|managing_general_agent');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `line_of_authority` SET TAGS ('dbx_business_glossary_term' = 'Line of Authority (LOA)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `lob_code` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `lob_code` SET TAGS ('dbx_value_regex' = '^[A-Z0-9]{2,10}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `naic_producer_code` SET TAGS ('dbx_business_glossary_term' = 'NAIC Producer Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `naic_producer_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5,10}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `naic_producer_code` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'License Notes');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `npn` SET TAGS ('dbx_business_glossary_term' = 'National Producer Number (NPN)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `npn` SET TAGS ('dbx_value_regex' = '^[0-9]{1,10}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `npn` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `record_created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `record_updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `regulatory_action_date` SET TAGS ('dbx_business_glossary_term' = 'Regulatory Action Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `regulatory_action_description` SET TAGS ('dbx_business_glossary_term' = 'Regulatory Action Description');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `regulatory_action_indicator` SET TAGS ('dbx_business_glossary_term' = 'Regulatory Action Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `renewal_date` SET TAGS ('dbx_business_glossary_term' = 'License Renewal Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `resident_nonresident_indicator` SET TAGS ('dbx_business_glossary_term' = 'Resident / Non-Resident License Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `resident_nonresident_indicator` SET TAGS ('dbx_value_regex' = 'resident|nonresident');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `source_system_license_code` SET TAGS ('dbx_business_glossary_term' = 'Source System License Identifier');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `surplus_lines_eligible` SET TAGS ('dbx_business_glossary_term' = 'Surplus Lines Eligible Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `surplus_lines_license_number` SET TAGS ('dbx_business_glossary_term' = 'Surplus Lines License Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `surplus_lines_license_number` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `surplus_lines_license_number` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `surplus_lines_license_number` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `termination_reason` SET TAGS ('dbx_business_glossary_term' = 'License or Appointment Termination Reason');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_license` ALTER COLUMN `termination_reason` SET TAGS ('dbx_value_regex' = 'voluntary|non_renewal|regulatory_action|carrier_initiated|deceased|other');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` SET TAGS ('dbx_data_type' = 'master_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` SET TAGS ('dbx_subdomain' = 'agent_management');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `appointment_id` SET TAGS ('dbx_business_glossary_term' = 'Appointment ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `agency_id` SET TAGS ('dbx_business_glossary_term' = 'Agency ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `agency_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `agency_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `commission_schedule_id` SET TAGS ('dbx_business_glossary_term' = 'Commission Schedule ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `eno_policy_id` SET TAGS ('dbx_business_glossary_term' = 'Eno Policy Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Lob Code Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `org_unit_id` SET TAGS ('dbx_business_glossary_term' = 'Carrier Entity ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `state_id` SET TAGS ('dbx_business_glossary_term' = 'State Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `appointed_by_user` SET TAGS ('dbx_business_glossary_term' = 'Appointed By User');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `appointment_status` SET TAGS ('dbx_business_glossary_term' = 'Appointment Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `appointment_status` SET TAGS ('dbx_value_regex' = 'active|pending|terminated|suspended|not_renewed');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `appointment_type` SET TAGS ('dbx_business_glossary_term' = 'Appointment Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `appointment_type` SET TAGS ('dbx_value_regex' = 'agent|broker|managing_general_agent|surplus_lines_broker|reinsurance_intermediary');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `background_check_date` SET TAGS ('dbx_business_glossary_term' = 'Background Check Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `background_check_status` SET TAGS ('dbx_business_glossary_term' = 'Background Check Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `background_check_status` SET TAGS ('dbx_value_regex' = 'passed|failed|pending|waived');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `base_commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Base Commission Rate');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `base_commission_rate` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `binding_authority_limit` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Limit');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `binding_authority_limit` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `channel_type` SET TAGS ('dbx_business_glossary_term' = 'Distribution Channel Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `channel_type` SET TAGS ('dbx_value_regex' = 'independent_agent|captive_agent|broker|direct|managing_general_agent|surplus_lines');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `contingent_commission_eligible` SET TAGS ('dbx_business_glossary_term' = 'Contingent Commission Eligible Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `contingent_commission_eligible` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `contingent_commission_eligible` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `doi_approval_date` SET TAGS ('dbx_business_glossary_term' = 'Department of Insurance (DOI) Approval Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `doi_filing_date` SET TAGS ('dbx_business_glossary_term' = 'Department of Insurance (DOI) Filing Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `doi_filing_reference` SET TAGS ('dbx_business_glossary_term' = 'Department of Insurance (DOI) Filing Reference');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Appointment Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Appointment Expiration Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `is_binding_authority` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `is_surplus_lines` SET TAGS ('dbx_business_glossary_term' = 'Surplus Lines Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `naic_company_code` SET TAGS ('dbx_business_glossary_term' = 'NAIC Company Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `naic_company_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Appointment Notes');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `number` SET TAGS ('dbx_business_glossary_term' = 'Appointment Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `number` SET TAGS ('dbx_value_regex' = '^[A-Z0-9-]{4,30}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `producer_license_class` SET TAGS ('dbx_business_glossary_term' = 'Producer License Class');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `producer_license_class` SET TAGS ('dbx_value_regex' = 'property|casualty|life|health|surplus_lines|variable');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `producer_license_number` SET TAGS ('dbx_business_glossary_term' = 'Producer License Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `producer_license_number` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `producer_license_number` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `producer_license_number` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `source` SET TAGS ('dbx_business_glossary_term' = 'Appointment Source');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `source` SET TAGS ('dbx_value_regex' = 'new_business|renewal|transfer|reinstatement');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `source_system_appointment_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Appointment ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `source_system_code` SET TAGS ('dbx_value_regex' = 'agentsync|sircon|guidewire|duck_creek|sapiens|manual');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `termination_date` SET TAGS ('dbx_business_glossary_term' = 'Appointment Termination Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `termination_reason` SET TAGS ('dbx_business_glossary_term' = 'Appointment Termination Reason');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `termination_reason` SET TAGS ('dbx_value_regex' = 'voluntary|non_renewal|regulatory_action|performance|fraud|other');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `training_completed` SET TAGS ('dbx_business_glossary_term' = 'Carrier Training Completed Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `training_completion_date` SET TAGS ('dbx_business_glossary_term' = 'Training Completion Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`appointment` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` SET TAGS ('dbx_data_type' = 'master_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` SET TAGS ('dbx_subdomain' = 'agent_management');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `agency_id` SET TAGS ('dbx_business_glossary_term' = 'Agency ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `agency_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `agency_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `commission_schedule_id` SET TAGS ('dbx_business_glossary_term' = 'Commission Schedule Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `parent_agency_id` SET TAGS ('dbx_business_glossary_term' = 'Parent Agency ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `parent_agency_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `parent_agency_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `state_id` SET TAGS ('dbx_business_glossary_term' = 'State Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `agency_status` SET TAGS ('dbx_business_glossary_term' = 'Agency Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `agency_status` SET TAGS ('dbx_value_regex' = 'active|inactive|suspended|terminated|pending_appointment');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `agency_status` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `agency_status` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `agency_type` SET TAGS ('dbx_business_glossary_term' = 'Agency Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `agency_type` SET TAGS ('dbx_value_regex' = 'independent_agent|captive_agent|broker|managing_general_agent|surplus_lines_broker|wholesale_broker');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `agency_type` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `agency_type` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `annual_premium_volume` SET TAGS ('dbx_business_glossary_term' = 'Annual Premium Volume (WP)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `annual_premium_volume` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `appointment_effective_date` SET TAGS ('dbx_business_glossary_term' = 'Appointment Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `appointment_termination_date` SET TAGS ('dbx_business_glossary_term' = 'Appointment Termination Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `background_check_date` SET TAGS ('dbx_business_glossary_term' = 'Background Check Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `background_check_status` SET TAGS ('dbx_business_glossary_term' = 'Background Check Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `background_check_status` SET TAGS ('dbx_value_regex' = 'passed|failed|pending|waived');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `binding_authority_flag` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `binding_authority_limit` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Limit');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `binding_authority_limit` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `agency_code` SET TAGS ('dbx_business_glossary_term' = 'Agency Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `agency_code` SET TAGS ('dbx_value_regex' = '^[A-Z0-9]{4,20}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `agency_code` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `agency_code` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `contingent_commission_eligible` SET TAGS ('dbx_business_glossary_term' = 'Contingent Commission Eligible Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `contingent_commission_eligible` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `contingent_commission_eligible` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `dba_name` SET TAGS ('dbx_business_glossary_term' = 'Doing Business As (DBA) Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `dba_name` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `dba_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `dba_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `email_address` SET TAGS ('dbx_business_glossary_term' = 'Agency Email Address');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `email_address` SET TAGS ('dbx_value_regex' = '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `email_address` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `email_address` SET TAGS ('dbx_pii_address' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `eo_carrier_name` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Carrier Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `eo_carrier_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `eo_carrier_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `eo_coverage_amount` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Coverage Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `eo_coverage_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `eo_coverage_amount` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `eo_coverage_amount` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `eo_expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Expiration Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `eo_policy_number` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `eo_policy_number` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `fax_number` SET TAGS ('dbx_business_glossary_term' = 'Agency Fax Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `fax_number` SET TAGS ('dbx_value_regex' = '^+?[0-9-() ]{7,20}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `fax_number` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `fax_number` SET TAGS ('dbx_pii_phone' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `fein` SET TAGS ('dbx_business_glossary_term' = 'Federal Employer Identification Number (FEIN)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `fein` SET TAGS ('dbx_value_regex' = '^[0-9]{2}-[0-9]{7}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `fein` SET TAGS ('dbx_restricted' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `fein` SET TAGS ('dbx_pii_identifier' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `last_updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Last Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `legal_name` SET TAGS ('dbx_business_glossary_term' = 'Agency Legal Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `legal_name` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `legal_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `legal_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `loss_ratio` SET TAGS ('dbx_business_glossary_term' = 'Loss Ratio (LR)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `loss_ratio` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `managing_ga_flag` SET TAGS ('dbx_business_glossary_term' = 'Managing General Agent (MGA) Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `naic_producer_code` SET TAGS ('dbx_business_glossary_term' = 'National Association of Insurance Commissioners (NAIC) Producer Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `naic_producer_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5,10}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `network_code` SET TAGS ('dbx_business_glossary_term' = 'Agency Network Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `onboarding_completed_date` SET TAGS ('dbx_business_glossary_term' = 'Onboarding Completed Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `pc_insurance_gwp` SET TAGS ('dbx_business_glossary_term' = 'Pc_Insurance Gross Written Premium (GWP)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `pc_insurance_gwp` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `phone_number` SET TAGS ('dbx_business_glossary_term' = 'Agency Phone Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `phone_number` SET TAGS ('dbx_value_regex' = '^+?[0-9-() ]{7,20}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `phone_number` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `phone_number` SET TAGS ('dbx_pii_phone' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `preferred_lob_codes` SET TAGS ('dbx_business_glossary_term' = 'Preferred Lines of Business (LOB) Codes');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `principal_address_line1` SET TAGS ('dbx_business_glossary_term' = 'Principal Address Line 1');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `principal_address_line1` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `principal_address_line1` SET TAGS ('dbx_pii_address' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `principal_address_line2` SET TAGS ('dbx_business_glossary_term' = 'Principal Address Line 2');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `principal_address_line2` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `principal_address_line2` SET TAGS ('dbx_pii_address' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `principal_city` SET TAGS ('dbx_business_glossary_term' = 'Principal City');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `principal_city` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `principal_city` SET TAGS ('dbx_pii_address' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `principal_country_code` SET TAGS ('dbx_business_glossary_term' = 'Principal Country Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `principal_country_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `principal_postal_code` SET TAGS ('dbx_business_glossary_term' = 'Principal Postal Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `principal_postal_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5}(-[0-9]{4})?$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `principal_postal_code` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `principal_postal_code` SET TAGS ('dbx_pii_address' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `surplus_lines_licensed` SET TAGS ('dbx_business_glossary_term' = 'Surplus Lines Licensed Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `termination_reason` SET TAGS ('dbx_business_glossary_term' = 'Appointment Termination Reason');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `termination_reason` SET TAGS ('dbx_value_regex' = 'voluntary|non_renewal|cause|regulatory_action|merger_acquisition');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `territory_code` SET TAGS ('dbx_business_glossary_term' = 'Territory Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `website_url` SET TAGS ('dbx_business_glossary_term' = 'Agency Website URL');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `website_url` SET TAGS ('dbx_value_regex' = '^https?://[^s]{3,255}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency` ALTER COLUMN `years_in_business` SET TAGS ('dbx_business_glossary_term' = 'Years in Business');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` SET TAGS ('dbx_data_type' = 'association_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` SET TAGS ('dbx_subdomain' = 'agent_management');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `agency_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Agency Producer ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `agency_producer_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `agency_producer_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `agency_id` SET TAGS ('dbx_business_glossary_term' = 'Agency ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `agency_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `agency_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `agency_producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `agency_producers_producer_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `agency_producers_producer_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `commission_schedule_id` SET TAGS ('dbx_business_glossary_term' = 'Commission Plan ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `eno_policy_id` SET TAGS ('dbx_business_glossary_term' = 'Eno Policy Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `parent_producer_producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Parent Producer ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `appointment_date` SET TAGS ('dbx_business_glossary_term' = 'Appointment Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `appointment_expiry_date` SET TAGS ('dbx_business_glossary_term' = 'Appointment Expiry Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `appointment_number` SET TAGS ('dbx_business_glossary_term' = 'Appointment Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `appointment_state` SET TAGS ('dbx_business_glossary_term' = 'Appointment State');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `appointment_state` SET TAGS ('dbx_value_regex' = '^[A-Z]{2}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `association_role` SET TAGS ('dbx_business_glossary_term' = 'Association Role');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `association_role` SET TAGS ('dbx_value_regex' = 'principal_agent|sub_agent|broker|managing_agent|surplus_lines_agent|appointed_agent');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `association_source` SET TAGS ('dbx_business_glossary_term' = 'Association Source System');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `association_source` SET TAGS ('dbx_value_regex' = 'agentsync|vertafore_sircon|manual|api_feed|legacy_migration');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `association_status` SET TAGS ('dbx_business_glossary_term' = 'Association Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `association_status` SET TAGS ('dbx_value_regex' = 'active|inactive|suspended|terminated|pending');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `background_check_date` SET TAGS ('dbx_business_glossary_term' = 'Background Check Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `background_check_status` SET TAGS ('dbx_business_glossary_term' = 'Background Check Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `background_check_status` SET TAGS ('dbx_value_regex' = 'passed|failed|pending|waived');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `binding_authority_flag` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `binding_authority_limit` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Limit');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `binding_authority_limit` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `ce_credits_completed` SET TAGS ('dbx_business_glossary_term' = 'Continuing Education (CE) Credits Completed');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `ce_credits_required` SET TAGS ('dbx_business_glossary_term' = 'Continuing Education (CE) Credits Required');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `channel_type` SET TAGS ('dbx_business_glossary_term' = 'Distribution Channel Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `channel_type` SET TAGS ('dbx_value_regex' = 'independent_agent|captive_agent|broker|managing_general_agent|surplus_lines_broker');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `commission_split_pct` SET TAGS ('dbx_business_glossary_term' = 'Commission Split Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `commission_split_pct` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `contingent_commission_eligible` SET TAGS ('dbx_business_glossary_term' = 'Contingent Commission Eligible Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `contingent_commission_eligible` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `contingent_commission_eligible` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `external_association_ref` SET TAGS ('dbx_business_glossary_term' = 'External Association Reference');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `hierarchy_level` SET TAGS ('dbx_business_glossary_term' = 'Hierarchy Level');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `is_primary_agency` SET TAGS ('dbx_business_glossary_term' = 'Is Primary Agency Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `is_primary_agency` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `is_primary_agency` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `is_principal` SET TAGS ('dbx_business_glossary_term' = 'Is Principal Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `lob_authorizations` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Authorizations');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `mga_flag` SET TAGS ('dbx_business_glossary_term' = 'Managing General Agent (MGA) Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `naic_pdb_status` SET TAGS ('dbx_business_glossary_term' = 'NAIC Producer Database (PDB) Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `naic_pdb_status` SET TAGS ('dbx_value_regex' = 'clear|flagged|under_review|restricted');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `override_commission_pct` SET TAGS ('dbx_business_glossary_term' = 'Override Commission Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `override_commission_pct` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `record_version` SET TAGS ('dbx_business_glossary_term' = 'Record Version');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `regulatory_action_flag` SET TAGS ('dbx_business_glossary_term' = 'Regulatory Action Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `surplus_lines_licensed` SET TAGS ('dbx_business_glossary_term' = 'Surplus Lines Licensed Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `termination_date` SET TAGS ('dbx_business_glossary_term' = 'Termination Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `termination_notes` SET TAGS ('dbx_business_glossary_term' = 'Termination Notes');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `termination_reason` SET TAGS ('dbx_business_glossary_term' = 'Termination Reason');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `training_compliance_status` SET TAGS ('dbx_business_glossary_term' = 'Training Compliance Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `training_compliance_status` SET TAGS ('dbx_value_regex' = 'compliant|non_compliant|pending|exempt');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`agency_producer` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` SET TAGS ('dbx_data_type' = 'master_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` SET TAGS ('dbx_subdomain' = 'agent_management');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `eno_policy_id` SET TAGS ('dbx_business_glossary_term' = 'Primary Key for eno_policy');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `state_id` SET TAGS ('dbx_business_glossary_term' = 'State Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `additional_insured_indicator` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Additional Insured Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `aggregate_limit_amount` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Annual Aggregate Coverage Limit Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `aggregate_limit_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `annual_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Annual Premium Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `annual_premium_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `auto_renewal_indicator` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Auto-Renewal Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `cancellation_date` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Cancellation Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `cancellation_reason` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Cancellation Reason');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `cancellation_reason` SET TAGS ('dbx_value_regex' = 'non_payment|underwriting|voluntary|regulatory|other');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `certificate_received_date` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Certificate of Insurance Received Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `compliance_status` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Compliance Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `compliance_status` SET TAGS ('dbx_value_regex' = 'compliant|non_compliant|under_review|waived');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `compliance_verified_by` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Compliance Verified By');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `compliance_verified_date` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Compliance Verification Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `coverage_form_type` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Coverage Form Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `coverage_form_type` SET TAGS ('dbx_value_regex' = 'claims_made|occurrence');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `coverage_form_type` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `coverage_form_type` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `deductible_amount` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Deductible Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `deductible_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Expiration Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `extended_reporting_period_days` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Extended Reporting Period (ERP) Days');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `extended_reporting_period_days` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `extended_reporting_period_days` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `insurer_naic_code` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Insurer National Association of Insurance Commissioners (NAIC) Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `insurer_naic_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `insurer_name` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Insurer Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `insurer_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `insurer_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `lob_covered` SET TAGS ('dbx_business_glossary_term' = 'Lines of Business (LOB) Covered by Errors and Omissions (E&O) Policy');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `minimum_required_limit_met` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Minimum Required Limit Met Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `multi_state_indicator` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Multi-State Coverage Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `named_insured` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Named Insured');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `named_insured` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Notes');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `occurrence_limit_amount` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Per-Occurrence Coverage Limit Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `occurrence_limit_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `policy_number` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `policy_number` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `policy_status` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `policy_status` SET TAGS ('dbx_value_regex' = 'active|expired|cancelled|pending|lapsed');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `policy_type` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `policy_type` SET TAGS ('dbx_value_regex' = 'individual|agency|group|excess');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `prior_acts_coverage_indicator` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Prior Acts Coverage Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `prior_acts_coverage_indicator` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `prior_acts_coverage_indicator` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `record_created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `record_updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Record Last Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `renewal_reminder_days` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Renewal Reminder Lead Days');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `retroactive_date` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Retroactive Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Record Source System Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `source_system_code` SET TAGS ('dbx_value_regex' = 'agentsync|sircon|guidewire|duck_creek|manual');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `source_system_record_code` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Source System Record ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `waiver_approved_by` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Compliance Waiver Approved By');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `waiver_expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Compliance Waiver Expiration Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`eno_policy` ALTER COLUMN `waiver_reason` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Compliance Waiver Reason');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` SET TAGS ('dbx_data_type' = 'reference_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` SET TAGS ('dbx_subdomain' = 'compensation_processing');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `commission_schedule_id` SET TAGS ('dbx_business_glossary_term' = 'Commission Schedule ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Lob Code Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `state_id` SET TAGS ('dbx_business_glossary_term' = 'State Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `superseded_by_commission_schedule_id` SET TAGS ('dbx_business_glossary_term' = 'Superseded By Commission Schedule ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `approval_date` SET TAGS ('dbx_business_glossary_term' = 'Schedule Approval Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `approval_status` SET TAGS ('dbx_business_glossary_term' = 'Schedule Approval Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `approval_status` SET TAGS ('dbx_value_regex' = 'pending|approved|rejected|withdrawn');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `approved_by` SET TAGS ('dbx_business_glossary_term' = 'Approved By');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `base_commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Base Commission Rate');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `base_commission_rate` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `cancellation_chargeback_rate` SET TAGS ('dbx_business_glossary_term' = 'Cancellation Chargeback Rate');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `cancellation_chargeback_rate` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `channel` SET TAGS ('dbx_business_glossary_term' = 'Distribution Channel');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `channel` SET TAGS ('dbx_value_regex' = 'independent_agent|captive_agent|direct|broker|digital');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `combined_ratio_threshold` SET TAGS ('dbx_business_glossary_term' = 'Combined Ratio (CR) Threshold');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `contingent_bonus_rate` SET TAGS ('dbx_business_glossary_term' = 'Contingent Bonus Commission Rate');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `contingent_bonus_rate` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `contingent_bonus_rate` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `contingent_bonus_rate` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `dac_eligible` SET TAGS ('dbx_business_glossary_term' = 'Deferred Acquisition Cost (DAC) Eligible Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `commission_schedule_description` SET TAGS ('dbx_business_glossary_term' = 'Commission Schedule Description');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Schedule Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `endorsement_rate` SET TAGS ('dbx_business_glossary_term' = 'Endorsement (ENDT) Commission Rate');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `endorsement_rate` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Schedule Expiration Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `filing_reference` SET TAGS ('dbx_business_glossary_term' = 'Regulatory Filing Reference');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `gl_account_code` SET TAGS ('dbx_business_glossary_term' = 'General Ledger (GL) Account Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `gl_account_code` SET TAGS ('dbx_value_regex' = '^[A-Z0-9-]{4,20}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `loss_ratio_threshold` SET TAGS ('dbx_business_glossary_term' = 'Loss Ratio (LR) Threshold');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `max_volume_premium` SET TAGS ('dbx_business_glossary_term' = 'Maximum Volume Premium Cap');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `measurement_period` SET TAGS ('dbx_business_glossary_term' = 'Commission Measurement Period');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `measurement_period` SET TAGS ('dbx_value_regex' = 'annual|semi_annual|quarterly|monthly');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `min_policy_count` SET TAGS ('dbx_business_glossary_term' = 'Minimum Policy Count Threshold');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `min_volume_premium` SET TAGS ('dbx_business_glossary_term' = 'Minimum Volume Premium Threshold');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `new_business_rate` SET TAGS ('dbx_business_glossary_term' = 'New Business (NB) Commission Rate');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `new_business_rate` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Commission Schedule Notes');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `override_rate` SET TAGS ('dbx_business_glossary_term' = 'Override Commission Rate');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `override_rate` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `payment_frequency` SET TAGS ('dbx_business_glossary_term' = 'Commission Payment Frequency');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `payment_frequency` SET TAGS ('dbx_value_regex' = 'monthly|quarterly|semi_annual|annual');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `producer_tier` SET TAGS ('dbx_business_glossary_term' = 'Producer Tier');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `producer_tier` SET TAGS ('dbx_value_regex' = 'preferred|standard|provisional|elite');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `producer_type` SET TAGS ('dbx_business_glossary_term' = 'Producer Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `producer_type` SET TAGS ('dbx_value_regex' = 'agent|broker|mga|mga_e|surplus_lines');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `profit_sharing_rate` SET TAGS ('dbx_business_glossary_term' = 'Profit Sharing Commission Rate');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `profit_sharing_rate` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `regulatory_filing_required` SET TAGS ('dbx_business_glossary_term' = 'Regulatory Filing Required Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `renewal_rate` SET TAGS ('dbx_business_glossary_term' = 'Renewal (REN) Commission Rate');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `renewal_rate` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `schedule_code` SET TAGS ('dbx_business_glossary_term' = 'Commission Schedule Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `schedule_code` SET TAGS ('dbx_value_regex' = '^[A-Z0-9_-]{3,30}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `schedule_name` SET TAGS ('dbx_business_glossary_term' = 'Commission Schedule Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `schedule_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `schedule_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `schedule_status` SET TAGS ('dbx_business_glossary_term' = 'Commission Schedule Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `schedule_status` SET TAGS ('dbx_value_regex' = 'draft|active|suspended|expired|superseded');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `schedule_type` SET TAGS ('dbx_business_glossary_term' = 'Commission Schedule Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `schedule_type` SET TAGS ('dbx_value_regex' = 'base|contingent|override|profit_sharing|bonus');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `stat_expense_code` SET TAGS ('dbx_business_glossary_term' = 'Statutory Expense Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `stat_expense_code` SET TAGS ('dbx_value_regex' = '^[A-Z0-9]{2,10}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `transaction_type` SET TAGS ('dbx_business_glossary_term' = 'Policy Transaction Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `transaction_type` SET TAGS ('dbx_value_regex' = 'NB|REN|ENDT|CANC|REINSTATE');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_schedule` ALTER COLUMN `version_number` SET TAGS ('dbx_business_glossary_term' = 'Schedule Version Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` SET TAGS ('dbx_data_type' = 'transactional_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` SET TAGS ('dbx_subdomain' = 'compensation_processing');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `commission_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Commission Transaction ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `commission_schedule_id` SET TAGS ('dbx_business_glossary_term' = 'Commission Schedule ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `commission_statement_id` SET TAGS ('dbx_business_glossary_term' = 'Commission Statement ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `endorsement_id` SET TAGS ('dbx_business_glossary_term' = 'Coverage Endorsement Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Lob Code Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `original_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Original Commission Transaction ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_business_glossary_term' = 'Coverage Policy Coverage Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `state_id` SET TAGS ('dbx_business_glossary_term' = 'State Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `accounting_date` SET TAGS ('dbx_business_glossary_term' = 'Accounting Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `accounting_date` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `accounting_date` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `adjustment_amount` SET TAGS ('dbx_business_glossary_term' = 'Commission Adjustment Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `adjustment_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `adjustment_amount` SET TAGS ('dbx_pii_financial' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `approval_status` SET TAGS ('dbx_business_glossary_term' = 'Commission Approval Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `approval_status` SET TAGS ('dbx_value_regex' = 'PENDING|APPROVED|REJECTED|ESCALATED');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `approval_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Commission Approval Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `approved_by` SET TAGS ('dbx_business_glossary_term' = 'Approved By');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `cancellation_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Cancellation Reason Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `chargeback_amount` SET TAGS ('dbx_business_glossary_term' = 'Commission Chargeback Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `chargeback_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `chargeback_amount` SET TAGS ('dbx_pii_financial' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Commission Rate');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `commission_rate` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `commission_type` SET TAGS ('dbx_business_glossary_term' = 'Commission Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `commission_type` SET TAGS ('dbx_value_regex' = 'STANDARD|CONTINGENT|OVERRIDE|BONUS|CHARGEBACK|SUPPLEMENTAL');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `contingent_commission_flag` SET TAGS ('dbx_business_glossary_term' = 'Contingent Commission Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `contingent_commission_flag` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `contingent_commission_flag` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `cost_center_code` SET TAGS ('dbx_business_glossary_term' = 'Cost Center Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `dac_eligible_flag` SET TAGS ('dbx_business_glossary_term' = 'Deferred Acquisition Cost (DAC) Eligible Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `earned_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Earned Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `earned_commission_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `earned_commission_amount` SET TAGS ('dbx_pii_financial' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `gl_account_code` SET TAGS ('dbx_business_glossary_term' = 'General Ledger (GL) Account Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `gross_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Gross Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `gross_commission_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `gross_commission_amount` SET TAGS ('dbx_pii_financial' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `gwp_basis_amount` SET TAGS ('dbx_business_glossary_term' = 'Gross Written Premium (GWP) Basis Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `gwp_basis_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `gwp_basis_amount` SET TAGS ('dbx_pii_financial' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `net_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Net Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `net_commission_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `net_commission_amount` SET TAGS ('dbx_pii_financial' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `override_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Override Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `override_commission_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `override_commission_amount` SET TAGS ('dbx_pii_financial' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `payment_date` SET TAGS ('dbx_business_glossary_term' = 'Commission Payment Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `payment_method` SET TAGS ('dbx_business_glossary_term' = 'Commission Payment Method');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `payment_method` SET TAGS ('dbx_value_regex' = 'ACH|CHECK|WIRE|OFFSET|CREDIT_MEMO');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `payment_status` SET TAGS ('dbx_business_glossary_term' = 'Commission Payment Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `payment_status` SET TAGS ('dbx_value_regex' = 'UNPAID|PAID|PARTIALLY_PAID|WITHHELD');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `policy_effective_date` SET TAGS ('dbx_business_glossary_term' = 'Policy Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `policy_expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Policy Expiration Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `pro_rata_factor` SET TAGS ('dbx_business_glossary_term' = 'Pro-Rata Factor');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `reversal_flag` SET TAGS ('dbx_business_glossary_term' = 'Commission Reversal Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `source_system_code` SET TAGS ('dbx_value_regex' = 'GUIDEWIRE|DUCK_CREEK|SAPIENS|ORACLE|SAP');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `source_transaction_reference` SET TAGS ('dbx_business_glossary_term' = 'Source Transaction Reference');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `tax_withholding_amount` SET TAGS ('dbx_business_glossary_term' = 'Tax Withholding Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `tax_withholding_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `tax_withholding_amount` SET TAGS ('dbx_pii_financial' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `transaction_date` SET TAGS ('dbx_business_glossary_term' = 'Commission Transaction Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `transaction_number` SET TAGS ('dbx_business_glossary_term' = 'Commission Transaction Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `transaction_number` SET TAGS ('dbx_value_regex' = '^CT-[0-9]{10}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `transaction_status` SET TAGS ('dbx_business_glossary_term' = 'Commission Transaction Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `transaction_status` SET TAGS ('dbx_value_regex' = 'PENDING|APPROVED|PAID|REVERSED|VOIDED|ON_HOLD');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `transaction_type` SET TAGS ('dbx_business_glossary_term' = 'Commission Transaction Type (NB/REN/ENDT/CANC)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `transaction_type` SET TAGS ('dbx_value_regex' = 'NB|REN|ENDT|CANC|REINSTATEMENT|ADJUSTMENT');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `unearned_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Unearned Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `unearned_commission_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `unearned_commission_amount` SET TAGS ('dbx_pii_financial' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `withholding_amount` SET TAGS ('dbx_business_glossary_term' = 'Commission Withholding Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `withholding_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_transaction` ALTER COLUMN `withholding_amount` SET TAGS ('dbx_pii_financial' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` SET TAGS ('dbx_data_type' = 'transactional_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` SET TAGS ('dbx_subdomain' = 'compensation_processing');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `commission_statement_id` SET TAGS ('dbx_business_glossary_term' = 'Commission Statement ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `agency_id` SET TAGS ('dbx_business_glossary_term' = 'Agency ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `agency_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `agency_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `commission_schedule_id` SET TAGS ('dbx_business_glossary_term' = 'Commission Schedule ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Lob Code Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `producer_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Producer Agreement ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `adjustment_amt` SET TAGS ('dbx_business_glossary_term' = 'Commission Adjustment Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `adjustment_amt` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `bonus_commission_amt` SET TAGS ('dbx_business_glossary_term' = 'Bonus Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `bonus_commission_amt` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `cancellation_count` SET TAGS ('dbx_business_glossary_term' = 'Cancellation (CANC) Count');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `chargeback_amt` SET TAGS ('dbx_business_glossary_term' = 'Commission Chargeback Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `chargeback_amt` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `contingent_commission_amt` SET TAGS ('dbx_business_glossary_term' = 'Contingent Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `contingent_commission_amt` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `contingent_commission_amt` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `contingent_commission_amt` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `cost_center_code` SET TAGS ('dbx_business_glossary_term' = 'Cost Center Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `dac_eligible_amt` SET TAGS ('dbx_business_glossary_term' = 'Deferred Acquisition Cost (DAC) Eligible Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `dac_eligible_amt` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `dispute_reason` SET TAGS ('dbx_business_glossary_term' = 'Commission Dispute Reason');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `dispute_resolution_date` SET TAGS ('dbx_business_glossary_term' = 'Commission Dispute Resolution Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `earned_commission_amt` SET TAGS ('dbx_business_glossary_term' = 'Earned Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `earned_commission_amt` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `gl_account_code` SET TAGS ('dbx_business_glossary_term' = 'General Ledger (GL) Account Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `gross_written_premium_amt` SET TAGS ('dbx_business_glossary_term' = 'Gross Written Premium (GWP) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `gross_written_premium_amt` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `is_disputed` SET TAGS ('dbx_business_glossary_term' = 'Is Disputed Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `loss_ratio` SET TAGS ('dbx_business_glossary_term' = 'Loss Ratio (LR)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `net_payable_amt` SET TAGS ('dbx_business_glossary_term' = 'Net Commission Payable Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `net_payable_amt` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `new_business_policy_count` SET TAGS ('dbx_business_glossary_term' = 'New Business (NB) Policy Count');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Commission Statement Notes');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `payment_date` SET TAGS ('dbx_business_glossary_term' = 'Commission Payment Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `payment_method` SET TAGS ('dbx_business_glossary_term' = 'Commission Payment Method');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `payment_method` SET TAGS ('dbx_value_regex' = 'ACH|check|wire|offset');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `payment_reference` SET TAGS ('dbx_business_glossary_term' = 'Commission Payment Reference');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `policy_count` SET TAGS ('dbx_business_glossary_term' = 'Policy Count');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `prior_period_balance_amt` SET TAGS ('dbx_business_glossary_term' = 'Prior Period Balance Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `prior_period_balance_amt` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `producer_type` SET TAGS ('dbx_business_glossary_term' = 'Producer Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `producer_type` SET TAGS ('dbx_value_regex' = 'agent|broker|managing_general_agent|surplus_lines_broker');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `regulatory_disclosure_required` SET TAGS ('dbx_business_glossary_term' = 'Regulatory Disclosure Required Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `renewal_policy_count` SET TAGS ('dbx_business_glossary_term' = 'Renewal (REN) Policy Count');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `settlement_frequency` SET TAGS ('dbx_business_glossary_term' = 'Commission Settlement Frequency');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `settlement_frequency` SET TAGS ('dbx_value_regex' = 'weekly|bi-weekly|monthly|quarterly');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `settlement_period_end_date` SET TAGS ('dbx_business_glossary_term' = 'Settlement Period End Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `settlement_period_start_date` SET TAGS ('dbx_business_glossary_term' = 'Settlement Period Start Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `source_system_code` SET TAGS ('dbx_value_regex' = 'DUCK_CREEK|GUIDEWIRE|SAPIENS|MANUAL');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `statement_date` SET TAGS ('dbx_business_glossary_term' = 'Commission Statement Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `statement_number` SET TAGS ('dbx_business_glossary_term' = 'Commission Statement Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `statement_number` SET TAGS ('dbx_value_regex' = '^CS-[0-9]{4}-[0-9]{2}-[0-9]{6}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `statement_status` SET TAGS ('dbx_business_glossary_term' = 'Commission Statement Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `statement_status` SET TAGS ('dbx_value_regex' = 'draft|issued|disputed|approved|paid|voided');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `statement_type` SET TAGS ('dbx_business_glossary_term' = 'Commission Statement Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `statement_type` SET TAGS ('dbx_value_regex' = 'regular|supplemental|corrected|final');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `tax_form_type` SET TAGS ('dbx_business_glossary_term' = 'Tax Form Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `tax_form_type` SET TAGS ('dbx_value_regex' = '1099-NEC|1099-MISC|W-2|none');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `tax_withheld_amt` SET TAGS ('dbx_business_glossary_term' = 'Tax Withheld Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `tax_withheld_amt` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`commission_statement` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` SET TAGS ('dbx_data_type' = 'transactional_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` SET TAGS ('dbx_subdomain' = 'compensation_processing');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `contingent_bonus_id` SET TAGS ('dbx_business_glossary_term' = 'Contingent Bonus ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `contingent_bonus_id` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `contingent_bonus_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `agency_id` SET TAGS ('dbx_business_glossary_term' = 'Agency ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `agency_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `agency_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Lob Code Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `actual_lr` SET TAGS ('dbx_business_glossary_term' = 'Actual Loss Ratio (LR)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `adjustment_amount` SET TAGS ('dbx_business_glossary_term' = 'Bonus Adjustment Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `adjustment_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `approval_date` SET TAGS ('dbx_business_glossary_term' = 'Bonus Approval Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `approved_by` SET TAGS ('dbx_business_glossary_term' = 'Approved By');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `bonus_number` SET TAGS ('dbx_business_glossary_term' = 'Contingent Bonus Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `bonus_number` SET TAGS ('dbx_value_regex' = '^CB-[0-9]{4}-[0-9]{6}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `bonus_rate` SET TAGS ('dbx_business_glossary_term' = 'Contingent Bonus Rate');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `bonus_status` SET TAGS ('dbx_business_glossary_term' = 'Contingent Bonus Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `bonus_status` SET TAGS ('dbx_value_regex' = 'calculated|approved|disputed|paid|voided|pending_review');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `bonus_type` SET TAGS ('dbx_business_glossary_term' = 'Contingent Bonus Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `bonus_type` SET TAGS ('dbx_value_regex' = 'profit_sharing|contingent_commission|growth_bonus|retention_bonus|volume_bonus|performance_bonus');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `calculation_date` SET TAGS ('dbx_business_glossary_term' = 'Bonus Calculation Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `contract_reference` SET TAGS ('dbx_business_glossary_term' = 'Producer Contract Reference');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `cost_center_code` SET TAGS ('dbx_business_glossary_term' = 'Cost Center Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `dispute_reason` SET TAGS ('dbx_business_glossary_term' = 'Bonus Dispute Reason');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `earned_amount` SET TAGS ('dbx_business_glossary_term' = 'Contingent Bonus Earned Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `earned_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `ep_amount` SET TAGS ('dbx_business_glossary_term' = 'Earned Premium (EP) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `ep_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `gl_account_code` SET TAGS ('dbx_business_glossary_term' = 'General Ledger (GL) Account Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `growth_qualified` SET TAGS ('dbx_business_glossary_term' = 'Growth Qualification Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `growth_target_rate` SET TAGS ('dbx_business_glossary_term' = 'Growth Target Rate');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `gwp_amount` SET TAGS ('dbx_business_glossary_term' = 'Gross Written Premium (GWP) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `gwp_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `gwp_growth_rate` SET TAGS ('dbx_business_glossary_term' = 'Gross Written Premium (GWP) Growth Rate');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `incurred_losses_amount` SET TAGS ('dbx_business_glossary_term' = 'Incurred Losses Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `incurred_losses_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `lae_amount` SET TAGS ('dbx_business_glossary_term' = 'Loss Adjustment Expense (LAE) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `lae_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `lr_qualified` SET TAGS ('dbx_business_glossary_term' = 'Loss Ratio (LR) Qualification Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `lr_threshold` SET TAGS ('dbx_business_glossary_term' = 'Loss Ratio (LR) Threshold');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `measurement_period_end_date` SET TAGS ('dbx_business_glossary_term' = 'Measurement Period End Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `measurement_period_start_date` SET TAGS ('dbx_business_glossary_term' = 'Measurement Period Start Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `net_payable_amount` SET TAGS ('dbx_business_glossary_term' = 'Net Payable Bonus Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `net_payable_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Bonus Notes');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `nwp_amount` SET TAGS ('dbx_business_glossary_term' = 'Net Written Premium (NWP) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `nwp_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `overall_qualified` SET TAGS ('dbx_business_glossary_term' = 'Overall Qualification Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `payment_date` SET TAGS ('dbx_business_glossary_term' = 'Bonus Payment Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `payment_method` SET TAGS ('dbx_business_glossary_term' = 'Bonus Payment Method');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `payment_method` SET TAGS ('dbx_value_regex' = 'ach|check|wire|credit_memo');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `prior_year_gwp_amount` SET TAGS ('dbx_business_glossary_term' = 'Prior Year Gross Written Premium (GWP) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `prior_year_gwp_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `program_year` SET TAGS ('dbx_business_glossary_term' = 'Bonus Program Year');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `tax_form_type` SET TAGS ('dbx_business_glossary_term' = 'Tax Form Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `tax_form_type` SET TAGS ('dbx_value_regex' = '1099-MISC|1099-NEC|W-2|none');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `volume_qualified` SET TAGS ('dbx_business_glossary_term' = 'Volume Qualification Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `volume_target_amount` SET TAGS ('dbx_business_glossary_term' = 'Premium Volume Target Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `volume_target_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `withholding_tax_amount` SET TAGS ('dbx_business_glossary_term' = 'Withholding Tax Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`contingent_bonus` ALTER COLUMN `withholding_tax_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` SET TAGS ('dbx_data_type' = 'master_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` SET TAGS ('dbx_subdomain' = 'agent_management');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `producer_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Producer Agreement ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `agency_id` SET TAGS ('dbx_business_glossary_term' = 'Agency ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `agency_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `agency_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `commission_schedule_id` SET TAGS ('dbx_business_glossary_term' = 'Commission Plan ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Lob Code Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `prior_agreement_producer_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Prior Agreement ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `state_id` SET TAGS ('dbx_business_glossary_term' = 'State Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `agreement_number` SET TAGS ('dbx_business_glossary_term' = 'Producer Agreement Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `agreement_number` SET TAGS ('dbx_value_regex' = '^PA-[0-9]{4}-[0-9]{6}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `agreement_status` SET TAGS ('dbx_business_glossary_term' = 'Producer Agreement Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `agreement_status` SET TAGS ('dbx_value_regex' = 'draft|active|suspended|terminated|expired|pending_renewal');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `agreement_type` SET TAGS ('dbx_business_glossary_term' = 'Producer Agreement Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `agreement_type` SET TAGS ('dbx_value_regex' = 'agency|broker|mga|mga_delegated|surplus_lines|direct');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `appointment_state_codes` SET TAGS ('dbx_business_glossary_term' = 'Appointment State Codes');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `appointment_state_codes` SET TAGS ('dbx_pii_category' = 'general');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `appointment_state_codes` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `audit_rights_flag` SET TAGS ('dbx_business_glossary_term' = 'Audit Rights Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `auto_renewal_flag` SET TAGS ('dbx_business_glossary_term' = 'Auto-Renewal Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `base_commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Base Commission Rate');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `base_commission_rate` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `binding_authority_flag` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `binding_authority_limit` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Limit');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `binding_authority_limit` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `compliance_training_required_flag` SET TAGS ('dbx_business_glossary_term' = 'Compliance Training Required Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `contingent_commission_flag` SET TAGS ('dbx_business_glossary_term' = 'Contingent Commission Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `contingent_commission_flag` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `contingent_commission_flag` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `e_and_o_coverage_limit` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Coverage Limit');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `e_and_o_coverage_limit` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `e_and_o_coverage_limit` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `e_and_o_expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Expiration Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `e_and_o_required_flag` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Insurance Required Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Agreement Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `exclusivity_flag` SET TAGS ('dbx_business_glossary_term' = 'Exclusivity Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `execution_date` SET TAGS ('dbx_business_glossary_term' = 'Agreement Execution Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Agreement Expiration Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `insurer_signatory_name` SET TAGS ('dbx_business_glossary_term' = 'Insurer Signatory Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `insurer_signatory_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `insurer_signatory_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `last_compliance_review_date` SET TAGS ('dbx_business_glossary_term' = 'Last Compliance Review Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `lob_scope` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Scope');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `loss_ratio_threshold` SET TAGS ('dbx_business_glossary_term' = 'Loss Ratio (LR) Threshold');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `loss_ratio_threshold` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `ncb_eligible_flag` SET TAGS ('dbx_business_glossary_term' = 'No Claims Bonus (NCB) Eligible Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `notice_period_days` SET TAGS ('dbx_business_glossary_term' = 'Termination Notice Period (Days)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `override_commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Override Commission Rate');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `override_commission_rate` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `premium_trust_required_flag` SET TAGS ('dbx_business_glossary_term' = 'Premium Trust Account Required Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `premium_volume_minimum` SET TAGS ('dbx_business_glossary_term' = 'Minimum Premium Volume Commitment');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `premium_volume_minimum` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `premium_volume_target` SET TAGS ('dbx_business_glossary_term' = 'Target Premium Volume');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `premium_volume_target` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `producer_signatory_name` SET TAGS ('dbx_business_glossary_term' = 'Producer Signatory Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `producer_signatory_name` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `producer_signatory_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `producer_signatory_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `renewal_term_months` SET TAGS ('dbx_business_glossary_term' = 'Renewal Term (Months)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `sub_producer_allowed_flag` SET TAGS ('dbx_business_glossary_term' = 'Sub-Producer Allowed Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `surplus_lines_flag` SET TAGS ('dbx_business_glossary_term' = 'Surplus Lines Authorization Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `termination_date` SET TAGS ('dbx_business_glossary_term' = 'Agreement Termination Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `termination_reason` SET TAGS ('dbx_business_glossary_term' = 'Agreement Termination Reason');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `territory_scope` SET TAGS ('dbx_business_glossary_term' = 'Territory Scope');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_agreement` ALTER COLUMN `version_number` SET TAGS ('dbx_business_glossary_term' = 'Agreement Version Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` SET TAGS ('dbx_data_type' = 'master_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` SET TAGS ('dbx_subdomain' = 'agent_management');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `binding_authority_id` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `coverage_form_id` SET TAGS ('dbx_business_glossary_term' = 'Eligible Coverage Form Ids (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `coverage_form_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `coverage_form_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Lob Code Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `producer_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Producer Agreement Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `admitted_carrier_flag` SET TAGS ('dbx_business_glossary_term' = 'Admitted Carrier Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `aggregate_annual_limit` SET TAGS ('dbx_business_glossary_term' = 'Aggregate Annual Limit');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `aggregate_annual_limit` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `approval_date` SET TAGS ('dbx_business_glossary_term' = 'Approval Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `approved_by` SET TAGS ('dbx_business_glossary_term' = 'Approved By');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `audit_frequency` SET TAGS ('dbx_business_glossary_term' = 'Audit Frequency');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `audit_frequency` SET TAGS ('dbx_value_regex' = 'monthly|quarterly|semi_annual|annual|on_demand');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `authority_name` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `authority_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `authority_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `authority_number` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `authority_number` SET TAGS ('dbx_value_regex' = '^BA-[A-Z0-9]{4,20}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `authority_status` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `authority_status` SET TAGS ('dbx_value_regex' = 'active|suspended|expired|terminated|pending_approval|under_review');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `authority_type` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `authority_type` SET TAGS ('dbx_value_regex' = 'MGA|Coverholder|Wholesale_Broker|Surplus_Lines|Program_Administrator|Lloyd_Coverholder');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `cat_exposed_flag` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Exposed Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `commission_rate_pct` SET TAGS ('dbx_business_glossary_term' = 'Commission Rate Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `commission_rate_pct` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `eligible_coverage_classes` SET TAGS ('dbx_business_glossary_term' = 'Eligible Coverage Classes');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `eligible_coverage_classes` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `eligible_coverage_classes` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `eligible_lob_codes` SET TAGS ('dbx_business_glossary_term' = 'Eligible Lines of Business (LOB) Codes');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `eligible_risk_classes` SET TAGS ('dbx_business_glossary_term' = 'Eligible Risk Classes');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `excluded_risk_classes` SET TAGS ('dbx_business_glossary_term' = 'Excluded Risk Classes');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `excluded_zip_codes` SET TAGS ('dbx_business_glossary_term' = 'Excluded ZIP Codes');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `excluded_zip_codes` SET TAGS ('dbx_pii_category' = 'address');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `excluded_zip_codes` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Expiration Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `is_suspended` SET TAGS ('dbx_business_glossary_term' = 'Is Suspended Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `last_audit_date` SET TAGS ('dbx_business_glossary_term' = 'Last Audit Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `loss_ratio_threshold_pct` SET TAGS ('dbx_business_glossary_term' = 'Loss Ratio (LR) Threshold Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `max_cat_tiv` SET TAGS ('dbx_business_glossary_term' = 'Maximum Catastrophe (CAT) Total Insured Value (TIV)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `max_cat_tiv` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `max_deductible_amount` SET TAGS ('dbx_business_glossary_term' = 'Maximum Deductible Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `max_policy_limit` SET TAGS ('dbx_business_glossary_term' = 'Maximum Policy Limit');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `max_policy_limit` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `max_single_risk_limit` SET TAGS ('dbx_business_glossary_term' = 'Maximum Single Risk Limit');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `max_single_risk_limit` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `min_deductible_amount` SET TAGS ('dbx_business_glossary_term' = 'Minimum Deductible Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `naic_company_code` SET TAGS ('dbx_business_glossary_term' = 'National Association of Insurance Commissioners (NAIC) Company Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `naic_company_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `next_audit_date` SET TAGS ('dbx_business_glossary_term' = 'Next Audit Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `notice_period_days` SET TAGS ('dbx_business_glossary_term' = 'Notice Period Days');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `profit_commission_rate_pct` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Rate Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `profit_commission_rate_pct` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `program_code` SET TAGS ('dbx_business_glossary_term' = 'Program Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `rate_filing_reference` SET TAGS ('dbx_business_glossary_term' = 'Rate Filing Reference');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `reinsurance_required_flag` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Required Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `reinsurance_required_flag` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `reinsurance_required_flag` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `renewal_type` SET TAGS ('dbx_business_glossary_term' = 'Renewal Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `renewal_type` SET TAGS ('dbx_value_regex' = 'auto|manual|non_renew');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `surplus_lines_flag` SET TAGS ('dbx_business_glossary_term' = 'Surplus Lines Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `suspension_date` SET TAGS ('dbx_business_glossary_term' = 'Suspension Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `suspension_reason` SET TAGS ('dbx_business_glossary_term' = 'Suspension Reason');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `territory_country_code` SET TAGS ('dbx_business_glossary_term' = 'Territory Country Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `territory_country_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `territory_states` SET TAGS ('dbx_business_glossary_term' = 'Territory States');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `underwriting_guidelines_version` SET TAGS ('dbx_business_glossary_term' = 'Underwriting (UW) Guidelines Version');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `underwriting_guidelines_version` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `underwriting_guidelines_version` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`binding_authority` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` SET TAGS ('dbx_data_type' = 'transactional_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` SET TAGS ('dbx_subdomain' = 'agent_management');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `onboarding_case_id` SET TAGS ('dbx_business_glossary_term' = 'Onboarding Case ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `commission_schedule_id` SET TAGS ('dbx_business_glossary_term' = 'Commission Schedule Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `state_id` SET TAGS ('dbx_business_glossary_term' = 'State Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `application_received_date` SET TAGS ('dbx_business_glossary_term' = 'Application Received Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `appointment_effective_date` SET TAGS ('dbx_business_glossary_term' = 'Appointment Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `appointment_filing_date` SET TAGS ('dbx_business_glossary_term' = 'Appointment Filing Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `appointment_state_codes` SET TAGS ('dbx_business_glossary_term' = 'Appointment State Codes');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `appointment_state_codes` SET TAGS ('dbx_pii_category' = 'general');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `appointment_state_codes` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `assigned_uw_reviewer` SET TAGS ('dbx_business_glossary_term' = 'Assigned Underwriting (UW) Reviewer');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `background_check_date` SET TAGS ('dbx_business_glossary_term' = 'Background Check Completion Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `background_check_provider` SET TAGS ('dbx_business_glossary_term' = 'Background Check Provider');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `background_check_status` SET TAGS ('dbx_business_glossary_term' = 'Background Check Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `background_check_status` SET TAGS ('dbx_value_regex' = 'not_started|in_progress|clear|adverse|pending_review');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `binding_authority_granted` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Granted');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `binding_authority_limit` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Limit (USD)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `binding_authority_limit` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `case_closed_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Case Closed Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `case_number` SET TAGS ('dbx_business_glossary_term' = 'Onboarding Case Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `case_number` SET TAGS ('dbx_value_regex' = '^OB-[0-9]{4}-[0-9]{6}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `case_opened_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Case Opened Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `case_status` SET TAGS ('dbx_business_glossary_term' = 'Onboarding Case Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `case_status` SET TAGS ('dbx_value_regex' = 'pending|in_review|approved|rejected|withdrawn|suspended');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `channel_type` SET TAGS ('dbx_business_glossary_term' = 'Distribution Channel Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `channel_type` SET TAGS ('dbx_value_regex' = 'independent_agent|captive_agent|broker|mga|direct');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `contingent_commission_eligible` SET TAGS ('dbx_business_glossary_term' = 'Contingent Commission Eligible');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `contingent_commission_eligible` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `contingent_commission_eligible` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `contracting_entity` SET TAGS ('dbx_business_glossary_term' = 'Contracting Entity');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `contracting_entity` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `contracting_entity` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `doi_disciplinary_review_date` SET TAGS ('dbx_business_glossary_term' = 'Department of Insurance (DOI) Disciplinary Review Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `doi_disciplinary_review_status` SET TAGS ('dbx_business_glossary_term' = 'Department of Insurance (DOI) Disciplinary Review Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `doi_disciplinary_review_status` SET TAGS ('dbx_value_regex' = 'not_started|in_progress|clear|adverse|pending_review');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `e_o_coverage_verified` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Coverage Verified');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `e_o_coverage_verified` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `e_o_coverage_verified` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `e_o_policy_expiry_date` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Expiry Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `estimated_annual_premium_volume` SET TAGS ('dbx_business_glossary_term' = 'Estimated Annual Premium Volume (GWP)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `estimated_annual_premium_volume` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `last_updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Last Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `license_verification_date` SET TAGS ('dbx_business_glossary_term' = 'License Verification Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `license_verification_status` SET TAGS ('dbx_business_glossary_term' = 'License Verification Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `license_verification_status` SET TAGS ('dbx_value_regex' = 'not_started|in_progress|verified|failed|expired');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `lob_authorizations` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Authorizations');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `naic_producer_code` SET TAGS ('dbx_business_glossary_term' = 'National Association of Insurance Commissioners (NAIC) Producer Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `naic_producer_code` SET TAGS ('dbx_value_regex' = '^[0-9]{7}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `npn` SET TAGS ('dbx_business_glossary_term' = 'National Producer Number (NPN)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `npn` SET TAGS ('dbx_value_regex' = '^[0-9]{1,10}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `ofac_screening_date` SET TAGS ('dbx_business_glossary_term' = 'Office of Foreign Assets Control (OFAC) Screening Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `ofac_screening_status` SET TAGS ('dbx_business_glossary_term' = 'Office of Foreign Assets Control (OFAC) Sanctions Screening Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `ofac_screening_status` SET TAGS ('dbx_value_regex' = 'not_started|clear|potential_match|confirmed_match|escalated');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `prior_carrier_loss_ratio` SET TAGS ('dbx_business_glossary_term' = 'Prior Carrier Loss Ratio (LR)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `prior_carrier_loss_ratio` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `producer_agreement_type` SET TAGS ('dbx_business_glossary_term' = 'Producer Agreement Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `producer_agreement_type` SET TAGS ('dbx_value_regex' = 'standard_agency|broker|mga|surplus_lines|program_administrator');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `producer_dba_name` SET TAGS ('dbx_business_glossary_term' = 'Producer Doing Business As (DBA) Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `producer_dba_name` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `producer_dba_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `producer_dba_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `producer_legal_name` SET TAGS ('dbx_business_glossary_term' = 'Producer Legal Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `producer_legal_name` SET TAGS ('dbx_restricted' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `producer_legal_name` SET TAGS ('dbx_pii_name' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `producer_tax_number` SET TAGS ('dbx_business_glossary_term' = 'Producer Tax Identification Number (FEIN/SSN)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `producer_tax_number` SET TAGS ('dbx_value_regex' = '^[0-9]{2}-[0-9]{7}$|^[0-9]{3}-[0-9]{2}-[0-9]{4}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `producer_tax_number` SET TAGS ('dbx_restricted' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `producer_tax_number` SET TAGS ('dbx_pii_identifier' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `producer_type` SET TAGS ('dbx_business_glossary_term' = 'Producer Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `producer_type` SET TAGS ('dbx_value_regex' = 'individual|agency|broker|managing_general_agent|surplus_lines_broker');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `regulatory_compliance_notes` SET TAGS ('dbx_business_glossary_term' = 'Regulatory Compliance Notes');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `rejection_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Rejection Reason Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `rejection_reason_code` SET TAGS ('dbx_value_regex' = 'adverse_background|license_invalid|ofac_match|doi_disciplinary|e_o_insufficient|incomplete_application');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `rejection_reason_notes` SET TAGS ('dbx_business_glossary_term' = 'Rejection Reason Notes');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `system_activation_date` SET TAGS ('dbx_business_glossary_term' = 'System Activation Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`onboarding_case` ALTER COLUMN `years_in_business` SET TAGS ('dbx_business_glossary_term' = 'Years in Business');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` SET TAGS ('dbx_data_type' = 'transactional_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` SET TAGS ('dbx_subdomain' = 'agent_management');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `termination_id` SET TAGS ('dbx_business_glossary_term' = 'Termination ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `appointment_id` SET TAGS ('dbx_business_glossary_term' = 'Appointment ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Lob Code Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `producer_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Producer Agreement ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `state_id` SET TAGS ('dbx_business_glossary_term' = 'State Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `termination_producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `termination_successor_producer_producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Successor Producer ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `approval_date` SET TAGS ('dbx_business_glossary_term' = 'Termination Approval Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `approved_by_user_code` SET TAGS ('dbx_business_glossary_term' = 'Approved By User ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `approved_by_user_code` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `approved_by_user_code` SET TAGS ('dbx_pii' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `book_of_business_transfer_date` SET TAGS ('dbx_business_glossary_term' = 'Book of Business Transfer Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `book_of_business_transfer_status` SET TAGS ('dbx_business_glossary_term' = 'Book of Business Transfer Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `book_of_business_transfer_status` SET TAGS ('dbx_value_regex' = 'not_applicable|pending|in_progress|completed|cancelled');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `commission_currency_code` SET TAGS ('dbx_business_glossary_term' = 'Commission Currency Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `commission_currency_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `commission_settlement_status` SET TAGS ('dbx_business_glossary_term' = 'Commission Settlement Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `commission_settlement_status` SET TAGS ('dbx_value_regex' = 'not_applicable|pending|settled|disputed|written_off');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `contest_outcome` SET TAGS ('dbx_business_glossary_term' = 'Contest Outcome');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `contest_outcome` SET TAGS ('dbx_value_regex' = 'upheld|overturned|settled|withdrawn|pending');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `contest_resolution_date` SET TAGS ('dbx_business_glossary_term' = 'Contest Resolution Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `e_and_o_coverage_expiry_date` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Coverage Expiry Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `e_and_o_coverage_expiry_date` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `e_and_o_coverage_expiry_date` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Termination Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `initiated_by_party` SET TAGS ('dbx_business_glossary_term' = 'Termination Initiating Party');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `initiated_by_party` SET TAGS ('dbx_value_regex' = 'insurer|producer|regulator|mutual');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `initiated_by_user_code` SET TAGS ('dbx_business_glossary_term' = 'Initiated By User ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `initiated_by_user_code` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `initiated_by_user_code` SET TAGS ('dbx_pii' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `internal_notes` SET TAGS ('dbx_business_glossary_term' = 'Internal Termination Notes');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `internal_notes` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `is_contested` SET TAGS ('dbx_business_glossary_term' = 'Contested Termination Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `is_for_cause` SET TAGS ('dbx_business_glossary_term' = 'For-Cause Termination Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `is_regulatory_reportable` SET TAGS ('dbx_business_glossary_term' = 'Regulatory Reportable Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `naic_company_code` SET TAGS ('dbx_business_glossary_term' = 'National Association of Insurance Commissioners (NAIC) Company Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `naic_company_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `notice_date` SET TAGS ('dbx_business_glossary_term' = 'Termination Notice Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `notice_period_days` SET TAGS ('dbx_business_glossary_term' = 'Required Notice Period Days');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `number` SET TAGS ('dbx_business_glossary_term' = 'Termination Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `number` SET TAGS ('dbx_value_regex' = '^TERM-[0-9]{4}-[0-9]{6}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `pending_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Pending Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `pending_commission_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `reason_code` SET TAGS ('dbx_business_glossary_term' = 'Termination Reason Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `reason_code` SET TAGS ('dbx_value_regex' = '^[A-Z0-9]{2,10}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `reason_description` SET TAGS ('dbx_business_glossary_term' = 'Termination Reason Description');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `regulatory_report_due_date` SET TAGS ('dbx_business_glossary_term' = 'Regulatory Report Due Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `regulatory_report_status` SET TAGS ('dbx_business_glossary_term' = 'Regulatory Report Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `regulatory_report_status` SET TAGS ('dbx_value_regex' = 'not_required|pending|submitted|accepted|rejected');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `regulatory_report_submitted_date` SET TAGS ('dbx_business_glossary_term' = 'Regulatory Report Submitted Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `reinstatement_eligible` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Eligible Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `reinstatement_eligible` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `reinstatement_eligible` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `reinstatement_eligible_date` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Eligible Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `reinstatement_eligible_date` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `reinstatement_eligible_date` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `rescission_date` SET TAGS ('dbx_business_glossary_term' = 'Termination Rescission Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `source_system_code` SET TAGS ('dbx_value_regex' = 'AGENTSYNC|SIRCON|GUIDEWIRE_PC|DUCK_CREEK|SAPIENS');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `source_system_record_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Record ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `state_notification_required` SET TAGS ('dbx_business_glossary_term' = 'State Notification Required Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `termination_status` SET TAGS ('dbx_business_glossary_term' = 'Termination Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `termination_status` SET TAGS ('dbx_value_regex' = 'pending|submitted|confirmed|rescinded|appealed');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `termination_type` SET TAGS ('dbx_business_glossary_term' = 'Termination Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `termination_type` SET TAGS ('dbx_value_regex' = 'voluntary|involuntary|non_renewal|mutual_agreement|regulatory_action|death_disability');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`termination` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` SET TAGS ('dbx_data_type' = 'master_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` SET TAGS ('dbx_subdomain' = 'agent_management');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `producer_compliance_id` SET TAGS ('dbx_business_glossary_term' = 'Producer Compliance ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `compliance_reviewer_producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Compliance Reviewer ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `compliance_owner_producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `compliance_owner_producers_producer_id` SET TAGS ('dbx_business_role' = 'compliance_owner');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `state_id` SET TAGS ('dbx_business_glossary_term' = 'State Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `activation_date` SET TAGS ('dbx_business_glossary_term' = 'Producer Activation Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `aml_training_date` SET TAGS ('dbx_business_glossary_term' = 'Anti-Money Laundering (AML) Training Completion Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `anti_money_laundering_trained` SET TAGS ('dbx_business_glossary_term' = 'Anti-Money Laundering (AML) Training Completed Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `appointed_lob_codes` SET TAGS ('dbx_business_glossary_term' = 'Appointed Lines of Business (LOB) Codes');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `appointment_eligibility_status` SET TAGS ('dbx_business_glossary_term' = 'Appointment Eligibility Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `appointment_eligibility_status` SET TAGS ('dbx_value_regex' = 'eligible|ineligible|conditional|under_review');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `background_check_date` SET TAGS ('dbx_business_glossary_term' = 'Background Check Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `background_check_reference` SET TAGS ('dbx_business_glossary_term' = 'Background Check Reference Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `background_check_status` SET TAGS ('dbx_business_glossary_term' = 'Background Check Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `background_check_status` SET TAGS ('dbx_value_regex' = 'not_started|in_progress|clear|adverse|pending_review');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `background_check_vendor` SET TAGS ('dbx_business_glossary_term' = 'Background Check Vendor');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `case_close_date` SET TAGS ('dbx_business_glossary_term' = 'Compliance Case Close Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `case_number` SET TAGS ('dbx_business_glossary_term' = 'Compliance Case Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `case_number` SET TAGS ('dbx_value_regex' = '^PC-[0-9]{4}-[0-9]{6}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `case_open_date` SET TAGS ('dbx_business_glossary_term' = 'Compliance Case Open Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `case_status` SET TAGS ('dbx_business_glossary_term' = 'Compliance Case Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `case_status` SET TAGS ('dbx_value_regex' = 'pending|in_review|approved|rejected|suspended|closed');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `case_type` SET TAGS ('dbx_business_glossary_term' = 'Compliance Case Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `case_type` SET TAGS ('dbx_value_regex' = 'initial_appointment|renewal|reinstatement|disciplinary_review|periodic_audit');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `ce_credit_hours_verified` SET TAGS ('dbx_business_glossary_term' = 'Continuing Education (CE) Credit Hours Verified');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `compliance_notes` SET TAGS ('dbx_business_glossary_term' = 'Compliance Case Notes');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `compliance_notes` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `continuing_education_compliant` SET TAGS ('dbx_business_glossary_term' = 'Continuing Education (CE) Compliant Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `continuing_education_compliant` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `continuing_education_compliant` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `doi_disciplinary_detail` SET TAGS ('dbx_business_glossary_term' = 'Department of Insurance (DOI) Disciplinary Detail');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `doi_disciplinary_detail` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `doi_disciplinary_flag` SET TAGS ('dbx_business_glossary_term' = 'Department of Insurance (DOI) Disciplinary Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `doi_disciplinary_order_date` SET TAGS ('dbx_business_glossary_term' = 'Department of Insurance (DOI) Disciplinary Order Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `e_o_coverage_verified` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Coverage Verified');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `e_o_coverage_verified` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `e_o_coverage_verified` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `e_o_expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Expiration Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `e_o_policy_number` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `ineligibility_reason` SET TAGS ('dbx_business_glossary_term' = 'Ineligibility Reason');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `license_expiration_date` SET TAGS ('dbx_business_glossary_term' = 'License Expiration Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `license_verification_date` SET TAGS ('dbx_business_glossary_term' = 'License Verification Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `license_verification_status` SET TAGS ('dbx_business_glossary_term' = 'License Verification Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `license_verification_status` SET TAGS ('dbx_value_regex' = 'not_started|in_progress|verified|failed|expired');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `market_conduct_finding_detail` SET TAGS ('dbx_business_glossary_term' = 'Market Conduct Finding Detail');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `market_conduct_finding_detail` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `market_conduct_finding_flag` SET TAGS ('dbx_business_glossary_term' = 'Market Conduct Finding Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `next_review_date` SET TAGS ('dbx_business_glossary_term' = 'Next Compliance Review Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `nipr_transaction_number` SET TAGS ('dbx_business_glossary_term' = 'National Insurance Producer Registry (NIPR) Transaction ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `ofac_match_detail` SET TAGS ('dbx_business_glossary_term' = 'OFAC Match Detail');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `ofac_match_detail` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `ofac_screening_date` SET TAGS ('dbx_business_glossary_term' = 'OFAC Screening Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `ofac_screening_status` SET TAGS ('dbx_business_glossary_term' = 'OFAC Screening Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `ofac_screening_status` SET TAGS ('dbx_value_regex' = 'not_started|clear|match_found|false_positive|escalated');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `producer_license_number` SET TAGS ('dbx_business_glossary_term' = 'Producer License Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `producer_license_number` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `producer_license_number` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `producer_license_number` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `review_completed_date` SET TAGS ('dbx_business_glossary_term' = 'Compliance Review Completed Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `state_appointment_filed` SET TAGS ('dbx_business_glossary_term' = 'State Appointment Filed Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `state_appointment_filed_date` SET TAGS ('dbx_business_glossary_term' = 'State Appointment Filed Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`producer_compliance` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` SET TAGS ('dbx_data_type' = 'reference_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` SET TAGS ('dbx_subdomain' = 'agent_management');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `territory_id` SET TAGS ('dbx_business_glossary_term' = 'Primary Key for territory');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `agency_id` SET TAGS ('dbx_business_glossary_term' = 'Agency ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `agency_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `agency_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `commission_schedule_id` SET TAGS ('dbx_business_glossary_term' = 'Commission Schedule Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `state_id` SET TAGS ('dbx_business_glossary_term' = 'State Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `appointment_date` SET TAGS ('dbx_business_glossary_term' = 'Producer Appointment Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `cat_zone_code` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Zone Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `channel_code` SET TAGS ('dbx_business_glossary_term' = 'Distribution Channel Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `channel_code` SET TAGS ('dbx_value_regex' = 'independent_agent|captive_agent|broker|direct|mgа');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `territory_code` SET TAGS ('dbx_business_glossary_term' = 'Territory Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `territory_code` SET TAGS ('dbx_value_regex' = '^[A-Z0-9]{2,20}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `conflict_priority` SET TAGS ('dbx_business_glossary_term' = 'Territory Conflict Priority');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `county_fips_code` SET TAGS ('dbx_business_glossary_term' = 'County FIPS Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `county_fips_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `currency_code` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `currency_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `division_code` SET TAGS ('dbx_business_glossary_term' = 'Division Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `division_code` SET TAGS ('dbx_value_regex' = '^[A-Z0-9]{1,10}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Territory Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Territory Expiration Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `geographic_scope` SET TAGS ('dbx_business_glossary_term' = 'Geographic Scope');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `geographic_scope` SET TAGS ('dbx_value_regex' = 'statewide|county|zip_range|msa|custom');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `is_cat_exposed` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Exposed Territory Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `is_exclusive` SET TAGS ('dbx_business_glossary_term' = 'Exclusive Territory Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `iso_territory_code` SET TAGS ('dbx_business_glossary_term' = 'ISO Territory Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `iso_territory_code` SET TAGS ('dbx_value_regex' = '^[A-Z0-9]{1,10}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `lob_code` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `lob_description` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Description');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `market_segment` SET TAGS ('dbx_business_glossary_term' = 'Market Segment');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `market_segment` SET TAGS ('dbx_value_regex' = 'personal|commercial|specialty|excess_surplus');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `max_tiv` SET TAGS ('dbx_business_glossary_term' = 'Maximum Total Insured Value (TIV)');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `msa_code` SET TAGS ('dbx_business_glossary_term' = 'Metropolitan Statistical Area (MSA) Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `msa_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `naic_territory_code` SET TAGS ('dbx_business_glossary_term' = 'NAIC Territory Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `naic_territory_code` SET TAGS ('dbx_value_regex' = '^[0-9]{1,6}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `territory_name` SET TAGS ('dbx_business_glossary_term' = 'Territory Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `territory_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `territory_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `new_business_allowed` SET TAGS ('dbx_business_glossary_term' = 'New Business (NB) Allowed Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Territory Notes');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `rating_territory_code` SET TAGS ('dbx_business_glossary_term' = 'Rating Territory Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `rating_territory_code` SET TAGS ('dbx_value_regex' = '^[A-Z0-9]{1,10}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `rating_territory_code` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `rating_territory_code` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `region_code` SET TAGS ('dbx_business_glossary_term' = 'Region Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `region_code` SET TAGS ('dbx_value_regex' = '^[A-Z0-9]{1,10}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `renewal_allowed` SET TAGS ('dbx_business_glossary_term' = 'Renewal (REN) Allowed Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `source_system_code` SET TAGS ('dbx_value_regex' = 'agentsync|sircon|guidewire|duck_creek|sapiens|manual');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `source_system_record_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Record ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `termination_date` SET TAGS ('dbx_business_glossary_term' = 'Territory Termination Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `termination_reason` SET TAGS ('dbx_business_glossary_term' = 'Territory Termination Reason');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `termination_reason` SET TAGS ('dbx_value_regex' = 'voluntary|non_renewal|performance|regulatory|merger_acquisition|other');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `territory_status` SET TAGS ('dbx_business_glossary_term' = 'Territory Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `territory_status` SET TAGS ('dbx_value_regex' = 'active|inactive|pending|suspended|expired');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `territory_type` SET TAGS ('dbx_business_glossary_term' = 'Territory Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `territory_type` SET TAGS ('dbx_value_regex' = 'exclusive|non_exclusive|preferred|restricted|open');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `uw_restriction_code` SET TAGS ('dbx_business_glossary_term' = 'Underwriting (UW) Restriction Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `uw_restriction_code` SET TAGS ('dbx_value_regex' = 'none|moratorium|restricted|suspended|referral_required');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `written_premium_target` SET TAGS ('dbx_business_glossary_term' = 'Written Premium (WP) Target');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `zip_code_end` SET TAGS ('dbx_business_glossary_term' = 'ZIP Code Range End');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `zip_code_end` SET TAGS ('dbx_value_regex' = '^[0-9]{5}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `zip_code_end` SET TAGS ('dbx_restricted' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `zip_code_end` SET TAGS ('dbx_pii_address' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `zip_code_start` SET TAGS ('dbx_business_glossary_term' = 'ZIP Code Range Start');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `zip_code_start` SET TAGS ('dbx_value_regex' = '^[0-9]{5}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `zip_code_start` SET TAGS ('dbx_restricted' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`territory` ALTER COLUMN `zip_code_start` SET TAGS ('dbx_pii_address' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`authority_territory` SET TAGS ('dbx_data_type' = 'association_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`authority_territory` SET TAGS ('dbx_subdomain' = 'agent_management');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`authority_territory` SET TAGS ('dbx_association_edges' = 'producers.binding_authority,shared.state');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`authority_territory` ALTER COLUMN `authority_territory_id` SET TAGS ('dbx_business_glossary_term' = 'Authority Territory Identifier');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`authority_territory` ALTER COLUMN `binding_authority_id` SET TAGS ('dbx_business_glossary_term' = 'Authority Territory - Binding Authority Id');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`authority_territory` ALTER COLUMN `state_id` SET TAGS ('dbx_business_glossary_term' = 'Authority Territory - State Id');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`authority_territory` ALTER COLUMN `aggregate_limit_per_state` SET TAGS ('dbx_business_glossary_term' = 'Aggregate Annual Limit Per State');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`authority_territory` ALTER COLUMN `compliance_status` SET TAGS ('dbx_business_glossary_term' = 'State Compliance Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`authority_territory` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Territory Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`authority_territory` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Territory Expiration Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`authority_territory` ALTER COLUMN `max_policy_limit_per_state` SET TAGS ('dbx_business_glossary_term' = 'Maximum Policy Limit Per State');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`authority_territory` ALTER COLUMN `premium_tax_rate_override` SET TAGS ('dbx_business_glossary_term' = 'Premium Tax Rate Override');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`authority_territory` ALTER COLUMN `state_approval_date` SET TAGS ('dbx_business_glossary_term' = 'State Approval Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`authority_territory` ALTER COLUMN `state_filing_reference` SET TAGS ('dbx_business_glossary_term' = 'State Filing Reference Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`producers`.`authority_territory` ALTER COLUMN `surplus_lines_eligible` SET TAGS ('dbx_business_glossary_term' = 'Surplus Lines Eligible Flag');
+ALTER SCHEMA `vibe_pc_insurance_blog_v499`.`producers` SET TAGS ('dbx_division' = 'business');
+ALTER SCHEMA `vibe_pc_insurance_blog_v499`.`producers` SET TAGS ('dbx_domain' = 'producers');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` SET TAGS ('dbx_data_type' = 'master_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` SET TAGS ('dbx_subdomain' = 'agent_management');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `distribution_channel_id` SET TAGS ('dbx_business_glossary_term' = 'Distribution Channel ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `party_id` SET TAGS ('dbx_business_glossary_term' = 'Party Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `appointment_effective_date` SET TAGS ('dbx_business_glossary_term' = 'Appointment Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `appointment_status` SET TAGS ('dbx_business_glossary_term' = 'Producer Appointment Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `appointment_status` SET TAGS ('dbx_value_regex' = 'active|inactive|terminated|pending|suspended');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `appointment_termination_date` SET TAGS ('dbx_business_glossary_term' = 'Appointment Termination Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `background_check_date` SET TAGS ('dbx_business_glossary_term' = 'Background Check Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `background_check_status` SET TAGS ('dbx_business_glossary_term' = 'Background Check Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `background_check_status` SET TAGS ('dbx_value_regex' = 'passed|failed|pending|waived');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `bank_account_reference` SET TAGS ('dbx_business_glossary_term' = 'Bank Account Reference');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `bank_account_reference` SET TAGS ('dbx_restricted' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `bank_account_reference` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `binding_authority_flag` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `binding_authority_limit` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Limit');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `binding_authority_limit` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `commission_schedule_code` SET TAGS ('dbx_business_glossary_term' = 'Commission Schedule Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `contingent_commission_eligible` SET TAGS ('dbx_business_glossary_term' = 'Contingent Commission Eligible Indicator');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `continuing_education_due_date` SET TAGS ('dbx_business_glossary_term' = 'Continuing Education (CE) Due Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `continuing_education_hours_completed` SET TAGS ('dbx_business_glossary_term' = 'Continuing Education (CE) Hours Completed');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `default_commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Default Commission Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `default_commission_rate` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `eo_carrier_name` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Carrier Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `eo_carrier_name` SET TAGS ('dbx_pii_category' = 'name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `eo_coverage_amount` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Coverage Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `eo_coverage_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `eo_expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `eo_policy_number` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `eo_policy_number` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `is_surplus_lines_licensed` SET TAGS ('dbx_business_glossary_term' = 'Surplus Lines Licensed Indicator');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `license_class` SET TAGS ('dbx_business_glossary_term' = 'Producer License Class');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `license_effective_date` SET TAGS ('dbx_business_glossary_term' = 'License Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `license_expiration_date` SET TAGS ('dbx_business_glossary_term' = 'License Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `license_number` SET TAGS ('dbx_business_glossary_term' = 'Producer License Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `license_number` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `license_number` SET TAGS ('dbx_pii_category' = 'government_id');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `lob_authorizations` SET TAGS ('dbx_business_glossary_term' = 'Lines of Business (LOB) Authorizations');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `naic_company_code` SET TAGS ('dbx_business_glossary_term' = 'NAIC Company Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `naic_company_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `npn` SET TAGS ('dbx_business_glossary_term' = 'National Producer Number (NPN)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `npn` SET TAGS ('dbx_value_regex' = '^[0-9]{1,10}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `npn` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `payment_method` SET TAGS ('dbx_business_glossary_term' = 'Commission Payment Method');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `payment_method` SET TAGS ('dbx_value_regex' = 'ach|check|wire');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `producer_role` SET TAGS ('dbx_business_glossary_term' = 'Producer Role');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `producer_role` SET TAGS ('dbx_value_regex' = 'agent|broker|managing_general_agent|surplus_lines_broker|independent_agent|captive_agent');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `producer_type` SET TAGS ('dbx_business_glossary_term' = 'Producer Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `producer_type` SET TAGS ('dbx_value_regex' = 'individual|entity');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `regulatory_action_flag` SET TAGS ('dbx_business_glossary_term' = 'Regulatory Action Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `resident_state_code` SET TAGS ('dbx_business_glossary_term' = 'Resident State Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `resident_state_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{2}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `resident_state_code` SET TAGS ('dbx_pii_sensitive' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `since_date` SET TAGS ('dbx_business_glossary_term' = 'Producer Since Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `surplus_lines_license_number` SET TAGS ('dbx_business_glossary_term' = 'Surplus Lines License Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `surplus_lines_license_number` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `surplus_lines_license_number` SET TAGS ('dbx_pii_category' = 'government_id');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `tax_identification_number` SET TAGS ('dbx_business_glossary_term' = 'Tax Identification Number (TIN / FEIN / SSN)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `tax_identification_number` SET TAGS ('dbx_restricted' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `tax_identification_number` SET TAGS ('dbx_pii_identifier' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `termination_reason` SET TAGS ('dbx_business_glossary_term' = 'Appointment Termination Reason');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `termination_reason` SET TAGS ('dbx_value_regex' = 'voluntary|non_renewal|cause|regulatory|deceased|other');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Last Updated Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `w9_on_file` SET TAGS ('dbx_business_glossary_term' = 'IRS W-9 On File Indicator');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer` ALTER COLUMN `writing_company_code` SET TAGS ('dbx_business_glossary_term' = 'Writing Company Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` SET TAGS ('dbx_data_type' = 'master_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` SET TAGS ('dbx_subdomain' = 'agent_management');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `agency_id` SET TAGS ('dbx_business_glossary_term' = 'Agency Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `cat_zone_id` SET TAGS ('dbx_business_glossary_term' = 'Cat Zone Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `distribution_channel_id` SET TAGS ('dbx_business_glossary_term' = 'Distribution Channel Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `geography_id` SET TAGS ('dbx_business_glossary_term' = 'Geography Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `parent_agency_id` SET TAGS ('dbx_business_glossary_term' = 'Parent Agency Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `party_id` SET TAGS ('dbx_business_glossary_term' = 'Party Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `agency_status` SET TAGS ('dbx_business_glossary_term' = 'Agency Appointment Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `agency_status` SET TAGS ('dbx_value_regex' = 'active|inactive|suspended|terminated|pending_appointment');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `agency_type` SET TAGS ('dbx_business_glossary_term' = 'Agency Type Classification');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `annual_premium_volume` SET TAGS ('dbx_business_glossary_term' = 'Annual Premium Volume Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `appointment_effective_date` SET TAGS ('dbx_business_glossary_term' = 'Appointment Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `appointment_termination_date` SET TAGS ('dbx_business_glossary_term' = 'Appointment Termination Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `binding_authority_flag` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `binding_authority_limit` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Limit Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `commission_schedule_code` SET TAGS ('dbx_business_glossary_term' = 'Commission Schedule Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `contingent_commission_eligible` SET TAGS ('dbx_business_glossary_term' = 'Contingent Commission Eligible Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `default_commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Default Commission Rate Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `eo_carrier_name` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Carrier Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `eo_carrier_name` SET TAGS ('dbx_pii_category' = 'name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `eo_coverage_amount` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Coverage Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `eo_expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `eo_policy_number` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `last_modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Last Modified Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `lob_authorizations` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Authorizations');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `mailing_address_same_as_principal` SET TAGS ('dbx_business_glossary_term' = 'Mailing Address Same As Principal Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `mailing_address_same_as_principal` SET TAGS ('dbx_restricted' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `mailing_address_same_as_principal` SET TAGS ('dbx_pii_address' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `policy_count` SET TAGS ('dbx_business_glossary_term' = 'Policy Count');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `principal_address_line1` SET TAGS ('dbx_business_glossary_term' = 'Principal Address Line 1');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `principal_address_line1` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `principal_address_line1` SET TAGS ('dbx_pii_address' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `principal_address_line2` SET TAGS ('dbx_business_glossary_term' = 'Principal Address Line 2');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `principal_address_line2` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `principal_address_line2` SET TAGS ('dbx_pii_address' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `principal_city` SET TAGS ('dbx_business_glossary_term' = 'Principal City');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `principal_city` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `principal_city` SET TAGS ('dbx_pii_address' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `principal_country_code` SET TAGS ('dbx_business_glossary_term' = 'Principal Country Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `principal_country_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `principal_country_code` SET TAGS ('dbx_pii_sensitive' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `principal_county` SET TAGS ('dbx_business_glossary_term' = 'Principal County');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `principal_postal_code` SET TAGS ('dbx_business_glossary_term' = 'Principal Postal Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `principal_postal_code` SET TAGS ('dbx_value_regex' = '^d{5}(-d{4})?$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `principal_postal_code` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `principal_postal_code` SET TAGS ('dbx_pii_address' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `principal_state_code` SET TAGS ('dbx_business_glossary_term' = 'Principal State Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `principal_state_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{2}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `principal_state_code` SET TAGS ('dbx_pii_sensitive' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `surplus_lines_eligible` SET TAGS ('dbx_business_glossary_term' = 'Surplus Lines Eligible Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `surplus_lines_license_number` SET TAGS ('dbx_business_glossary_term' = 'Surplus Lines License Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `surplus_lines_license_number` SET TAGS ('dbx_pii_category' = 'government_id');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `termination_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Termination Reason Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `termination_reason_code` SET TAGS ('dbx_value_regex' = 'voluntary|involuntary|non_renewal|regulatory|merger|acquisition');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `tier` SET TAGS ('dbx_business_glossary_term' = 'Agency Performance Tier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `tier` SET TAGS ('dbx_value_regex' = 'platinum|gold|silver|bronze|standard');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency` ALTER COLUMN `writing_company_code` SET TAGS ('dbx_business_glossary_term' = 'Writing Company Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` SET TAGS ('dbx_data_type' = 'master_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` SET TAGS ('dbx_subdomain' = 'agent_management');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `producer_license_id` SET TAGS ('dbx_business_glossary_term' = 'Producer License Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `party_id` SET TAGS ('dbx_business_glossary_term' = 'Party Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `application_date` SET TAGS ('dbx_business_glossary_term' = 'License Application Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `appointment_required` SET TAGS ('dbx_business_glossary_term' = 'Appointment Required Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `approval_date` SET TAGS ('dbx_business_glossary_term' = 'License Approval Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `background_check_date` SET TAGS ('dbx_business_glossary_term' = 'Background Check Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `background_check_required` SET TAGS ('dbx_business_glossary_term' = 'Background Check Required Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `background_check_status` SET TAGS ('dbx_business_glossary_term' = 'Background Check Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `background_check_status` SET TAGS ('dbx_value_regex' = 'passed|failed|pending|not_required|expired');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `ce_due_date` SET TAGS ('dbx_business_glossary_term' = 'Continuing Education (CE) Due Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `ce_ethics_hours_required` SET TAGS ('dbx_business_glossary_term' = 'Continuing Education (CE) Ethics Hours Required');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `ce_hours_completed` SET TAGS ('dbx_business_glossary_term' = 'Continuing Education (CE) Hours Completed');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `ce_hours_required` SET TAGS ('dbx_business_glossary_term' = 'Continuing Education (CE) Hours Required');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `denial_date` SET TAGS ('dbx_business_glossary_term' = 'License Denial Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `denial_reason` SET TAGS ('dbx_business_glossary_term' = 'License Denial Reason');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `doi_action_date` SET TAGS ('dbx_business_glossary_term' = 'Department of Insurance (DOI) Action Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `doi_action_description` SET TAGS ('dbx_business_glossary_term' = 'Department of Insurance (DOI) Action Description');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `doi_action_flag` SET TAGS ('dbx_business_glossary_term' = 'Department of Insurance (DOI) Action Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `doi_action_type` SET TAGS ('dbx_business_glossary_term' = 'Department of Insurance (DOI) Action Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `doi_action_type` SET TAGS ('dbx_value_regex' = 'suspension|revocation|fine|probation|consent_order|cease_and_desist');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'License Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'License Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `fingerprint_date` SET TAGS ('dbx_business_glossary_term' = 'Fingerprint Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `fingerprint_date` SET TAGS ('dbx_restricted' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `fingerprint_date` SET TAGS ('dbx_pii_biometric' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `fingerprint_required` SET TAGS ('dbx_business_glossary_term' = 'Fingerprint Required Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `fingerprint_required` SET TAGS ('dbx_restricted' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `fingerprint_required` SET TAGS ('dbx_pii_biometric' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `issue_date` SET TAGS ('dbx_business_glossary_term' = 'License Issue Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `license_class` SET TAGS ('dbx_business_glossary_term' = 'License Class');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `license_class` SET TAGS ('dbx_value_regex' = 'resident|non-resident|temporary|surplus_lines|adjuster|public_adjuster');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `license_number` SET TAGS ('dbx_business_glossary_term' = 'License Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `license_number` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `license_number` SET TAGS ('dbx_pii_identifier' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `license_state_code` SET TAGS ('dbx_business_glossary_term' = 'License State Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `license_state_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{2}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `license_state_code` SET TAGS ('dbx_pii_category' = 'government_id');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `license_status` SET TAGS ('dbx_business_glossary_term' = 'License Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `license_type` SET TAGS ('dbx_business_glossary_term' = 'License Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `license_type` SET TAGS ('dbx_value_regex' = 'individual|business_entity|agency');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `loa_casualty` SET TAGS ('dbx_business_glossary_term' = 'Line of Authority (LOA) Casualty');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `loa_health` SET TAGS ('dbx_business_glossary_term' = 'Line of Authority (LOA) Health');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `loa_health` SET TAGS ('dbx_restricted' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `loa_health` SET TAGS ('dbx_pii' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `loa_health` SET TAGS ('dbx_pii_category' = 'health');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `loa_life` SET TAGS ('dbx_business_glossary_term' = 'Line of Authority (LOA) Life');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `loa_personal_lines` SET TAGS ('dbx_business_glossary_term' = 'Line of Authority (LOA) Personal Lines');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `loa_property` SET TAGS ('dbx_business_glossary_term' = 'Line of Authority (LOA) Property');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `loa_variable_annuity` SET TAGS ('dbx_business_glossary_term' = 'Line of Authority (LOA) Variable Annuity');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `nipr_transaction_number` SET TAGS ('dbx_business_glossary_term' = 'National Insurance Producer Registry (NIPR) Transaction Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `npn` SET TAGS ('dbx_business_glossary_term' = 'National Producer Number (NPN)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `npn` SET TAGS ('dbx_value_regex' = '^[0-9]{8,10}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `npn` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `npn` SET TAGS ('dbx_pii_identifier' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `reciprocity_state_code` SET TAGS ('dbx_business_glossary_term' = 'Reciprocity State Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `reciprocity_state_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{2}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `reciprocity_state_code` SET TAGS ('dbx_pii_category' = 'address');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `renewal_date` SET TAGS ('dbx_business_glossary_term' = 'License Renewal Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `source_system_reference_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Reference Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `surplus_lines_eligible` SET TAGS ('dbx_business_glossary_term' = 'Surplus Lines Eligible Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `termination_date` SET TAGS ('dbx_business_glossary_term' = 'License Termination Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `termination_reason` SET TAGS ('dbx_business_glossary_term' = 'License Termination Reason');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_license` ALTER COLUMN `termination_reason` SET TAGS ('dbx_value_regex' = 'voluntary|non_renewal|regulatory_action|death|retirement|business_closure');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` SET TAGS ('dbx_data_type' = 'association_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` SET TAGS ('dbx_subdomain' = 'agent_management');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `agency_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Agency Producer Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `agency_id` SET TAGS ('dbx_business_glossary_term' = 'Agency Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `agency_producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `agency_reporting_manager_producer_producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Reporting Manager Producer Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `commission_schedule_id` SET TAGS ('dbx_business_glossary_term' = 'Commission Schedule Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `party_id` SET TAGS ('dbx_business_glossary_term' = 'Party Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `annual_production_target` SET TAGS ('dbx_business_glossary_term' = 'Annual Production Target');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `appointment_effective_date` SET TAGS ('dbx_business_glossary_term' = 'Appointment Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `appointment_status` SET TAGS ('dbx_business_glossary_term' = 'Appointment Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `appointment_status` SET TAGS ('dbx_value_regex' = 'appointed|pending|denied|terminated|suspended');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `appointment_termination_date` SET TAGS ('dbx_business_glossary_term' = 'Appointment Termination Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `binding_authority_flag` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `binding_authority_limit` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Limit');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `book_of_business_ownership` SET TAGS ('dbx_business_glossary_term' = 'Book of Business Ownership');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `book_of_business_ownership` SET TAGS ('dbx_value_regex' = 'producer|agency|shared|carrier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `commission_split_percentage` SET TAGS ('dbx_business_glossary_term' = 'Commission Split Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `contingent_commission_eligible` SET TAGS ('dbx_business_glossary_term' = 'Contingent Commission Eligible');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `contract_document_reference` SET TAGS ('dbx_business_glossary_term' = 'Contract Document Reference');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `default_commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Default Commission Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `desk_location` SET TAGS ('dbx_business_glossary_term' = 'Desk Location');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `eo_coverage_required` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Coverage Required');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `eo_coverage_verified_date` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Coverage Verified Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `last_modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Last Modified Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `lob_authorizations` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Authorizations');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `non_compete_clause_flag` SET TAGS ('dbx_business_glossary_term' = 'Non-Compete Clause Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `non_compete_expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Non-Compete Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `performance_tier` SET TAGS ('dbx_business_glossary_term' = 'Performance Tier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `primary_agency_flag` SET TAGS ('dbx_business_glossary_term' = 'Primary Agency Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `record_version_number` SET TAGS ('dbx_business_glossary_term' = 'Record Version Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `relationship_status` SET TAGS ('dbx_business_glossary_term' = 'Relationship Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `relationship_status` SET TAGS ('dbx_value_regex' = 'active|inactive|suspended|terminated|pending');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `relationship_type` SET TAGS ('dbx_business_glossary_term' = 'Relationship Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `relationship_type` SET TAGS ('dbx_value_regex' = 'employee|independent_contractor|sub_agent|captive_agent|general_agent|managing_general_agent');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `source_system_reference_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Reference Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `termination_date` SET TAGS ('dbx_business_glossary_term' = 'Termination Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `termination_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Termination Reason Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `termination_reason_code` SET TAGS ('dbx_value_regex' = 'voluntary_resignation|involuntary_termination|retirement|license_revocation|contract_expiration|performance');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `termination_reason_description` SET TAGS ('dbx_business_glossary_term' = 'Termination Reason Description');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `territory_code` SET TAGS ('dbx_business_glossary_term' = 'Territory Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `writing_authority_level` SET TAGS ('dbx_business_glossary_term' = 'Writing Authority Level');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_producer` ALTER COLUMN `writing_authority_level` SET TAGS ('dbx_value_regex' = 'full|limited|referral_only|none');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` SET TAGS ('dbx_data_type' = 'master_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` SET TAGS ('dbx_subdomain' = 'agent_management');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `producer_appointment_id` SET TAGS ('dbx_business_glossary_term' = 'Producer Appointment Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `agency_id` SET TAGS ('dbx_business_glossary_term' = 'Agency Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `commission_schedule_id` SET TAGS ('dbx_business_glossary_term' = 'Commission Schedule Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `distribution_channel_id` SET TAGS ('dbx_business_glossary_term' = 'Distribution Channel Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `party_id` SET TAGS ('dbx_business_glossary_term' = 'Party Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `prior_appointment_id` SET TAGS ('dbx_business_glossary_term' = 'Prior Appointment Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `producer_license_id` SET TAGS ('dbx_business_glossary_term' = 'Producer License Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `appointment_agreement_date` SET TAGS ('dbx_business_glossary_term' = 'Appointment Agreement Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `appointment_agreement_number` SET TAGS ('dbx_business_glossary_term' = 'Appointment Agreement Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `appointment_number` SET TAGS ('dbx_business_glossary_term' = 'Appointment Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `appointment_source` SET TAGS ('dbx_business_glossary_term' = 'Appointment Source');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `appointment_source` SET TAGS ('dbx_value_regex' = 'direct_hire|agency_transfer|acquisition|reciprocity|new_market_entry');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `appointment_state_code` SET TAGS ('dbx_business_glossary_term' = 'Appointment State Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `appointment_state_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{2}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `appointment_state_code` SET TAGS ('dbx_pii_sensitive' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `appointment_status` SET TAGS ('dbx_business_glossary_term' = 'Appointment Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `appointment_status` SET TAGS ('dbx_value_regex' = 'active|pending|suspended|terminated|expired|inactive');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `appointment_tier` SET TAGS ('dbx_business_glossary_term' = 'Appointment Tier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `appointment_tier` SET TAGS ('dbx_value_regex' = 'platinum|gold|silver|bronze|standard');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `appointment_type` SET TAGS ('dbx_business_glossary_term' = 'Appointment Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `appointment_type` SET TAGS ('dbx_value_regex' = 'direct|sub_producer|managing_general_agent|surplus_lines|reinsurance_intermediary');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `binding_authority_flag` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `binding_authority_limit` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Limit');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `contingent_commission_eligible` SET TAGS ('dbx_business_glossary_term' = 'Contingent Commission Eligible Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `default_commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Default Commission Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `doi_reported_date` SET TAGS ('dbx_business_glossary_term' = 'Department of Insurance (DOI) Reported Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Appointment Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `eo_insurance_required_flag` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Insurance Required Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `eo_minimum_coverage_amount` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Minimum Coverage Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Appointment Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `last_modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Last Modified Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `lob_category` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Category');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `lob_category` SET TAGS ('dbx_value_regex' = 'personal_lines|commercial_lines|specialty_lines|life_health');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `lob_description` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Description');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `naic_company_code` SET TAGS ('dbx_business_glossary_term' = 'National Association of Insurance Commissioners (NAIC) Company Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `naic_company_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `nipr_transaction_number` SET TAGS ('dbx_business_glossary_term' = 'National Insurance Producer Registry (NIPR) Transaction Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `npn` SET TAGS ('dbx_business_glossary_term' = 'National Producer Number (NPN)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `npn` SET TAGS ('dbx_value_regex' = '^[0-9]{10}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `regulatory_reporting_required` SET TAGS ('dbx_business_glossary_term' = 'Regulatory Reporting Required Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `renewal_flag` SET TAGS ('dbx_business_glossary_term' = 'Renewal Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `resident_state_code` SET TAGS ('dbx_business_glossary_term' = 'Resident State Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `resident_state_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{2}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `resident_state_code` SET TAGS ('dbx_pii_sensitive' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `source_system_reference_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Reference Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `surplus_lines_flag` SET TAGS ('dbx_business_glossary_term' = 'Surplus Lines Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `surplus_lines_license_number` SET TAGS ('dbx_business_glossary_term' = 'Surplus Lines License Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `surplus_lines_license_number` SET TAGS ('dbx_pii_category' = 'government_id');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `termination_date` SET TAGS ('dbx_business_glossary_term' = 'Appointment Termination Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `termination_for_cause_flag` SET TAGS ('dbx_business_glossary_term' = 'Termination For Cause Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `termination_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Termination Reason Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `termination_reason_code` SET TAGS ('dbx_value_regex' = 'voluntary|for_cause|license_revoked|non_renewal|business_closure|regulatory_action');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `termination_reason_description` SET TAGS ('dbx_business_glossary_term' = 'Termination Reason Description');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_appointment` ALTER COLUMN `writing_company_code` SET TAGS ('dbx_business_glossary_term' = 'Writing Company Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` SET TAGS ('dbx_data_type' = 'reference_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` SET TAGS ('dbx_subdomain' = 'agent_management');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `distribution_channel_id` SET TAGS ('dbx_business_glossary_term' = 'Distribution Channel ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `agency_bill_flag` SET TAGS ('dbx_business_glossary_term' = 'Agency Bill Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `appointment_required` SET TAGS ('dbx_business_glossary_term' = 'Producer Appointment Required Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `background_check_required` SET TAGS ('dbx_business_glossary_term' = 'Background Check Required Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `binding_authority_flag` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `binding_authority_limit` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Limit');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `binding_authority_limit` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `channel_code` SET TAGS ('dbx_business_glossary_term' = 'Distribution Channel Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `channel_code` SET TAGS ('dbx_value_regex' = '^[A-Z0-9_]{2,10}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `channel_description` SET TAGS ('dbx_business_glossary_term' = 'Distribution Channel Description');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `channel_name` SET TAGS ('dbx_business_glossary_term' = 'Distribution Channel Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `channel_name` SET TAGS ('dbx_pii_category' = 'name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `channel_priority_rank` SET TAGS ('dbx_business_glossary_term' = 'Channel Priority Rank');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `channel_status` SET TAGS ('dbx_business_glossary_term' = 'Distribution Channel Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `channel_status` SET TAGS ('dbx_value_regex' = 'active|inactive|suspended|pending|terminated');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `channel_subtype` SET TAGS ('dbx_business_glossary_term' = 'Distribution Channel Subtype');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `channel_type` SET TAGS ('dbx_business_glossary_term' = 'Distribution Channel Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `channel_type` SET TAGS ('dbx_value_regex' = 'captive|independent|broker|direct|mga|wholesale');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `commission_schedule_code` SET TAGS ('dbx_business_glossary_term' = 'Commission Schedule Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `commission_schedule_code` SET TAGS ('dbx_value_regex' = '^[A-Z0-9_]{2,15}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `contingent_commission_eligible` SET TAGS ('dbx_business_glossary_term' = 'Contingent Commission Eligible Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `continuing_education_required` SET TAGS ('dbx_business_glossary_term' = 'Continuing Education (CE) Required Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `default_commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Default Commission Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `default_commission_rate` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `direct_bill_flag` SET TAGS ('dbx_business_glossary_term' = 'Direct Bill Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Channel Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `eo_insurance_required` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Insurance Required Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Channel Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `geographic_scope` SET TAGS ('dbx_business_glossary_term' = 'Geographic Scope');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `lob_authorizations` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Authorizations');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `minimum_eo_coverage_amount` SET TAGS ('dbx_business_glossary_term' = 'Minimum Errors and Omissions (E&O) Coverage Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `naic_company_code` SET TAGS ('dbx_business_glossary_term' = 'National Association of Insurance Commissioners (NAIC) Company Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `naic_company_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `regulatory_reporting_required` SET TAGS ('dbx_business_glossary_term' = 'Regulatory Reporting Required Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `source_system_code` SET TAGS ('dbx_value_regex' = '^[A-Z0-9_]{2,20}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `surplus_lines_eligible` SET TAGS ('dbx_business_glossary_term' = 'Surplus Lines Eligible Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `target_market_segment` SET TAGS ('dbx_business_glossary_term' = 'Target Market Segment');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `termination_reason` SET TAGS ('dbx_business_glossary_term' = 'Channel Termination Reason');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `writing_company_code` SET TAGS ('dbx_business_glossary_term' = 'Writing Company Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`distribution_channel` ALTER COLUMN `writing_company_code` SET TAGS ('dbx_value_regex' = '^[A-Z0-9]{2,10}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` SET TAGS ('dbx_data_type' = 'master_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` SET TAGS ('dbx_subdomain' = 'compensation_processing');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `commission_schedule_id` SET TAGS ('dbx_business_glossary_term' = 'Commission Schedule ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `agency_id` SET TAGS ('dbx_business_glossary_term' = 'Agency ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `cat_zone_id` SET TAGS ('dbx_business_glossary_term' = 'Cat Zone Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `distribution_channel_id` SET TAGS ('dbx_business_glossary_term' = 'Distribution Channel Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `superseded_by_schedule_id` SET TAGS ('dbx_business_glossary_term' = 'Superseded By Schedule ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `approval_date` SET TAGS ('dbx_business_glossary_term' = 'Approval Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `approved_by` SET TAGS ('dbx_business_glossary_term' = 'Approved By');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `base_commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Base Commission Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `bonus_commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Bonus Commission Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `chargeback_period_days` SET TAGS ('dbx_business_glossary_term' = 'Chargeback Period Days');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `chargeback_provision` SET TAGS ('dbx_business_glossary_term' = 'Chargeback Provision');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `commission_basis` SET TAGS ('dbx_business_glossary_term' = 'Commission Basis');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `commission_basis` SET TAGS ('dbx_value_regex' = 'written_premium|earned_premium|net_premium|gross_premium');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `contingent_commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Contingent Commission Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `coverage_type_code` SET TAGS ('dbx_business_glossary_term' = 'Coverage Type Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `currency_code` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `last_modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Last Modified Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `loss_ratio_threshold` SET TAGS ('dbx_business_glossary_term' = 'Loss Ratio (LR) Threshold');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `maximum_premium_threshold` SET TAGS ('dbx_business_glossary_term' = 'Maximum Premium Threshold');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `minimum_premium_threshold` SET TAGS ('dbx_business_glossary_term' = 'Minimum Premium Threshold');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `naic_company_code` SET TAGS ('dbx_business_glossary_term' = 'National Association of Insurance Commissioners (NAIC) Company Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `new_business_credit_rate` SET TAGS ('dbx_business_glossary_term' = 'New Business (NB) Credit Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `override_commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Override Commission Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `payment_timing` SET TAGS ('dbx_business_glossary_term' = 'Payment Timing');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `payment_timing` SET TAGS ('dbx_value_regex' = 'immediate|monthly|quarterly|annual|upon_collection');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `renewal_credit_rate` SET TAGS ('dbx_business_glossary_term' = 'Renewal (REN) Credit Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `retention_rate_threshold` SET TAGS ('dbx_business_glossary_term' = 'Retention Rate Threshold');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `schedule_code` SET TAGS ('dbx_business_glossary_term' = 'Schedule Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `schedule_name` SET TAGS ('dbx_business_glossary_term' = 'Schedule Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `schedule_name` SET TAGS ('dbx_pii_category' = 'name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `schedule_status` SET TAGS ('dbx_business_glossary_term' = 'Schedule Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `schedule_status` SET TAGS ('dbx_value_regex' = 'draft|active|suspended|expired|terminated');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `schedule_type` SET TAGS ('dbx_business_glossary_term' = 'Schedule Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `schedule_type` SET TAGS ('dbx_value_regex' = 'standard|override|contingent|bonus|special');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `source_system_reference_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Reference ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `state_code` SET TAGS ('dbx_business_glossary_term' = 'State Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `state_code` SET TAGS ('dbx_pii_sensitive' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `termination_date` SET TAGS ('dbx_business_glossary_term' = 'Termination Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `termination_reason` SET TAGS ('dbx_business_glossary_term' = 'Termination Reason');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `tier_level` SET TAGS ('dbx_business_glossary_term' = 'Tier Level');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `transaction_type` SET TAGS ('dbx_business_glossary_term' = 'Transaction Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `transaction_type` SET TAGS ('dbx_value_regex' = 'NB|REN|END|CAN|RI');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `version_number` SET TAGS ('dbx_business_glossary_term' = 'Version Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `volume_threshold_policy_count` SET TAGS ('dbx_business_glossary_term' = 'Volume Threshold Policy Count');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_schedule` ALTER COLUMN `writing_company_code` SET TAGS ('dbx_business_glossary_term' = 'Writing Company Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` SET TAGS ('dbx_data_type' = 'reference_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` SET TAGS ('dbx_subdomain' = 'compensation_processing');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `commission_rule_id` SET TAGS ('dbx_business_glossary_term' = 'Commission Rule ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `commission_schedule_id` SET TAGS ('dbx_business_glossary_term' = 'Commission Schedule ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `coverage_type_id` SET TAGS ('dbx_business_glossary_term' = 'Coverage Type Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `distribution_channel_id` SET TAGS ('dbx_business_glossary_term' = 'Distribution Channel Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `approval_date` SET TAGS ('dbx_business_glossary_term' = 'Rule Approval Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `approval_required_flag` SET TAGS ('dbx_business_glossary_term' = 'Approval Required Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `approved_by` SET TAGS ('dbx_business_glossary_term' = 'Approved By');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `base_commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Base Commission Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `chargeback_eligible_flag` SET TAGS ('dbx_business_glossary_term' = 'Chargeback Eligible Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `chargeback_period_days` SET TAGS ('dbx_business_glossary_term' = 'Chargeback Period Days');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `commission_basis_code` SET TAGS ('dbx_business_glossary_term' = 'Commission Basis Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `commission_basis_code` SET TAGS ('dbx_value_regex' = 'written|earned|billed|collected');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `commission_split_flag` SET TAGS ('dbx_business_glossary_term' = 'Commission Split Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `contingent_commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Contingent Commission Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `currency_code` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `currency_code` SET TAGS ('dbx_value_regex' = 'USD|CAD|EUR|GBP|AUD');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Rule Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Rule Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `last_modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Last Modified Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `loss_ratio_threshold` SET TAGS ('dbx_business_glossary_term' = 'Loss Ratio (LR) Threshold');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `maximum_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Maximum Commission Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `minimum_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Minimum Commission Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `naic_company_code` SET TAGS ('dbx_business_glossary_term' = 'National Association of Insurance Commissioners (NAIC) Company Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `override_commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Override Commission Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `payment_timing_code` SET TAGS ('dbx_business_glossary_term' = 'Commission Payment Timing Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `payment_timing_code` SET TAGS ('dbx_value_regex' = 'immediate|monthly|quarterly|annual');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `policy_state_code` SET TAGS ('dbx_business_glossary_term' = 'Policy State Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `policy_state_code` SET TAGS ('dbx_pii_sensitive' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `premium_tier_maximum` SET TAGS ('dbx_business_glossary_term' = 'Premium Tier Maximum');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `premium_tier_minimum` SET TAGS ('dbx_business_glossary_term' = 'Premium Tier Minimum');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `producer_type_code` SET TAGS ('dbx_business_glossary_term' = 'Producer Type Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `producer_type_code` SET TAGS ('dbx_value_regex' = 'agent|broker|mga|direct');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `retention_rate_threshold` SET TAGS ('dbx_business_glossary_term' = 'Retention Rate Threshold');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `rule_description` SET TAGS ('dbx_business_glossary_term' = 'Commission Rule Description');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `rule_name` SET TAGS ('dbx_business_glossary_term' = 'Commission Rule Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `rule_name` SET TAGS ('dbx_pii_category' = 'name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `rule_notes` SET TAGS ('dbx_business_glossary_term' = 'Commission Rule Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `rule_sequence_number` SET TAGS ('dbx_business_glossary_term' = 'Rule Sequence Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `rule_status` SET TAGS ('dbx_business_glossary_term' = 'Commission Rule Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `rule_status` SET TAGS ('dbx_value_regex' = 'active|inactive|pending|expired|superseded');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `source_rule_reference` SET TAGS ('dbx_business_glossary_term' = 'Source Rule Reference');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `split_percentage` SET TAGS ('dbx_business_glossary_term' = 'Commission Split Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `transaction_type_code` SET TAGS ('dbx_business_glossary_term' = 'Transaction Type Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `transaction_type_code` SET TAGS ('dbx_value_regex' = 'NB|REN|END|CAN|RI|NR');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `volume_threshold_amount` SET TAGS ('dbx_business_glossary_term' = 'Volume Threshold Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_rule` ALTER COLUMN `writing_company_code` SET TAGS ('dbx_business_glossary_term' = 'Writing Company Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` SET TAGS ('dbx_data_type' = 'transactional_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` SET TAGS ('dbx_subdomain' = 'compensation_processing');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `commission_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Commission Transaction ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `agency_id` SET TAGS ('dbx_business_glossary_term' = 'Agency ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `claimfinancials_accounting_period_id` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `commission_rule_id` SET TAGS ('dbx_business_glossary_term' = 'Commission Rule Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `commission_schedule_id` SET TAGS ('dbx_business_glossary_term' = 'Commission Schedule Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `commission_statement_id` SET TAGS ('dbx_business_glossary_term' = 'Commission Statement Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `original_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Original Commission Transaction ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `policy_term_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Term ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `premium_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Premium Transaction ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `adjustment_amount` SET TAGS ('dbx_business_glossary_term' = 'Commission Adjustment Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `claw_back_amount` SET TAGS ('dbx_business_glossary_term' = 'Commission Claw-Back Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `commission_basis` SET TAGS ('dbx_business_glossary_term' = 'Commission Basis');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `commission_basis` SET TAGS ('dbx_value_regex' = 'gwp|nwp|ep|flat_fee|sliding_scale');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Commission Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `contingent_commission_flag` SET TAGS ('dbx_business_glossary_term' = 'Contingent Commission Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `earned_amount` SET TAGS ('dbx_business_glossary_term' = 'Commission Earned Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Commission Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `gl_account_code` SET TAGS ('dbx_business_glossary_term' = 'General Ledger (GL) Account Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `lob_code` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `net_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Net Commission Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Commission Transaction Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `npn` SET TAGS ('dbx_business_glossary_term' = 'National Producer Number (NPN)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `override_flag` SET TAGS ('dbx_business_glossary_term' = 'Commission Override Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `payment_date` SET TAGS ('dbx_business_glossary_term' = 'Commission Payment Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `payment_method` SET TAGS ('dbx_business_glossary_term' = 'Commission Payment Method');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `payment_method` SET TAGS ('dbx_value_regex' = 'ach|wire|check|eft|direct_deposit');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `payment_reference_number` SET TAGS ('dbx_business_glossary_term' = 'Commission Payment Reference Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `payment_status` SET TAGS ('dbx_business_glossary_term' = 'Commission Payment Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `payment_status` SET TAGS ('dbx_value_regex' = 'unpaid|scheduled|paid|withheld|disputed');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `policy_transaction_type` SET TAGS ('dbx_business_glossary_term' = 'Policy Transaction Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `policy_transaction_type` SET TAGS ('dbx_value_regex' = 'new_business|renewal|endorsement|cancellation|reinstatement');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `reversal_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Commission Reversal Reason Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `reversal_reason_description` SET TAGS ('dbx_business_glossary_term' = 'Commission Reversal Reason Description');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `source_transaction_reference` SET TAGS ('dbx_business_glossary_term' = 'Source Transaction Reference');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `split_percentage` SET TAGS ('dbx_business_glossary_term' = 'Commission Split Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `state_code` SET TAGS ('dbx_business_glossary_term' = 'State Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `state_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{2}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `state_code` SET TAGS ('dbx_pii_sensitive' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `tax_withholding_amount` SET TAGS ('dbx_business_glossary_term' = 'Tax Withholding Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `transaction_date` SET TAGS ('dbx_business_glossary_term' = 'Commission Transaction Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `transaction_number` SET TAGS ('dbx_business_glossary_term' = 'Commission Transaction Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `transaction_status` SET TAGS ('dbx_business_glossary_term' = 'Commission Transaction Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `transaction_status` SET TAGS ('dbx_value_regex' = 'pending|approved|paid|voided|disputed|reconciled');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `transaction_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Commission Transaction Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `transaction_type` SET TAGS ('dbx_business_glossary_term' = 'Commission Transaction Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `transaction_type` SET TAGS ('dbx_value_regex' = 'earned|claw_back|adjustment|reversal|advance|chargeback');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_transaction` ALTER COLUMN `writing_company_code` SET TAGS ('dbx_business_glossary_term' = 'Writing Company Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` SET TAGS ('dbx_data_type' = 'transactional_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` SET TAGS ('dbx_subdomain' = 'compensation_processing');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `commission_statement_id` SET TAGS ('dbx_business_glossary_term' = 'Commission Statement ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `agency_id` SET TAGS ('dbx_business_glossary_term' = 'Agency ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `claimfinancials_accounting_period_id` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `commission_schedule_id` SET TAGS ('dbx_business_glossary_term' = 'Commission Schedule Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `distribution_channel_id` SET TAGS ('dbx_business_glossary_term' = 'Distribution Channel Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `chargeback_amount` SET TAGS ('dbx_business_glossary_term' = 'Chargeback Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `contingent_commission` SET TAGS ('dbx_business_glossary_term' = 'Contingent Commission');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `currency_code` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `currency_code` SET TAGS ('dbx_value_regex' = 'USD|CAD|GBP|EUR|AUD');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `dispute_date` SET TAGS ('dbx_business_glossary_term' = 'Dispute Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `dispute_flag` SET TAGS ('dbx_business_glossary_term' = 'Dispute Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `dispute_resolution_date` SET TAGS ('dbx_business_glossary_term' = 'Dispute Resolution Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `endorsement_commission` SET TAGS ('dbx_business_glossary_term' = 'Endorsement (END) Commission');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `eo_premium_deduction` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Premium Deduction');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `last_modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Last Modified Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `naic_company_code` SET TAGS ('dbx_business_glossary_term' = 'National Association of Insurance Commissioners (NAIC) Company Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `net_commission_payable` SET TAGS ('dbx_business_glossary_term' = 'Net Commission Payable');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `new_business_commission` SET TAGS ('dbx_business_glossary_term' = 'New Business (NB) Commission');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Statement Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `npn` SET TAGS ('dbx_business_glossary_term' = 'National Producer Number (NPN)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `payment_date` SET TAGS ('dbx_business_glossary_term' = 'Payment Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `payment_method` SET TAGS ('dbx_business_glossary_term' = 'Payment Method');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `payment_method` SET TAGS ('dbx_value_regex' = 'ach|wire|check|eft|direct_deposit');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `payment_reference_number` SET TAGS ('dbx_business_glossary_term' = 'Payment Reference Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `payment_status` SET TAGS ('dbx_business_glossary_term' = 'Payment Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `payment_status` SET TAGS ('dbx_value_regex' = 'unpaid|pending|paid|partially_paid|failed');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `policy_count` SET TAGS ('dbx_business_glossary_term' = 'Policy Count');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `renewal_commission` SET TAGS ('dbx_business_glossary_term' = 'Renewal (REN) Commission');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `statement_date` SET TAGS ('dbx_business_glossary_term' = 'Statement Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `statement_delivery_method` SET TAGS ('dbx_business_glossary_term' = 'Statement Delivery Method');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `statement_delivery_method` SET TAGS ('dbx_value_regex' = 'email|mail|portal|fax');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `statement_document_reference` SET TAGS ('dbx_business_glossary_term' = 'Statement Document Reference');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `statement_number` SET TAGS ('dbx_business_glossary_term' = 'Statement Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `statement_period_end_date` SET TAGS ('dbx_business_glossary_term' = 'Statement Period End Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `statement_period_start_date` SET TAGS ('dbx_business_glossary_term' = 'Statement Period Start Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `statement_status` SET TAGS ('dbx_business_glossary_term' = 'Statement Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `statement_status` SET TAGS ('dbx_value_regex' = 'draft|issued|paid|partially_paid|disputed|cancelled');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `statement_type` SET TAGS ('dbx_business_glossary_term' = 'Statement Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `statement_type` SET TAGS ('dbx_value_regex' = 'regular|supplemental|correction|final');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `tax_identification_number` SET TAGS ('dbx_business_glossary_term' = 'Tax Identification Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `tax_identification_number` SET TAGS ('dbx_restricted' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `tax_identification_number` SET TAGS ('dbx_pii_identifier' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `total_adjustments` SET TAGS ('dbx_business_glossary_term' = 'Total Adjustments');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `total_commission_earned` SET TAGS ('dbx_business_glossary_term' = 'Total Commission Earned');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `total_deductions` SET TAGS ('dbx_business_glossary_term' = 'Total Deductions');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `transaction_count` SET TAGS ('dbx_business_glossary_term' = 'Transaction Count');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_statement` ALTER COLUMN `writing_company_code` SET TAGS ('dbx_business_glossary_term' = 'Writing Company Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` SET TAGS ('dbx_data_type' = 'transactional_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` SET TAGS ('dbx_subdomain' = 'compensation_processing');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `commission_payment_id` SET TAGS ('dbx_business_glossary_term' = 'Commission Payment Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `agency_id` SET TAGS ('dbx_business_glossary_term' = 'Agency Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `claimfinancials_accounting_period_id` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `commission_statement_id` SET TAGS ('dbx_business_glossary_term' = 'Commission Statement Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payee_party_id` SET TAGS ('dbx_business_glossary_term' = 'Payee Party Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Approved By User Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `ach_trace_number` SET TAGS ('dbx_business_glossary_term' = 'Automated Clearing House (ACH) Trace Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `approved_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Approved Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `bank_account_number` SET TAGS ('dbx_business_glossary_term' = 'Bank Account Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `bank_account_number` SET TAGS ('dbx_restricted' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `bank_account_number` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `bank_routing_number` SET TAGS ('dbx_business_glossary_term' = 'Bank Routing Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `bank_routing_number` SET TAGS ('dbx_value_regex' = '^[0-9]{9}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `bank_routing_number` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `bank_routing_number` SET TAGS ('dbx_pii_category' = 'government_id');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `check_number` SET TAGS ('dbx_business_glossary_term' = 'Check Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `cleared_date` SET TAGS ('dbx_business_glossary_term' = 'Cleared Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `currency_code` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `currency_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `form_1099_reportable_flag` SET TAGS ('dbx_business_glossary_term' = 'Form 1099 Reportable Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `gl_account_code` SET TAGS ('dbx_business_glossary_term' = 'General Ledger (GL) Account Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Modified Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `net_payment_amount` SET TAGS ('dbx_business_glossary_term' = 'Net Payment Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payee_address_line1` SET TAGS ('dbx_business_glossary_term' = 'Payee Address Line 1');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payee_address_line1` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payee_address_line1` SET TAGS ('dbx_pii_address' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payee_address_line2` SET TAGS ('dbx_business_glossary_term' = 'Payee Address Line 2');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payee_address_line2` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payee_address_line2` SET TAGS ('dbx_pii_address' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payee_city` SET TAGS ('dbx_business_glossary_term' = 'Payee City');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payee_city` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payee_city` SET TAGS ('dbx_pii_address' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payee_country_code` SET TAGS ('dbx_business_glossary_term' = 'Payee Country Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payee_country_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payee_country_code` SET TAGS ('dbx_pii_sensitive' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payee_name` SET TAGS ('dbx_business_glossary_term' = 'Payee Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payee_name` SET TAGS ('dbx_pii_category' = 'name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payee_postal_code` SET TAGS ('dbx_business_glossary_term' = 'Payee Postal Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payee_postal_code` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payee_postal_code` SET TAGS ('dbx_pii_address' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payee_state_code` SET TAGS ('dbx_business_glossary_term' = 'Payee State Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payee_state_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{2}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payee_state_code` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payee_state_code` SET TAGS ('dbx_pii_address' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payment_amount` SET TAGS ('dbx_business_glossary_term' = 'Payment Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payment_date` SET TAGS ('dbx_business_glossary_term' = 'Payment Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payment_memo` SET TAGS ('dbx_business_glossary_term' = 'Payment Memo');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payment_method` SET TAGS ('dbx_business_glossary_term' = 'Payment Method');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payment_method` SET TAGS ('dbx_value_regex' = 'check|ach|wire|eft|direct_deposit|paypal');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payment_number` SET TAGS ('dbx_business_glossary_term' = 'Payment Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payment_status` SET TAGS ('dbx_business_glossary_term' = 'Payment Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `payment_status` SET TAGS ('dbx_value_regex' = 'pending|approved|issued|cleared|cancelled|voided');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `reconciliation_date` SET TAGS ('dbx_business_glossary_term' = 'Reconciliation Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `reconciliation_status` SET TAGS ('dbx_business_glossary_term' = 'Reconciliation Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `reconciliation_status` SET TAGS ('dbx_value_regex' = 'unreconciled|reconciled|disputed|adjusted');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `reissue_flag` SET TAGS ('dbx_business_glossary_term' = 'Reissue Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `source_system_reference_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Reference Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `tax_year` SET TAGS ('dbx_business_glossary_term' = 'Tax Year');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `void_date` SET TAGS ('dbx_business_glossary_term' = 'Void Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `void_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Void Reason Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `wire_reference_number` SET TAGS ('dbx_business_glossary_term' = 'Wire Reference Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`commission_payment` ALTER COLUMN `withholding_amount` SET TAGS ('dbx_business_glossary_term' = 'Withholding Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` SET TAGS ('dbx_data_type' = 'transactional_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` SET TAGS ('dbx_subdomain' = 'compensation_processing');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `contingent_commission_id` SET TAGS ('dbx_business_glossary_term' = 'Contingent Commission Agreement ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `agency_id` SET TAGS ('dbx_business_glossary_term' = 'Agency ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `premium_accounting_period_id` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `actual_combined_ratio` SET TAGS ('dbx_business_glossary_term' = 'Actual Combined Ratio (CR)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `actual_growth_rate` SET TAGS ('dbx_business_glossary_term' = 'Actual Growth Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `actual_loss_ratio` SET TAGS ('dbx_business_glossary_term' = 'Actual Loss Ratio (LR)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `actual_retention_rate` SET TAGS ('dbx_business_glossary_term' = 'Actual Retention Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `agreement_name` SET TAGS ('dbx_business_glossary_term' = 'Agreement Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `agreement_name` SET TAGS ('dbx_pii_category' = 'name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `agreement_number` SET TAGS ('dbx_business_glossary_term' = 'Agreement Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `agreement_status` SET TAGS ('dbx_business_glossary_term' = 'Agreement Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `agreement_status` SET TAGS ('dbx_value_regex' = 'draft|active|suspended|terminated|expired|pending_approval');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `agreement_type` SET TAGS ('dbx_business_glossary_term' = 'Agreement Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `agreement_type` SET TAGS ('dbx_value_regex' = 'profit_sharing|volume_bonus|loss_ratio_based|growth_incentive|retention_bonus|combined_ratio_based');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `approval_date` SET TAGS ('dbx_business_glossary_term' = 'Approval Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `approval_status` SET TAGS ('dbx_business_glossary_term' = 'Approval Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `approval_status` SET TAGS ('dbx_value_regex' = 'pending|approved|rejected|under_review');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `approved_by` SET TAGS ('dbx_business_glossary_term' = 'Approved By');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `calculation_basis` SET TAGS ('dbx_business_glossary_term' = 'Calculation Basis');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `calculation_basis` SET TAGS ('dbx_value_regex' = 'gwp|nwp|ep|policy_count|retention_rate|new_business_premium');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Commission Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `currency_code` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `currency_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `earned_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Earned Commission Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `last_modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Last Modified Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `maximum_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Maximum Commission Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `minimum_premium_threshold` SET TAGS ('dbx_business_glossary_term' = 'Minimum Premium Threshold');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `naic_company_code` SET TAGS ('dbx_business_glossary_term' = 'National Association of Insurance Commissioners (NAIC) Company Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `naic_company_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Agreement Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `outstanding_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Outstanding Commission Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `paid_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Paid Commission Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `performance_met_flag` SET TAGS ('dbx_business_glossary_term' = 'Performance Met Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `performance_period_end_date` SET TAGS ('dbx_business_glossary_term' = 'Performance Period End Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `performance_period_start_date` SET TAGS ('dbx_business_glossary_term' = 'Performance Period Start Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `settlement_date` SET TAGS ('dbx_business_glossary_term' = 'Settlement Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `settlement_frequency` SET TAGS ('dbx_business_glossary_term' = 'Settlement Frequency');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `settlement_frequency` SET TAGS ('dbx_value_regex' = 'annual|semi_annual|quarterly|monthly');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `source_system_reference_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Reference ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `target_combined_ratio` SET TAGS ('dbx_business_glossary_term' = 'Target Combined Ratio (CR)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `target_growth_rate` SET TAGS ('dbx_business_glossary_term' = 'Target Growth Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `target_loss_ratio` SET TAGS ('dbx_business_glossary_term' = 'Target Loss Ratio (LR)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `target_retention_rate` SET TAGS ('dbx_business_glossary_term' = 'Target Retention Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `termination_reason` SET TAGS ('dbx_business_glossary_term' = 'Termination Reason');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`contingent_commission` ALTER COLUMN `writing_company_code` SET TAGS ('dbx_business_glossary_term' = 'Writing Company Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` SET TAGS ('dbx_data_type' = 'association_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` SET TAGS ('dbx_subdomain' = 'agent_management');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `producers_producer_policy_id` SET TAGS ('dbx_business_glossary_term' = 'Producer Policy Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `agency_id` SET TAGS ('dbx_business_glossary_term' = 'Agency Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `commission_schedule_id` SET TAGS ('dbx_business_glossary_term' = 'Commission Schedule Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `distribution_channel_id` SET TAGS ('dbx_business_glossary_term' = 'Distribution Channel Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `current_policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `prior_producer_policy_id` SET TAGS ('dbx_business_glossary_term' = 'Prior Producer Policy Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `superseded_by_producer_policy_producers_producer_policy_id` SET TAGS ('dbx_business_glossary_term' = 'Superseded By Producer Policy Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `appointment_verification_date` SET TAGS ('dbx_business_glossary_term' = 'Appointment Verification Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `appointment_verified_flag` SET TAGS ('dbx_business_glossary_term' = 'Appointment Verified Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `assignment_notes` SET TAGS ('dbx_business_glossary_term' = 'Producer Assignment Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `assignment_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Producer Assignment Reason Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `assignment_source_code` SET TAGS ('dbx_business_glossary_term' = 'Producer Assignment Source Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `assignment_source_code` SET TAGS ('dbx_value_regex' = 'policy_issuance|bor_change|endorsement|renewal|manual_adjustment');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `assignment_status` SET TAGS ('dbx_business_glossary_term' = 'Producer Assignment Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `assignment_status` SET TAGS ('dbx_value_regex' = 'active|inactive|pending|terminated|suspended');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `binding_authority_flag` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `binding_authority_limit` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Limit Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `commission_basis_code` SET TAGS ('dbx_business_glossary_term' = 'Commission Basis Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `commission_basis_code` SET TAGS ('dbx_value_regex' = 'written_premium|earned_premium|net_premium|gross_premium|policy_fee');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Commission Rate Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `commission_split_percentage` SET TAGS ('dbx_business_glossary_term' = 'Commission Split Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `contingent_commission_eligible_flag` SET TAGS ('dbx_business_glossary_term' = 'Contingent Commission Eligible Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Producer Assignment Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Producer Assignment Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `last_modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Last Modified Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `naic_company_code` SET TAGS ('dbx_business_glossary_term' = 'National Association of Insurance Commissioners (NAIC) Company Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `naic_company_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `npn` SET TAGS ('dbx_business_glossary_term' = 'National Producer Number (NPN)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `npn` SET TAGS ('dbx_value_regex' = '^[0-9]{10}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `override_commission_flag` SET TAGS ('dbx_business_glossary_term' = 'Override Commission Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `override_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Override Reason Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `policy_state_code` SET TAGS ('dbx_business_glossary_term' = 'Policy State Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `policy_state_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{2}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `policy_state_code` SET TAGS ('dbx_pii_sensitive' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `policy_transaction_type` SET TAGS ('dbx_business_glossary_term' = 'Policy Transaction Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `policy_transaction_type` SET TAGS ('dbx_value_regex' = 'new_business|renewal|endorsement|cancellation|reinstatement');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `primary_producer_flag` SET TAGS ('dbx_business_glossary_term' = 'Primary Producer Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `producer_license_number` SET TAGS ('dbx_business_glossary_term' = 'Producer License Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `producer_license_number` SET TAGS ('dbx_pii_category' = 'government_id');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `producer_license_state_code` SET TAGS ('dbx_business_glossary_term' = 'Producer License State Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `producer_license_state_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{2}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `producer_license_state_code` SET TAGS ('dbx_pii_category' = 'government_id');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `producer_role_code` SET TAGS ('dbx_business_glossary_term' = 'Producer Role Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `producer_role_code` SET TAGS ('dbx_value_regex' = 'writing_agent|servicing_agent|broker_of_record|sub_producer|referring_agent|MGA');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `producer_role_description` SET TAGS ('dbx_business_glossary_term' = 'Producer Role Description');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `servicing_producer_flag` SET TAGS ('dbx_business_glossary_term' = 'Servicing Producer Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `source_system_reference_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Reference Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `termination_date` SET TAGS ('dbx_business_glossary_term' = 'Producer Assignment Termination Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `termination_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Producer Assignment Termination Reason Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producers_producer_policy` ALTER COLUMN `writing_company_code` SET TAGS ('dbx_business_glossary_term' = 'Writing Company Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` SET TAGS ('dbx_data_type' = 'master_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` SET TAGS ('dbx_subdomain' = 'agent_management');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `underwriting_authority_id` SET TAGS ('dbx_business_glossary_term' = 'Underwriting Authority Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `agency_id` SET TAGS ('dbx_business_glossary_term' = 'Agency Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `cat_zone_id` SET TAGS ('dbx_business_glossary_term' = 'Cat Zone Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `catastrophegeography_peril_id` SET TAGS ('dbx_business_glossary_term' = 'Peril Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `coverage_type_id` SET TAGS ('dbx_business_glossary_term' = 'Coverage Type Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `approval_date` SET TAGS ('dbx_business_glossary_term' = 'Authority Approval Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `approved_by` SET TAGS ('dbx_business_glossary_term' = 'Approved By');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `audit_frequency` SET TAGS ('dbx_business_glossary_term' = 'Audit Frequency');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `audit_frequency` SET TAGS ('dbx_value_regex' = 'monthly|quarterly|semi_annual|annual|per_policy');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `audit_required` SET TAGS ('dbx_business_glossary_term' = 'Audit Required Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `authority_status` SET TAGS ('dbx_business_glossary_term' = 'Authority Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `authority_status` SET TAGS ('dbx_value_regex' = 'active|suspended|revoked|expired|pending|inactive');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `authority_type` SET TAGS ('dbx_business_glossary_term' = 'Authority Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `authority_type` SET TAGS ('dbx_value_regex' = 'binding|quoting|referral|limited_binding|full_binding|conditional');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `blanket_coverage_allowed` SET TAGS ('dbx_business_glossary_term' = 'Blanket Coverage Allowed Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `cancellation_allowed` SET TAGS ('dbx_business_glossary_term' = 'Cancellation (CAN) Allowed Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `coinsurance_allowed` SET TAGS ('dbx_business_glossary_term' = 'Coinsurance Allowed Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `construction_restrictions` SET TAGS ('dbx_business_glossary_term' = 'Construction Restrictions');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `currency_code` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `currency_code` SET TAGS ('dbx_value_regex' = 'USD|CAD|EUR|GBP|AUD|MXN');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `deductible_max` SET TAGS ('dbx_business_glossary_term' = 'Maximum Deductible');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `deductible_min` SET TAGS ('dbx_business_glossary_term' = 'Minimum Deductible');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Authority Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `eligible_states` SET TAGS ('dbx_business_glossary_term' = 'Eligible States');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `endorsement_allowed` SET TAGS ('dbx_business_glossary_term' = 'Endorsement (END) Allowed Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `excluded_states` SET TAGS ('dbx_business_glossary_term' = 'Excluded States');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Authority Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `last_modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Last Modified Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `limit_tier` SET TAGS ('dbx_business_glossary_term' = 'Limit Tier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `limit_tier` SET TAGS ('dbx_value_regex' = 'tier_1|tier_2|tier_3|tier_4|unlimited');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `max_premium_threshold` SET TAGS ('dbx_business_glossary_term' = 'Maximum Premium Threshold');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `max_single_risk_limit` SET TAGS ('dbx_business_glossary_term' = 'Maximum Single Risk Limit');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `max_tiv` SET TAGS ('dbx_business_glossary_term' = 'Maximum Total Insured Value (TIV)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `min_premium_threshold` SET TAGS ('dbx_business_glossary_term' = 'Minimum Premium Threshold');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `new_business_allowed` SET TAGS ('dbx_business_glossary_term' = 'New Business (NB) Allowed Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Authority Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `occupancy_restrictions` SET TAGS ('dbx_business_glossary_term' = 'Occupancy Restrictions');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `protection_class_max` SET TAGS ('dbx_business_glossary_term' = 'Maximum Protection Class');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `protection_class_min` SET TAGS ('dbx_business_glossary_term' = 'Minimum Protection Class');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `referral_criteria` SET TAGS ('dbx_business_glossary_term' = 'Referral Criteria');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `reinstatement_allowed` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement (RI) Allowed Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `renewal_allowed` SET TAGS ('dbx_business_glossary_term' = 'Renewal (REN) Allowed Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `renewal_eligible` SET TAGS ('dbx_business_glossary_term' = 'Renewal Eligible Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `revocation_date` SET TAGS ('dbx_business_glossary_term' = 'Authority Revocation Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `revocation_reason` SET TAGS ('dbx_business_glossary_term' = 'Revocation Reason');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `risk_class_restrictions` SET TAGS ('dbx_business_glossary_term' = 'Risk Class Restrictions');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`underwriting_authority` ALTER COLUMN `source_system_reference_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Reference Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` SET TAGS ('dbx_data_type' = 'transactional_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` SET TAGS ('dbx_subdomain' = 'compensation_processing');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `producer_performance_id` SET TAGS ('dbx_business_glossary_term' = 'Producer Performance ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `agency_id` SET TAGS ('dbx_business_glossary_term' = 'Agency ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `premium_accounting_period_id` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `producer_tier_id` SET TAGS ('dbx_business_glossary_term' = 'Producer Tier Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Evaluator ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `approval_date` SET TAGS ('dbx_business_glossary_term' = 'Approval Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `average_claim_severity` SET TAGS ('dbx_business_glossary_term' = 'Average Claim Severity');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `average_policy_premium` SET TAGS ('dbx_business_glossary_term' = 'Average Written Premium (AWP)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `cancellation_count` SET TAGS ('dbx_business_glossary_term' = 'Cancellation (CAN) Count');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `claim_count` SET TAGS ('dbx_business_glossary_term' = 'Claim Count');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `claim_frequency` SET TAGS ('dbx_business_glossary_term' = 'Claim Frequency');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `combined_ratio` SET TAGS ('dbx_business_glossary_term' = 'Combined Ratio (CR)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `commission_earned_amount` SET TAGS ('dbx_business_glossary_term' = 'Commission Earned Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `compliance_violations_count` SET TAGS ('dbx_business_glossary_term' = 'Compliance Violations Count');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `contingent_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Contingent Commission Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `currency_code` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `currency_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `customer_complaint_count` SET TAGS ('dbx_business_glossary_term' = 'Customer Complaint Count');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `dwp_amount` SET TAGS ('dbx_business_glossary_term' = 'Direct Premium Written (DPW) Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `earned_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Earned Premium (EP) Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `endorsement_count` SET TAGS ('dbx_business_glossary_term' = 'Endorsement (END) Count');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `eo_claim_count` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Claim Count');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `evaluation_date` SET TAGS ('dbx_business_glossary_term' = 'Evaluation Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `evaluation_period_end_date` SET TAGS ('dbx_business_glossary_term' = 'Evaluation Period End Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `evaluation_period_start_date` SET TAGS ('dbx_business_glossary_term' = 'Evaluation Period Start Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `evaluation_status` SET TAGS ('dbx_business_glossary_term' = 'Evaluation Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `evaluation_status` SET TAGS ('dbx_value_regex' = 'draft|final|under_review|approved|appealed');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `expense_ratio` SET TAGS ('dbx_business_glossary_term' = 'Expense Ratio (ER)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `gwp_amount` SET TAGS ('dbx_business_glossary_term' = 'Gross Written Premium (GWP) Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `incurred_losses_amount` SET TAGS ('dbx_business_glossary_term' = 'Incurred Losses Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `lob_mix_score` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Mix Score');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `loss_ratio` SET TAGS ('dbx_business_glossary_term' = 'Loss Ratio (LR)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `new_business_count` SET TAGS ('dbx_business_glossary_term' = 'New Business (NB) Count');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `npn` SET TAGS ('dbx_business_glossary_term' = 'National Producer Number (NPN)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `npn` SET TAGS ('dbx_value_regex' = '^[0-9]{10}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `nwp_amount` SET TAGS ('dbx_business_glossary_term' = 'Net Written Premium (NWP) Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `paid_losses_amount` SET TAGS ('dbx_business_glossary_term' = 'Paid Losses Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `performance_score` SET TAGS ('dbx_business_glossary_term' = 'Performance Score');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `period_type` SET TAGS ('dbx_business_glossary_term' = 'Period Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `period_type` SET TAGS ('dbx_value_regex' = 'monthly|quarterly|semi-annual|annual');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `pif_count` SET TAGS ('dbx_business_glossary_term' = 'Policies In Force (PIF) Count');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `quote_count` SET TAGS ('dbx_business_glossary_term' = 'Quote Count');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `quote_to_bind_ratio` SET TAGS ('dbx_business_glossary_term' = 'Quote to Bind Ratio');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `rank_within_agency` SET TAGS ('dbx_business_glossary_term' = 'Rank Within Agency');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `rank_within_region` SET TAGS ('dbx_business_glossary_term' = 'Rank Within Region');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `renewal_count` SET TAGS ('dbx_business_glossary_term' = 'Renewal (REN) Count');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `retention_rate` SET TAGS ('dbx_business_glossary_term' = 'Retention Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_performance` ALTER COLUMN `tier_effective_date` SET TAGS ('dbx_business_glossary_term' = 'Tier Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` SET TAGS ('dbx_data_type' = 'reference_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` SET TAGS ('dbx_subdomain' = 'agent_management');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `producer_tier_id` SET TAGS ('dbx_business_glossary_term' = 'Producer Tier Identifier (ID)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `approval_authority_level` SET TAGS ('dbx_business_glossary_term' = 'Approval Authority Level');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `approval_authority_level` SET TAGS ('dbx_value_regex' = 'manager|director|vp|svp|executive');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `approval_required_flag` SET TAGS ('dbx_business_glossary_term' = 'Approval Required Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `auto_downgrade_eligible` SET TAGS ('dbx_business_glossary_term' = 'Auto Downgrade Eligible Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `auto_upgrade_eligible` SET TAGS ('dbx_business_glossary_term' = 'Auto Upgrade Eligible Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `binding_authority_flag` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `binding_authority_limit` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Limit');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `bonus_eligible` SET TAGS ('dbx_business_glossary_term' = 'Bonus Eligible Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `commission_override_rate` SET TAGS ('dbx_business_glossary_term' = 'Commission Override Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `contingent_commission_eligible` SET TAGS ('dbx_business_glossary_term' = 'Contingent Commission Eligible Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `created_by_user` SET TAGS ('dbx_business_glossary_term' = 'Created By User');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `dedicated_support_flag` SET TAGS ('dbx_business_glossary_term' = 'Dedicated Support Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `evaluation_period_months` SET TAGS ('dbx_business_glossary_term' = 'Evaluation Period Months');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `lob_authorizations` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Authorizations');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `lob_restrictions` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Restrictions');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `marketing_support_level` SET TAGS ('dbx_business_glossary_term' = 'Marketing Support Level');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `marketing_support_level` SET TAGS ('dbx_value_regex' = 'basic|standard|premium|platinum');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `maximum_loss_ratio_threshold` SET TAGS ('dbx_business_glossary_term' = 'Maximum Loss Ratio (LR) Threshold');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `minimum_gwp_threshold` SET TAGS ('dbx_business_glossary_term' = 'Minimum Gross Written Premium (GWP) Threshold');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `minimum_policy_count_threshold` SET TAGS ('dbx_business_glossary_term' = 'Minimum Policy Count Threshold');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `minimum_retention_rate_threshold` SET TAGS ('dbx_business_glossary_term' = 'Minimum Retention Rate Threshold');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `modified_by_user` SET TAGS ('dbx_business_glossary_term' = 'Modified By User');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Modified Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `priority_service_flag` SET TAGS ('dbx_business_glossary_term' = 'Priority Service Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `probation_period_months` SET TAGS ('dbx_business_glossary_term' = 'Probation Period Months');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `special_program_access` SET TAGS ('dbx_business_glossary_term' = 'Special Program Access');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `technology_access_level` SET TAGS ('dbx_business_glossary_term' = 'Technology Access Level');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `technology_access_level` SET TAGS ('dbx_value_regex' = 'basic|standard|advanced|premium');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `territory_restrictions` SET TAGS ('dbx_business_glossary_term' = 'Territory Restrictions');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `tier_code` SET TAGS ('dbx_business_glossary_term' = 'Tier Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `tier_code` SET TAGS ('dbx_value_regex' = '^[A-Z0-9_]{2,10}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `tier_description` SET TAGS ('dbx_business_glossary_term' = 'Tier Description');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `tier_name` SET TAGS ('dbx_business_glossary_term' = 'Tier Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `tier_name` SET TAGS ('dbx_pii_category' = 'name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `tier_rank` SET TAGS ('dbx_business_glossary_term' = 'Tier Rank');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `tier_status` SET TAGS ('dbx_business_glossary_term' = 'Tier Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `tier_status` SET TAGS ('dbx_value_regex' = 'active|inactive|suspended|retired');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `training_access_level` SET TAGS ('dbx_business_glossary_term' = 'Training Access Level');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `training_access_level` SET TAGS ('dbx_value_regex' = 'basic|standard|advanced|executive');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `underwriting_authority_level` SET TAGS ('dbx_business_glossary_term' = 'Underwriting Authority Level');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_tier` ALTER COLUMN `underwriting_authority_level` SET TAGS ('dbx_value_regex' = 'none|limited|standard|enhanced|full');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` SET TAGS ('dbx_data_type' = 'master_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` SET TAGS ('dbx_subdomain' = 'agent_management');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `errors_omissions_policy_id` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `agency_id` SET TAGS ('dbx_business_glossary_term' = 'Agency ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `aggregate_limit` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Aggregate Limit');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `appointment_requirement_met` SET TAGS ('dbx_business_glossary_term' = 'Appointment Requirement Met Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `cancellation_date` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Cancellation Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `cancellation_reason` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Cancellation Reason');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `carrier_naic_code` SET TAGS ('dbx_business_glossary_term' = 'National Association of Insurance Commissioners (NAIC) Carrier Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `carrier_naic_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `carrier_name` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Carrier Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `carrier_name` SET TAGS ('dbx_pii_category' = 'name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `certificate_document_reference` SET TAGS ('dbx_business_glossary_term' = 'Certificate of Insurance (CoI) Document Reference');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `certificate_of_insurance_received` SET TAGS ('dbx_business_glossary_term' = 'Certificate of Insurance (CoI) Received Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `certificate_received_date` SET TAGS ('dbx_business_glossary_term' = 'Certificate of Insurance (CoI) Received Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `claims_made_or_occurrence` SET TAGS ('dbx_business_glossary_term' = 'Claims Made or Occurrence Basis');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `claims_made_or_occurrence` SET TAGS ('dbx_value_regex' = 'claims_made|occurrence');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `compliance_verification_date` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Compliance Verification Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `compliance_verified` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Compliance Verified Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `coverage_limit` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Coverage Limit');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `coverage_territory` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Coverage Territory');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `deductible_amount` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Deductible Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `exclusions` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Exclusions');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `extended_reporting_period` SET TAGS ('dbx_business_glossary_term' = 'Extended Reporting Period (ERP)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `extended_reporting_period` SET TAGS ('dbx_value_regex' = 'none|12_months|24_months|36_months|unlimited');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `lines_of_business_covered` SET TAGS ('dbx_business_glossary_term' = 'Lines of Business (LOB) Covered');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `payment_frequency` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Payment Frequency');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `payment_frequency` SET TAGS ('dbx_value_regex' = 'annual|semi_annual|quarterly|monthly');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `per_claim_limit` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Per Claim Limit');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `policy_form_number` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Form Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `policy_number` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `policy_status` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `policy_status` SET TAGS ('dbx_value_regex' = 'active|expired|cancelled|pending|suspended|lapsed');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `policy_type` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `policy_type` SET TAGS ('dbx_value_regex' = 'individual|agency|corporate|group');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `prior_acts_coverage` SET TAGS ('dbx_business_glossary_term' = 'Prior Acts Coverage Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `record_created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `record_updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `renewal_date` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Policy Renewal Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `renewal_notice_sent_date` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Renewal Notice Sent Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `retroactive_date` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Retroactive Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `source_system_reference_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Reference ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `state_filing_confirmation_number` SET TAGS ('dbx_business_glossary_term' = 'State Filing Confirmation Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `state_filing_confirmation_number` SET TAGS ('dbx_pii_sensitive' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `state_filing_date` SET TAGS ('dbx_business_glossary_term' = 'State Filing Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `state_filing_date` SET TAGS ('dbx_pii_sensitive' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `state_filing_required` SET TAGS ('dbx_business_glossary_term' = 'State Filing Required Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `state_filing_required` SET TAGS ('dbx_pii_sensitive' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`errors_omissions_policy` ALTER COLUMN `verified_by` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Verified By');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` SET TAGS ('dbx_data_type' = 'transactional_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` SET TAGS ('dbx_subdomain' = 'agent_management');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `producer_compliance_event_id` SET TAGS ('dbx_business_glossary_term' = 'Producer Compliance Event ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `agency_id` SET TAGS ('dbx_business_glossary_term' = 'Agency ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `party_id` SET TAGS ('dbx_business_glossary_term' = 'Party ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `producer_license_id` SET TAGS ('dbx_business_glossary_term' = 'Producer License Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `appeal_filed` SET TAGS ('dbx_business_glossary_term' = 'Appeal Filed Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `appeal_resolution` SET TAGS ('dbx_business_glossary_term' = 'Appeal Resolution Outcome');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `appeal_resolution` SET TAGS ('dbx_value_regex' = 'UPHELD|OVERTURNED|MODIFIED|WITHDRAWN|PENDING');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `appeal_resolution_date` SET TAGS ('dbx_business_glossary_term' = 'Appeal Resolution Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `appointment_eligibility_flag` SET TAGS ('dbx_business_glossary_term' = 'Appointment Eligibility Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `background_check_result` SET TAGS ('dbx_business_glossary_term' = 'Background Check Result');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `background_check_result` SET TAGS ('dbx_value_regex' = 'CLEAR|ADVERSE|PENDING|INCONCLUSIVE');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `background_check_result` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `background_check_vendor` SET TAGS ('dbx_business_glossary_term' = 'Background Check Vendor Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `ce_course_code` SET TAGS ('dbx_business_glossary_term' = 'Continuing Education (CE) Course ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `ce_course_name` SET TAGS ('dbx_business_glossary_term' = 'Continuing Education (CE) Course Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `ce_course_name` SET TAGS ('dbx_pii_category' = 'name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `ce_credit_hours` SET TAGS ('dbx_business_glossary_term' = 'Continuing Education (CE) Credit Hours');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `ce_provider_name` SET TAGS ('dbx_business_glossary_term' = 'Continuing Education (CE) Provider Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `ce_provider_name` SET TAGS ('dbx_pii_category' = 'name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `doi_action_effective_date` SET TAGS ('dbx_business_glossary_term' = 'Department of Insurance (DOI) Action Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `doi_action_expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Department of Insurance (DOI) Action Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `doi_action_number` SET TAGS ('dbx_business_glossary_term' = 'Department of Insurance (DOI) Action Reference Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `doi_action_type` SET TAGS ('dbx_business_glossary_term' = 'Department of Insurance (DOI) Action Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `doi_action_type` SET TAGS ('dbx_value_regex' = 'SUSPENSION|REVOCATION|FINE|CEASE_AND_DESIST|PROBATION|WARNING');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `event_date` SET TAGS ('dbx_business_glossary_term' = 'Compliance Event Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `event_notes` SET TAGS ('dbx_business_glossary_term' = 'Compliance Event Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `event_status` SET TAGS ('dbx_business_glossary_term' = 'Compliance Event Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `event_status` SET TAGS ('dbx_value_regex' = 'PENDING|IN_PROGRESS|COMPLETED|FAILED|WAIVED|APPEALED');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `event_subtype` SET TAGS ('dbx_business_glossary_term' = 'Compliance Event Subtype');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `event_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Compliance Event Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `event_type` SET TAGS ('dbx_business_glossary_term' = 'Compliance Event Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `event_type` SET TAGS ('dbx_value_regex' = 'LICENSE_RENEWAL|CE_COMPLETION|BACKGROUND_CHECK|DOI_ACTION|TERMINATION_FOR_CAUSE|APPOINTMENT_CHANGE');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `fine_amount` SET TAGS ('dbx_business_glossary_term' = 'Regulatory Fine Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `fine_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `license_expiration_date` SET TAGS ('dbx_business_glossary_term' = 'License Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `license_renewal_date` SET TAGS ('dbx_business_glossary_term' = 'License Renewal Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `nipr_transaction_number` SET TAGS ('dbx_business_glossary_term' = 'National Insurance Producer Registry (NIPR) Transaction ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `npn` SET TAGS ('dbx_business_glossary_term' = 'National Producer Number (NPN)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `npn` SET TAGS ('dbx_value_regex' = '^[0-9]{1,10}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `regulatory_reported_date` SET TAGS ('dbx_business_glossary_term' = 'Regulatory Reported Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `regulatory_reporting_required` SET TAGS ('dbx_business_glossary_term' = 'Regulatory Reporting Required Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `reported_by` SET TAGS ('dbx_business_glossary_term' = 'Reported By Source');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `reported_by` SET TAGS ('dbx_value_regex' = 'PRODUCER|AGENCY|DOI|NIPR|INTERNAL_AUDIT|BACKGROUND_VENDOR');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `reporting_state_code` SET TAGS ('dbx_business_glossary_term' = 'Reporting State Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `reporting_state_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{2}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `reporting_state_code` SET TAGS ('dbx_pii_category' = 'government_id');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `source_event_reference` SET TAGS ('dbx_business_glossary_term' = 'Source System Event Reference');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `source_system_code` SET TAGS ('dbx_value_regex' = 'PAS|AGENCY_MGMT|NIPR|DOI_PORTAL|BACKGROUND_VENDOR|MANUAL');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `termination_date` SET TAGS ('dbx_business_glossary_term' = 'Termination Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `termination_reason` SET TAGS ('dbx_business_glossary_term' = 'Termination for Cause Reason');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_compliance_event` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` SET TAGS ('dbx_data_type' = 'transactional_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` SET TAGS ('dbx_subdomain' = 'agent_management');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `broker_of_record_change_id` SET TAGS ('dbx_business_glossary_term' = 'Broker of Record (BOR) Change ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `broker_approved_by_party_id` SET TAGS ('dbx_business_glossary_term' = 'Approved By Party ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `broker_incoming_agency_id` SET TAGS ('dbx_business_glossary_term' = 'Incoming Agency ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `broker_outgoing_agency_id` SET TAGS ('dbx_business_glossary_term' = 'Outgoing Agency ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `broker_outgoing_producer_producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Outgoing Producer ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `broker_producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Incoming Producer ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `broker_requested_by_party_id` SET TAGS ('dbx_business_glossary_term' = 'Requested By Party ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `distribution_channel_id` SET TAGS ('dbx_business_glossary_term' = 'Distribution Channel Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `superseded_by_bor_change_id` SET TAGS ('dbx_business_glossary_term' = 'Superseded By BOR Change ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `approval_date` SET TAGS ('dbx_business_glossary_term' = 'BOR Change Approval Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `bor_letter_received_date` SET TAGS ('dbx_business_glossary_term' = 'BOR Letter Received Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `change_reason_code` SET TAGS ('dbx_business_glossary_term' = 'BOR Change Reason Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `change_reason_code` SET TAGS ('dbx_value_regex' = 'INSURED_REQUEST|PRODUCER_MERGER|PRODUCER_TERMINATION|SERVICE_DISSATISFACTION|AGENCY_TRANSFER|OTHER');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `change_reason_description` SET TAGS ('dbx_business_glossary_term' = 'BOR Change Reason Description');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `change_status` SET TAGS ('dbx_business_glossary_term' = 'BOR Change Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `change_status` SET TAGS ('dbx_value_regex' = 'Pending|Approved|Rejected|Cancelled|Superseded');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `commission_split_basis` SET TAGS ('dbx_business_glossary_term' = 'Commission Split Basis');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `commission_split_basis` SET TAGS ('dbx_value_regex' = 'PRO_RATA|SHORT_RATE|FLAT|NEGOTIATED');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `commission_split_incoming_pct` SET TAGS ('dbx_business_glossary_term' = 'Incoming Producer Commission Split Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `commission_split_incoming_pct` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `commission_split_outgoing_pct` SET TAGS ('dbx_business_glossary_term' = 'Outgoing Producer Commission Split Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `commission_split_outgoing_pct` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `consent_document_reference` SET TAGS ('dbx_business_glossary_term' = 'Insured Consent Document Reference');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `currency_code` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `currency_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'BOR Change Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `incoming_commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Incoming Producer Commission Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `incoming_commission_rate` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `incoming_producer_appointment_verified` SET TAGS ('dbx_business_glossary_term' = 'Incoming Producer Appointment Verified Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `incoming_producer_license_number` SET TAGS ('dbx_business_glossary_term' = 'Incoming Producer License Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `incoming_producer_license_number` SET TAGS ('dbx_pii_category' = 'government_id');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `incoming_producer_npn` SET TAGS ('dbx_business_glossary_term' = 'Incoming Producer National Producer Number (NPN)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `incoming_producer_npn` SET TAGS ('dbx_value_regex' = '^[0-9]{1,10}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `insured_consent_date` SET TAGS ('dbx_business_glossary_term' = 'Insured Consent Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `insured_consent_method` SET TAGS ('dbx_business_glossary_term' = 'Insured Consent Method');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `insured_consent_method` SET TAGS ('dbx_value_regex' = 'WRITTEN_LETTER|ELECTRONIC_SIGNATURE|ACORD_FORM|VERBAL_RECORDED|PORTAL');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `mid_term_change_flag` SET TAGS ('dbx_business_glossary_term' = 'Mid-Term BOR Change Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'BOR Change Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `outgoing_commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Outgoing Producer Commission Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `outgoing_commission_rate` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `outgoing_producer_npn` SET TAGS ('dbx_business_glossary_term' = 'Outgoing Producer National Producer Number (NPN)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `outgoing_producer_npn` SET TAGS ('dbx_value_regex' = '^[0-9]{1,10}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `policy_state` SET TAGS ('dbx_business_glossary_term' = 'Policy State');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `policy_state` SET TAGS ('dbx_value_regex' = '^[A-Z]{2}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `policy_state` SET TAGS ('dbx_pii_sensitive' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `policy_term_expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Policy Term Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `policy_term_start_date` SET TAGS ('dbx_business_glossary_term' = 'Policy Term Start Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `rejection_date` SET TAGS ('dbx_business_glossary_term' = 'BOR Change Rejection Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `rejection_reason_code` SET TAGS ('dbx_business_glossary_term' = 'BOR Change Rejection Reason Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `rejection_reason_code` SET TAGS ('dbx_value_regex' = 'NO_INSURED_CONSENT|PRODUCER_NOT_APPOINTED|DUPLICATE_REQUEST|POLICY_CANCELLED|COMPLIANCE_HOLD');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `renewal_bor_flag` SET TAGS ('dbx_business_glossary_term' = 'Renewal BOR Change Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `request_date` SET TAGS ('dbx_business_glossary_term' = 'BOR Change Request Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `source_system_code` SET TAGS ('dbx_value_regex' = 'PAS|AGENCY_MGMT|MANUAL|PORTAL');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `source_system_reference_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Reference ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `written_premium_at_change` SET TAGS ('dbx_business_glossary_term' = 'Written Premium (WP) at BOR Change');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`broker_of_record_change` ALTER COLUMN `written_premium_at_change` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_coverage_appointment` SET TAGS ('dbx_data_type' = 'association_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_coverage_appointment` SET TAGS ('dbx_subdomain' = 'agent_management');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_coverage_appointment` SET TAGS ('dbx_association_edges' = 'coverage.coverage_type,producers.agency');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_coverage_appointment` ALTER COLUMN `agency_coverage_appointment_id` SET TAGS ('dbx_business_glossary_term' = 'Agency Coverage Appointment - Agency Coverage Appointment Id');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_coverage_appointment` ALTER COLUMN `agency_id` SET TAGS ('dbx_business_glossary_term' = 'Agency Coverage Appointment - Agency Id');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_coverage_appointment` ALTER COLUMN `coverage_type_id` SET TAGS ('dbx_business_glossary_term' = 'Agency Coverage Appointment - Coverage Type Id');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_coverage_appointment` ALTER COLUMN `appointment_status` SET TAGS ('dbx_business_glossary_term' = 'Agency Coverage Appointment - Appointment Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_coverage_appointment` ALTER COLUMN `binding_authority_flag` SET TAGS ('dbx_business_glossary_term' = 'Agency Coverage Appointment - Binding Authority Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_coverage_appointment` ALTER COLUMN `commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Agency Coverage Appointment - Commission Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_coverage_appointment` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Agency Coverage Appointment - Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_coverage_appointment` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Agency Coverage Appointment - Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_coverage_appointment` ALTER COLUMN `max_single_risk_limit` SET TAGS ('dbx_business_glossary_term' = 'Agency Coverage Appointment - Max Single Risk Limit');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`agency_coverage_appointment` ALTER COLUMN `termination_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Agency Coverage Appointment - Termination Reason Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_agency_appointment` SET TAGS ('dbx_data_type' = 'association_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_agency_appointment` SET TAGS ('dbx_subdomain' = 'agent_management');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_agency_appointment` SET TAGS ('dbx_association_edges' = 'producers.producers_producer,producers.agency');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_agency_appointment` ALTER COLUMN `producer_agency_appointment_id` SET TAGS ('dbx_business_glossary_term' = 'Producer Agency Appointment Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_agency_appointment` ALTER COLUMN `agency_id` SET TAGS ('dbx_business_glossary_term' = 'Producer Agency Appointment - Agency Id');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_agency_appointment` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Producer Agency Appointment - Producer Id');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_agency_appointment` ALTER COLUMN `binding_authority_flag` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Indicator');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_agency_appointment` ALTER COLUMN `binding_authority_limit` SET TAGS ('dbx_business_glossary_term' = 'Binding Authority Limit Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_agency_appointment` ALTER COLUMN `commission_split_percentage` SET TAGS ('dbx_business_glossary_term' = 'Commission Split Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_agency_appointment` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Creation Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_agency_appointment` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Appointment Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_agency_appointment` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Appointment Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_agency_appointment` ALTER COLUMN `last_modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Last Modified Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_agency_appointment` ALTER COLUMN `lob_authorizations` SET TAGS ('dbx_business_glossary_term' = 'Line of Business Authorizations');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_agency_appointment` ALTER COLUMN `primary_agency_flag` SET TAGS ('dbx_business_glossary_term' = 'Primary Agency Indicator');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_agency_appointment` ALTER COLUMN `relationship_status` SET TAGS ('dbx_business_glossary_term' = 'Appointment Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_agency_appointment` ALTER COLUMN `relationship_type` SET TAGS ('dbx_business_glossary_term' = 'Appointment Relationship Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`producers`.`producer_agency_appointment` ALTER COLUMN `termination_reason_code` SET TAGS ('dbx_business_glossary_term' = 'Appointment Termination Reason');

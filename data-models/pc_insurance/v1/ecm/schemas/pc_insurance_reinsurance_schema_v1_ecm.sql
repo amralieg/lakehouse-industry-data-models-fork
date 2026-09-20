@@ -1,2524 +1,1987 @@
 -- Schema for Domain: reinsurance | Business: Pc_Insurance | Version: v1_ecm
--- Generated on: 2026-09-18 02:30:18
+-- Generated on: 2026-09-20 14:33:32
 
 -- ========= DATABASE =========
-CREATE DATABASE IF NOT EXISTS `vibe_pc_insurance_v499`.`reinsurance` COMMENT 'Owns RI treaty and facultative (FAC) placements, cession and bordereaux processing, XOL, QS, CAT XL, and CAT Bond structures. Tracks retention/limit layers, ceded premium, ceded loss, and recoverable balances per treaty or certificate.';
+CREATE DATABASE IF NOT EXISTS `vibe_pc_insurance_blog_v499`.`reinsurance` COMMENT 'Manages risk transfer to reinsurers. Owns Reinsurance Agreement, Treaty (QS/XOL/SL/CAT XL), Facultative Agreement, Cession, and Reinsurance Recovery linked to ceded Policy and Claim.';
 
 -- ========= TABLES =========
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` (
-    `ri_treaty_id` BIGINT COMMENT 'Unique surrogate identifier for each reinsurance treaty or facultative certificate record in the Pc_Insurance reinsurance management system.',
-    `currency_id` BIGINT COMMENT 'ISO 4217 three-letter currency code in which treaty financial terms (retention, limit, premium) are denominated (e.g., USD, GBP, EUR).',
-    `lob_code_id` BIGINT COMMENT 'NAIC or internal Line of Business (LOB) code identifying the class of business covered by the treaty (e.g., GL, WC, APD, Property). [ENUM-REF-CANDIDATE: promote to reference product]',
-    `originating_agency_id` BIGINT COMMENT 'Foreign key linking to producers.agency. Business justification: Treaties track originating agency for premium volume aggregation and agency-level profit sharing arrangements.',
-    `producers_producer_id` BIGINT COMMENT 'Foreign key linking to producers.producers_producer. Business justification: Treaties specify originating producer codes for subject premium attribution in profit commission calculations and bordereaux reporting.',
-    `admitted_reinsurer_flag` BOOLEAN COMMENT 'Indicates whether the reinsurer is admitted (licensed) in the cedants domicile state. Admitted status affects credit for reinsurance on the NAIC statutory balance sheet.',
-    `aggregate_limit_amount` DECIMAL(18,2) COMMENT 'Maximum total amount the reinsurer will pay across all occurrences during the treaty period. Applies to aggregate stop-loss and CAT XL treaties with annual aggregate caps.',
-    `aggregate_retention_amount` DECIMAL(18,2) COMMENT 'Annual aggregate deductible or retention that must be exhausted before the aggregate reinsurance limit responds. Used in stop-loss and aggregate XOL structures.',
-    `am_best_rating` STRING COMMENT 'A.M. Best financial strength rating of the lead reinsurer at treaty binding (e.g., A++, A+, A, A-, B++). Used to assess reinsurer credit quality and counterparty risk.',
-    `bound_date` DATE COMMENT 'Date on which the reinsurance treaty was formally bound and agreed upon by all parties, marking the transition from negotiation to a legally binding contract.',
-    `broker_commission_pct` DECIMAL(7,4) COMMENT 'Percentage of ceded premium paid to the reinsurance broker as brokerage commission for placing the treaty. Expressed as a decimal (e.g., 0.0125 = 1.25%).',
-    `broker_name` STRING COMMENT 'Name of the reinsurance intermediary broker (e.g., Aon, Guy Carpenter, Willis Re) who placed the treaty on behalf of Pc_Insurance.',
-    `cancellation_date` DATE COMMENT 'Date on which the reinsurance treaty was cancelled prior to its natural expiry. Null if the treaty was not cancelled.',
-    `cat_event_definition` STRING COMMENT 'Contractual definition of a catastrophe event for CAT XL treaties, including the hours clause (e.g., 72-hour clause for windstorm) and minimum loss threshold for event aggregation.',
-    `ceded_premium_amount` DECIMAL(18,2) COMMENT 'Total reinsurance premium ceded to the reinsurer panel for the treaty period. Represents the cost of reinsurance protection and is reported on NAIC Schedule F.',
-    `ceding_commission_pct` DECIMAL(7,4) COMMENT 'Percentage of ceded premium returned to Pc_Insurance by the reinsurer as a ceding commission to offset acquisition and administrative costs. Applicable to QS treaties.',
-    `cession_percentage` DECIMAL(7,4) COMMENT 'Percentage of risk ceded to reinsurers under a Quota Share (QS) treaty. Expressed as a decimal (e.g., 0.3000 = 30%). Null for non-QS treaty types.',
-    `collateral_amount` DECIMAL(18,2) COMMENT 'Monetary value of collateral posted by the reinsurer to secure treaty obligations. Required for non-admitted reinsurers to qualify for credit for reinsurance under NAIC rules.',
-    `collateral_type` STRING COMMENT 'Type of collateral posted by the reinsurer to secure obligations, required for non-admitted reinsurers under NAIC credit-for-reinsurance rules: LOC, Trust Fund, Funds Withheld, or None.. Valid values are `LETTER_OF_CREDIT|TRUST_FUND|FUNDS_WITHHELD|NONE`',
-    `coverage_basis` STRING COMMENT 'Defines the trigger basis for reinsurance coverage: Losses Occurring (events during treaty period), Risks Attaching (policies incepting during period), or Claims Made.. Valid values are `LOSSES_OCCURRING|RISKS_ATTACHING|CLAIMS_MADE`',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when the reinsurance treaty record was first created in the reinsurance management system. Used for audit trail and data lineage tracking.',
-    `deposit_premium_amount` DECIMAL(18,2) COMMENT 'Provisional reinsurance premium paid at treaty inception, subject to adjustment at year-end based on actual subject premium earned. Common in proportional treaties.',
-    `effective_date` DATE COMMENT 'Date on which the reinsurance treaty or facultative certificate becomes effective and coverage obligations commence. Aligns with the treaty inception date in the RI system.',
-    `expiry_date` DATE COMMENT 'Date on which the reinsurance treaty or facultative certificate expires and coverage obligations cease. Null for evergreen or open-ended treaties.',
-    `funds_withheld_flag` BOOLEAN COMMENT 'Indicates whether Pc_Insurance withholds ceded premium funds from the reinsurer under a funds-withheld collateral arrangement, common with non-admitted reinsurers.',
-    `layer_number` BIGINT COMMENT 'Sequential layer number within a multi-layer XOL or CAT XL tower (e.g., Layer 1, Layer 2). Identifies the position of this treaty within the overall reinsurance program structure.',
-    `lead_reinsurer_name` STRING COMMENT 'Name of the lead reinsurer on the treaty panel who sets terms and conditions. The lead reinsurers agreement is typically required for claims and endorsements.',
-    `lead_reinsurer_share_pct` DECIMAL(7,4) COMMENT 'Percentage of the treaty limit subscribed by the lead reinsurer. Expressed as a decimal (e.g., 0.2500 = 25% line). Total panel shares must sum to 100%.',
-    `limit_amount` DECIMAL(18,2) COMMENT 'Maximum monetary amount the reinsurer is obligated to pay under this treaty layer. For XOL, this is the layer width above the retention/attachment point.',
-    `loss_corridor_lower_pct` DECIMAL(7,4) COMMENT 'Lower bound of the loss corridor (as a percentage of subject premium) within which Pc_Insurance retains losses in a stop-loss or aggregate structure. Null if not applicable.',
-    `loss_corridor_upper_pct` DECIMAL(7,4) COMMENT 'Upper bound of the loss corridor (as a percentage of subject premium) above which reinsurance coverage resumes in a stop-loss or aggregate structure. Null if not applicable.',
-    `minimum_premium_amount` DECIMAL(18,2) COMMENT 'Minimum reinsurance premium guaranteed to the reinsurer regardless of subject premium volume. Protects the reinsurer against low-volume treaty years.',
-    `naic_reinsurer_code` STRING COMMENT 'Five-digit NAIC company code assigned to the reinsurer, used for statutory Schedule F reporting and regulatory identification of the reinsurance counterparty.. Valid values are `^[0-9]{5}$`',
-    `perils_covered` STRING COMMENT 'Description of the perils or causes of loss covered by the treaty (e.g., All Natural Perils, Named Windstorm and Earthquake, Fire and Allied Lines). Free-text or coded.',
-    `placement_type` STRING COMMENT 'Indicates whether the reinsurance placement is a treaty (automatic, portfolio-wide) or facultative (FAC) certificate covering a specific risk or policy.. Valid values are `TREATY|FACULTATIVE`',
-    `pml_amount` DECIMAL(18,2) COMMENT 'Probable Maximum Loss (PML) estimate for the subject portfolio covered by this treaty, used to size the reinsurance limit and assess adequacy of protection.',
-    `profit_commission_pct` DECIMAL(7,4) COMMENT 'Percentage of reinsurer profit returned to Pc_Insurance as a profit commission when the treaty loss ratio falls below a defined threshold. Incentivizes underwriting quality.',
-    `profit_commission_threshold_pct` DECIMAL(7,4) COMMENT 'Loss ratio threshold below which the profit commission mechanism is triggered. Expressed as a decimal (e.g., 0.6500 = 65% loss ratio). Null if no profit commission applies.',
-    `program_name` STRING COMMENT 'Name of the overarching reinsurance program to which this treaty layer belongs (e.g., Property CAT Program 2024). Groups related layers for program-level reporting.',
-    `rate_on_line_pct` DECIMAL(7,4) COMMENT 'Rate on Line (ROL) expressed as a percentage of the treaty limit, representing the reinsurance premium as a proportion of the limit purchased. Key pricing metric for XOL treaties.',
-    `reinstatement_count` BIGINT COMMENT 'Number of reinstatements available to restore the treaty limit after a loss occurrence. Common in CAT XL treaties. Zero indicates no reinstatements permitted.',
-    `reinstatement_premium_pct` DECIMAL(7,4) COMMENT 'Percentage of the original reinsurance premium charged to reinstate the treaty limit after a loss. Expressed as a decimal (e.g., 1.0000 = 100% pro-rata reinstatement premium).',
-    `retention_amount` DECIMAL(18,2) COMMENT 'The monetary amount or percentage of risk that Pc_Insurance retains before the reinsurance treaty responds. For XOL, this is the per-occurrence or per-risk retention (attachment point).',
-    `retention_type` STRING COMMENT 'Indicates whether the retention is expressed as a fixed monetary amount (e.g., SIR or attachment point in USD) or as a percentage of the risk (used in QS treaties).. Valid values are `MONETARY|PERCENTAGE`',
-    `subject_premium_basis` STRING COMMENT 'Defines the premium base to which the treaty rate or cession percentage is applied: Gross Written Premium (GWP), Net Written Premium (NWP), Earned Premium (EP), or Written Premium (WP).. Valid values are `GWP|NWP|EP|WP`',
-    `territory_scope` STRING COMMENT 'Geographic scope of risks covered by the treaty (e.g., USA and Canada, Worldwide Excluding War Zones). Defines the territorial limits of reinsurance protection.',
-    `treaty_name` STRING COMMENT 'Descriptive business name of the reinsurance treaty (e.g., Property CAT XL Layer 1 2024) used for identification in bordereaux and management reporting.',
-    `treaty_number` STRING COMMENT 'Externally-known alphanumeric identifier assigned to the reinsurance treaty or facultative (FAC) certificate by the reinsurance management system or lead reinsurer.',
-    `treaty_status` STRING COMMENT 'Current lifecycle state of the reinsurance treaty: DRAFT (in negotiation), BOUND (signed/agreed), ACTIVE (in-force), EXPIRED, CANCELLED, or SUSPENDED.. Valid values are `DRAFT|BOUND|ACTIVE|EXPIRED|CANCELLED|SUSPENDED`',
-    `treaty_type` STRING COMMENT 'Classification of the reinsurance structure: Excess of Loss (XOL), Quota Share (QS), Catastrophe Excess of Loss (CAT XL), Facultative (FAC), CAT Bond, Stop Loss, or Aggregate.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp of the most recent update to the reinsurance treaty record in the reinsurance management system. Supports audit trail and change tracking requirements.',
-    CONSTRAINT pk_ri_treaty PRIMARY KEY(`ri_treaty_id`)
-) COMMENT 'Master record for each reinsurance treaty (XOL, QS, CAT XL, CAT Bond) placed by Pc_Insurance. Captures treaty type, structure, effective/expiry dates, reinsurer panel, retention, limit, and placement status.';
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` (
+    `ri_agreement_id` BIGINT COMMENT 'Unique surrogate identifier for the reinsurance agreement record. Primary key. One row per reinsurance agreement between the cedant and one or more reinsurers.',
+    `broker_agency_id` BIGINT COMMENT 'Foreign key linking to producers.agency. Business justification: Treaty agreements are placed through reinsurance brokers (agencies). Formalizing broker_name as FK enables producer performance tracking on treaty placements, commission reconciliation, and',
+    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Reinsurance agreements are multi-currency contracts; currency master provides exchange rates, rounding rules, and display formats for financial reporting, settlement, and collateral',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Normalize lob_code string to FK reference to shared.line_of_business master data. RI agreement currently stores lob_code as string; replacing with FK enables consistent LOB',
+    `producers_producer_id` BIGINT COMMENT 'Foreign key linking to producers.producers_producer. Business justification: Treaty agreements may credit lead producer on cedant side who structured the reinsurance program.',
+    `aggregate_limit_amt` DECIMAL(18,2) COMMENT 'Maximum cumulative reinsurance recovery across all losses in the treaty period. Caps total reinsurer exposure for Stop Loss and aggregate XOL structures. Null if no aggregate cap.',
+    `agreement_name` STRING COMMENT 'Descriptive name or title of the reinsurance agreement (e.g., 2024 Property CAT XL Layer 1). Used for human-readable identification in reports and workbenches.',
+    `agreement_number` STRING COMMENT 'Externally-known unique reference number assigned to the reinsurance agreement by the cedant or reinsurance management system. Used in bordereaux and Schedule F reporting.',
+    `agreement_status` STRING COMMENT 'Current lifecycle state of the reinsurance agreement. Active indicates the agreement is in force and cessions may be made. Expired indicates the term has ended with no renewal.. Valid values are `Draft|Active|Expired|Cancelled|Suspended`',
+    `agreement_type` STRING COMMENT 'Broad classification of the reinsurance arrangement: Treaty (automatic cession under standing contract), Facultative (individual risk negotiation), or Facultative-Obligatory.. Valid values are `Treaty|Facultative|Facultative_Obligatory`',
+    `arbitration_clause` BOOLEAN COMMENT 'Indicates whether the agreement contains a mandatory arbitration clause for dispute resolution in lieu of litigation. True if arbitration is required.',
+    `attachment_point_amt` DECIMAL(18,2) COMMENT 'The loss threshold at which the reinsurance layer attaches and begins to respond for XOL and CAT XL treaties. Expressed in agreement currency. Null for proportional treaties.',
+    `authorized_status` STRING COMMENT 'Regulatory authorization status of the lead reinsurer in the cedants domicile state: Authorized, Unauthorized, Certified (under NAIC Credit for Reinsurance Model Law), or Reciprocal.. Valid values are `Authorized|Unauthorized|Certified|Reciprocal`',
+    `cat_event_scope` STRING COMMENT 'Defines the loss aggregation basis for CAT XL treaties: Per Risk, Per Occurrence, Per Event (hours clause), or Aggregate. Determines how losses from a single CAT event are combined.. Valid values are `Per_Risk|Per_Occurrence|Per_Event|Aggregate`',
+    `cedant_legal_entity` STRING COMMENT 'Legal name of the ceding company (cedant) that is transferring risk under this agreement. Corresponds to the licensed insurance entity on the NAIC Annual Statement.',
+    `cedant_naic_code` STRING COMMENT 'Five-digit NAIC company code identifying the cedant legal entity. Required for NAIC Schedule F statutory reporting and regulatory filings.. Valid values are `^[0-9]{5}$`',
+    `ceding_commission_pct` DECIMAL(7,4) COMMENT 'Percentage of ceded premium returned to the cedant as a ceding commission under proportional (QS/Surplus) treaties to offset acquisition and overhead costs.',
+    `cession_pct` DECIMAL(7,4) COMMENT 'Percentage of risk ceded to reinsurers under a Quota Share treaty (e.g., 25.0000 = 25%). Null for XOL and non-proportional treaties where cession is loss-triggered.',
+    `collateral_required` BOOLEAN COMMENT 'Indicates whether the reinsurer is required to post collateral (LOC, trust, funds withheld) due to unauthorized/alien reinsurer status. Drives Schedule F credit allowance.',
+    `collateral_type` STRING COMMENT 'Type of collateral posted by the reinsurer: Letter of Credit (LOC), Trust Account, Funds Withheld, Cash, or None. Required for unauthorized reinsurer credit under SAP SSAP No. 62R.. Valid values are `LOC|Trust|Funds_Withheld|Cash|None`',
+    `coverage_basis` STRING COMMENT 'Defines which losses are covered: Losses Occurring (loss event in treaty period), Risks Attaching (policy incepting in treaty period), or Claims Made (claim reported in treaty period).. Valid values are `Losses_Occurring|Risks_Attaching|Claims_Made`',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when the reinsurance agreement record was first created in the reinsurance management system. Used for audit trail and data lineage tracking.',
+    `deposit_premium_amt` DECIMAL(18,2) COMMENT 'Initial premium paid by the cedant at inception of the treaty year, subject to adjustment at year-end based on actual subject premium. Used in ROL and premium settlement calculations.',
+    `expiry_date` DATE COMMENT 'The date on which the reinsurance agreement expires and no new cessions may be made. Null for evergreen or open-ended agreements. Used in Schedule F run-off reporting.',
+    `funds_withheld` BOOLEAN COMMENT 'Indicates whether the cedant withholds ceded premium reserves rather than remitting to the reinsurer. Affects Schedule F credit and collateral requirements under SAP SSAP No. 62R.',
+    `governing_law` STRING COMMENT 'Legal jurisdiction whose laws govern interpretation and enforcement of the agreement (e.g., New York, England and Wales). Required for dispute resolution and regulatory compliance.',
+    `hours_clause_hrs` BIGINT COMMENT 'Number of consecutive hours within which losses from a single occurrence are aggregated for CAT XL recovery purposes (e.g., 72 hours for wind, 168 hours for flood). Null if not applicable.',
+    `inception_date` DATE COMMENT 'The date on which the reinsurance agreement becomes effective and cessions may begin. Aligns with the treaty year start for annual treaties.',
+    `insolvency_clause` BOOLEAN COMMENT 'Indicates whether the agreement contains an insolvency clause ensuring reinsurer obligations survive cedant insolvency. Required under SAP SSAP No. 62R for credit as reinsurance.',
+    `lead_reinsurer_naic_code` STRING COMMENT 'Five-digit NAIC company code for the lead reinsurer. Required for Schedule F counterparty identification and credit risk assessment under SAP SSAP No. 62R.. Valid values are `^[0-9]{5}$`',
+    `lead_reinsurer_name` STRING COMMENT 'Legal name of the lead reinsurer on the agreement. For syndicated treaties, this is the lead market that sets terms. Used in bordereaux and Schedule F counterparty reporting.',
+    `limit_amt` DECIMAL(18,2) COMMENT 'Maximum amount the reinsurer will pay per risk, per occurrence, or in aggregate under this agreement. Defines the top of the reinsurance layer for XOL treaties.',
+    `loss_corridor_pct` DECIMAL(7,4) COMMENT 'Loss ratio band within which the cedant retains losses before the reinsurer re-engages, used in Stop Loss and aggregate structures. Null if no loss corridor provision.',
+    `minimum_premium_amt` DECIMAL(18,2) COMMENT 'Minimum reinsurance premium guaranteed to the reinsurer regardless of actual subject premium volume. Protects reinsurer against cedant portfolio shrinkage.',
+    `offset_clause` BOOLEAN COMMENT 'Indicates whether the agreement permits mutual offset of amounts owed between cedant and reinsurer. Relevant for credit risk management and Schedule F balance netting.',
+    `profit_commission_pct` DECIMAL(7,4) COMMENT 'Percentage of reinsurer profit returned to the cedant under a profit commission clause. Calculated on the treaty year result after losses and expenses. Null if no profit commission.',
+    `program_layer` STRING COMMENT 'Identifies the layer within a multi-layer reinsurance program (e.g., Layer 1, Layer 2, Top Layer). Used to sequence layers for loss allocation and PML modeling.',
+    `reinstatement_count` BIGINT COMMENT 'Number of times the reinsurance limit may be reinstated after a loss exhausts the layer. Common in CAT XL treaties. Zero indicates no reinstatement provision.',
+    `reinstatement_premium_pct` DECIMAL(7,4) COMMENT 'Percentage of the original reinsurance premium charged to reinstate the limit after a loss. Expressed as a percentage of the annual deposit premium (e.g., 100% = pro-rata reinstatement).',
+    `retention_amt` DECIMAL(18,2) COMMENT 'The cedants net retained amount per risk or per occurrence before reinsurance responds. For XOL, this is the attachment point (SIR). For QS, this is the retained share in currency.',
+    `retrocession_flag` BOOLEAN COMMENT 'Indicates whether this agreement is a retrocession (reinsurer ceding risk to another reinsurer) rather than a primary cession from the cedant. Affects Schedule F netting.',
+    `rol_pct` DECIMAL(7,4) COMMENT 'Rate on Line expressed as a percentage: reinsurance premium divided by the reinsurance limit. Key pricing metric for XOL and CAT XL layers used in actuarial and underwriting analysis.',
+    `signed_date` DATE COMMENT 'The date the reinsurance agreement was formally executed and signed by all parties. May differ from inception date for retroactive or late-signed treaties.',
+    `territory_scope` STRING COMMENT 'Geographic scope of risks covered by the agreement (e.g., USA and Canada, Worldwide excluding War Zones). Drives exposure aggregation and CAT model alignment.',
+    `treaty_type` STRING COMMENT 'Sub-classification for Treaty agreements: Quota Share (QS), Excess of Loss (XOL), Stop Loss (SL), Catastrophe Excess of Loss (CAT XL), Surplus Share, or Other. Null for Facultative agreements.. Valid values are `QS|XOL|SL|CAT_XL|Surplus|Other`',
+    `unl_basis` STRING COMMENT 'Defines how Ultimate Net Loss is calculated for recovery purposes: Gross (before other RI), Net of Inuring RI (after lower layers), or Net of All RI. Critical for layered program structures.. Valid values are `Gross|Net_of_Inuring|Net_of_All_RI`',
+    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp when the reinsurance agreement record was most recently modified. Used for change tracking, audit compliance, and incremental data pipeline processing.',
+    CONSTRAINT pk_ri_agreement PRIMARY KEY(`ri_agreement_id`)
+) COMMENT 'Master record for a reinsurance agreement between the cedant and one or more reinsurers. One row per agreement. Captures agreement type (Treaty/Facultative), status, inception/expiry, governing law, and currency.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` (
-    `fac_certificate_id` BIGINT COMMENT 'Unique surrogate identifier for each facultative reinsurance certificate record in the Pc_Insurance lakehouse silver layer.',
-    `currency_id` BIGINT COMMENT 'ISO 4217 three-letter currency code in which all monetary amounts on this certificate are denominated (e.g., USD, GBP, EUR).',
-    `insured_entity_id` BIGINT COMMENT 'Reference to the ceding company (Pc_Insurance entity) placing the facultative risk with the reinsurer.',
-    `lob_code_id` BIGINT COMMENT 'NAIC or internal line of business code identifying the class of insurance (e.g., GL, CPP, WC, APD) covered by this facultative certificate.',
-    `coverage_policy_coverage_id` BIGINT COMMENT 'Foreign key linking to coverage.coverage_policy_coverage. Business justification: Facultative certificates are underwritten against specific high-value coverages (not just policies).',
-    `policy_id` BIGINT COMMENT 'Reference to the underlying primary insurance policy for which this facultative certificate provides reinsurance coverage.',
-    `reinsurer_id` BIGINT COMMENT 'Reference to the reinsurer (counterparty) accepting the ceded risk under this facultative certificate.',
-    `risk_unit_id` BIGINT COMMENT 'Reference to the specific insured risk or scheduled item being ceded under this facultative certificate.',
-    `accounting_period` STRING COMMENT 'Financial accounting period (YYYY-MM) to which ceded premium and loss transactions on this certificate are posted in the general ledger.. Valid values are `^[0-9]{4}-(0[1-9]|1[0-2])$`',
-    `authorized_reinsurer_flag` BOOLEAN COMMENT 'Indicates whether the reinsurer is authorized/accredited in the cedants domicile state, affecting statutory credit for reinsurance on Schedule F.',
-    `bordereaux_period` STRING COMMENT 'Reporting period (YYYY-MM or YYYY-Q#) in which this certificate is included in the bordereaux submission to the reinsurer.. Valid values are `^[0-9]{4}-(Q[1-4]|[0-9]{2})$`',
-    `bound_date` DATE COMMENT 'Date on which the facultative certificate was formally bound and accepted by the reinsurer, establishing the contractual obligation.',
-    `cancellation_date` DATE COMMENT 'Date on which the facultative certificate was cancelled prior to its scheduled expiry, if applicable.',
-    `cat_exposed_flag` BOOLEAN COMMENT 'Indicates whether the risk ceded under this certificate is exposed to catastrophe (CAT) perils such as hurricane, earthquake, or flood.',
-    `ceded_alae_amount` DECIMAL(18,2) COMMENT 'Allocated Loss Adjustment Expense (ALAE) ceded to the reinsurer under this certificate, per treaty or certificate terms.',
-    `ceded_limit_amount` DECIMAL(18,2) COMMENT 'Maximum reinsurance recovery amount the reinsurer is liable for under this facultative certificate, expressed in the certificate currency.',
-    `ceded_loss_amount` DECIMAL(18,2) COMMENT 'Total loss amount ceded to the reinsurer under this certificate, representing the reinsurers share of paid and reserved losses.',
-    `ceded_retention_amount` DECIMAL(18,2) COMMENT 'Dollar amount of loss retained by the cedant before the reinsurers liability attaches under this facultative certificate.',
-    `ceded_share_pct` DECIMAL(7,4) COMMENT 'Percentage of the original risk ceded to the reinsurer under this certificate. Applicable for proportional (QS/surplus) arrangements.',
-    `ceding_commission_amount` DECIMAL(18,2) COMMENT 'Absolute dollar amount of ceding commission receivable from the reinsurer, derived from ceding_commission_pct applied to gross_ceded_premium.',
-    `ceding_commission_pct` DECIMAL(7,4) COMMENT 'Percentage of ceded premium returned to the cedant as ceding commission to offset acquisition and administrative costs.',
-    `certificate_number` STRING COMMENT 'Externally-known alphanumeric identifier assigned to the facultative certificate by the reinsurer or cedant, used in bordereaux and correspondence.. Valid values are `^FAC-[A-Z0-9]{4,20}$`',
-    `certificate_status` STRING COMMENT 'Current lifecycle state of the facultative certificate from placement through expiry or cancellation.. Valid values are `draft|bound|active|expired|cancelled|declined`',
-    `collateral_amount` DECIMAL(18,2) COMMENT 'Dollar amount of collateral posted by the reinsurer to secure the cedants reinsurance recoverable under this certificate.',
-    `collateral_required_flag` BOOLEAN COMMENT 'Indicates whether the reinsurer is required to post collateral (trust, LOC, funds withheld) due to unauthorized status or credit terms.',
-    `collateral_type` STRING COMMENT 'Type of collateral posted by the reinsurer to secure recoverable obligations: trust fund, letter of credit, funds withheld, or none.. Valid values are `trust_fund|letter_of_credit|funds_withheld|none`',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this facultative certificate record was first created in the system of record, used for audit trail and data lineage.',
-    `expiry_date` DATE COMMENT 'Date on which the facultative certificate expires and reinsurance coverage ceases. Null for open-ended certificates.',
-    `fac_type` STRING COMMENT 'Classification of the facultative arrangement: proportional (quota share, surplus) or non-proportional (excess of loss). Drives cession calculation methodology.. Valid values are `proportional|non_proportional|quota_share|excess_of_loss|surplus`',
-    `gross_ceded_premium` DECIMAL(18,2) COMMENT 'Gross Written Premium (GWP) ceded to the reinsurer under this certificate before deduction of ceding commission.',
-    `inception_date` DATE COMMENT 'Date on which the facultative certificate becomes effective and reinsurance coverage commences.',
-    `insured_name` STRING COMMENT 'Legal name of the insured party on the underlying policy, included on the facultative certificate for risk identification purposes.',
-    `net_ceded_premium` DECIMAL(18,2) COMMENT 'Net Written Premium (NWP) ceded to the reinsurer after deducting ceding commission from gross ceded premium.',
-    `original_tiv` DECIMAL(18,2) COMMENT 'Total Insured Value of the underlying risk at the time of facultative placement, used to size the ceded limit and premium.',
-    `placement_broker` STRING COMMENT 'Name of the reinsurance intermediary or broker who facilitated the placement of this facultative certificate in the market.',
-    `pml_amount` DECIMAL(18,2) COMMENT 'Probable Maximum Loss (PML) estimate for the ceded risk, used to size the facultative limit and assess reinsurer exposure.',
-    `recoverable_balance` DECIMAL(18,2) COMMENT 'Outstanding reinsurance recoverable amount owed by the reinsurer to the cedant for ceded losses not yet collected.',
-    `risk_description` STRING COMMENT 'Narrative description of the underlying insured risk being ceded, including COPE (Construction, Occupancy, Protection, Exposure) details for property risks.',
-    `rol_pct` DECIMAL(7,4) COMMENT 'Rate on Line (ROL) expressed as a percentage of the ceded limit, used to price non-proportional (XOL) facultative certificates.',
-    `source_system_code` STRING COMMENT 'Code identifying the operational system of record from which this facultative certificate record was ingested into the lakehouse.. Valid values are `SICS|SAPIENS_RI|DUCK_CREEK|GUIDEWIRE|MANUAL`',
-    `underwriter_name` STRING COMMENT 'Name of the cedants underwriter responsible for placing and managing this facultative certificate.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp of the most recent modification to this facultative certificate record, supporting change tracking and incremental ETL processing.',
-    `xol_attachment_point` DECIMAL(18,2) COMMENT 'Loss amount at which the reinsurers liability attaches under an excess of loss (XOL) facultative arrangement. Null for proportional certificates.',
-    `xol_exhaustion_point` DECIMAL(18,2) COMMENT 'Loss amount at which the reinsurers layer is fully exhausted under an XOL facultative arrangement (attachment + limit).',
-    CONSTRAINT pk_fac_certificate PRIMARY KEY(`fac_certificate_id`)
-) COMMENT 'Master record for each facultative (FAC) reinsurance certificate placed on a specific risk or policy. Tracks FAC type, ceded limit, ceded premium, reinsurer, and certificate status independent of treaty structures.';
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` (
+    `treaty_id` BIGINT COMMENT 'Unique surrogate identifier for a reinsurance treaty record. Primary key. One row per treaty under a reinsurance agreement.',
+    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Treaty financial terms require currency master for exchange rate application, premium settlement, and multi-currency reporting.',
+    `intermediary_agency_id` BIGINT COMMENT 'Foreign key linking to producers.agency. Business justification: Treaties track intermediary/broker by name; should formalize as FK to agency. Enables broker performance analysis on treaty placements, commission tracking for reinsurance intermediation',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Treaty structuring, rate adequacy analysis, and regulatory reporting require LOB master for NAIC line codes, loss ratio targets, and treaty applicability rules.',
+    `reinsurer_id` BIGINT COMMENT 'Foreign key linking to reinsurance.reinsurer. Business justification: Treaty has denormalized reinsurer attributes (reinsurer_name, reinsurer_naic_code, reinsurer_share_pct). Adding FK to reinsurer master and removing redundant name and NAIC code.',
+    `ri_agreement_id` BIGINT COMMENT 'Reference to the parent reinsurance agreement under which this treaty is placed. Links treaty to the master agreement record.',
+    `aggregate_deductible` DECIMAL(18,2) COMMENT 'Cumulative loss amount the cedant must absorb before aggregate stop loss or aggregate XOL reinsurance attaches. Also known as the annual aggregate retention.',
+    `aggregate_limit` DECIMAL(18,2) COMMENT 'Maximum total reinsurance recovery across all occurrences during the treaty period. Caps cumulative recoveries for aggregate XOL and Stop Loss treaties.',
+    `attachment_point` DECIMAL(18,2) COMMENT 'Dollar amount at which reinsurance coverage attaches for XOL and CAT XL treaties. Losses below this threshold are retained by the cedant. Null for proportional treaties.',
+    `authorized_reinsurer_flag` BOOLEAN COMMENT 'Indicates whether the reinsurer is authorized/accredited in the cedants domicile state. Affects credit for reinsurance on the statutory balance sheet per NAIC requirements.',
+    `brokerage_pct` DECIMAL(7,4) COMMENT 'Percentage of ceded premium paid to the reinsurance intermediary as brokerage commission. Expressed as a decimal (e.g., 0.0250 = 2.5%).',
+    `catastrophe_event_type` STRING COMMENT 'Peril type covered by a CAT XL treaty. Restricts recovery eligibility to specified catastrophe perils. Null for non-CAT treaties. [ENUM-REF-CANDIDATE: WINDSTORM|EARTHQUAKE|FLOOD|WILDFIRE|HAIL|ALL_PERILS|OTHER — promote to reference product]',
+    `ceding_commission_pct` DECIMAL(7,4) COMMENT 'Percentage of ceded premium returned to the cedant as ceding commission under a proportional treaty. Expressed as a decimal (e.g., 0.3000 = 30%). Null for XOL treaties.',
+    `cession_pct` DECIMAL(7,4) COMMENT 'Percentage of risk ceded to reinsurers under a Quota Share treaty. Expressed as a decimal (e.g., 0.7500 = 75%). Null for non-proportional treaties.',
+    `collateral_required_flag` BOOLEAN COMMENT 'Indicates whether the reinsurer must post collateral (letter of credit or trust fund) to support credit for reinsurance on the cedants statutory balance sheet.',
+    `coverage_basis` STRING COMMENT 'Defines which losses are covered: Risks Attaching (policies incepting in treaty period), Losses Occurring (losses occurring in treaty period), or Claims Made.. Valid values are `RISKS_ATTACHING|LOSSES_OCCURRING|CLAIMS_MADE`',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this treaty record was first created in the reinsurance management system. Used for audit trail and data lineage tracking.',
+    `deposit_premium` DECIMAL(18,2) COMMENT 'Provisional premium paid at treaty inception, subject to adjustment at year-end based on actual subject premium. Common in proportional and adjustable XOL treaties.',
+    `effective_date` DATE COMMENT 'Date on which the treaty becomes binding and cessions may attach. Policies with inception on or after this date are eligible for cession under this treaty.',
+    `expiration_date` DATE COMMENT 'Date on which the treaty expires and no new cessions may attach. Null for evergreen treaties. Used in Schedule F period-end calculations.',
+    `hours_clause` BIGINT COMMENT 'Maximum number of consecutive hours within which losses from a single catastrophe event are aggregated for recovery purposes (e.g., 72 hours for windstorm, 168 hours for flood).',
+    `inception_year` BIGINT COMMENT 'Calendar year in which the treaty incepted. Used for underwriting year (UY) and policy year (PY) loss triangle segmentation in actuarial reserving.',
+    `layer_number` BIGINT COMMENT 'Sequential layer number within a tower of XOL or CAT XL protection (e.g., Layer 1, Layer 2). Distinguishes multiple treaties in the same program year.',
+    `limit` DECIMAL(18,2) COMMENT 'Maximum reinsurance recovery available under this treaty per occurrence or in aggregate. Defines the top of the layer for XOL/CAT XL treaties.',
+    `loss_corridor_lower` DECIMAL(7,4) COMMENT 'Lower bound of the loss ratio corridor retained by the cedant in a Stop Loss treaty. Expressed as a decimal loss ratio (e.g., 0.7000 = 70%). Null for non-SL treaties.',
+    `loss_corridor_upper` DECIMAL(7,4) COMMENT 'Upper bound of the loss ratio corridor at which Stop Loss reinsurance attaches. Expressed as a decimal loss ratio (e.g., 0.9000 = 90%). Null for non-SL treaties.',
+    `minimum_premium` DECIMAL(18,2) COMMENT 'Minimum reinsurance premium guaranteed to the reinsurer regardless of ceded subject premium volume. Protects reinsurer against low-volume years.',
+    `treaty_name` STRING COMMENT 'Descriptive name of the treaty (e.g., Property CAT XL Layer 1 2024). Used for human identification in reinsurance management system and bordereaux.',
+    `number` STRING COMMENT 'Externally-known alphanumeric identifier assigned to the treaty by the cedant or reinsurer. Used in bordereaux reporting and Schedule F filings.',
+    `occurrence_limit` DECIMAL(18,2) COMMENT 'Maximum reinsurance recovery per single occurrence or event under this treaty. Distinct from aggregate limit. Applies to per-occurrence XOL and CAT XL structures.',
+    `placement_pct` DECIMAL(7,4) COMMENT 'Total percentage of treaty capacity placed with all reinsurers combined. A value less than 1.0000 indicates a partially placed treaty with net retained gap.',
+    `premium` DECIMAL(18,2) COMMENT 'Total reinsurance premium ceded to reinsurers under this treaty for the treaty period. For QS treaties, this is the ceded written premium. For XOL, this is the flat or deposit premium.',
+    `profit_commission_pct` DECIMAL(7,4) COMMENT 'Percentage of treaty profit returned to the cedant as profit commission under a sliding scale or profit-sharing arrangement. Null if no profit commission applies.',
+    `reinstatement_count` BIGINT COMMENT 'Number of times the treaty limit may be reinstated after a loss exhausts the layer. Common in CAT XL treaties. Zero indicates no reinstatements available.',
+    `reinstatement_premium_pct` DECIMAL(7,4) COMMENT 'Percentage of the original treaty premium charged to reinstate the treaty limit after a loss. Expressed as a decimal (e.g., 1.0000 = 100% pro-rata reinstatement).',
+    `reinsurer_share_pct` DECIMAL(7,4) COMMENT 'Percentage of the treaty capacity subscribed by the lead reinsurer. For fully placed treaties this may be 100%; for syndicated treaties it reflects the lead line.',
+    `retention_amount` DECIMAL(18,2) COMMENT 'The cedants net retained loss amount before reinsurance attaches. For XOL, this is the attachment point per occurrence. For QS, this is the retained percentage expressed as a dollar floor.',
+    `retention_pct` DECIMAL(7,4) COMMENT 'Percentage of risk retained by the cedant under a proportional (QS or Surplus) treaty. Expressed as a decimal (e.g., 0.2500 = 25%). Null for non-proportional treaties.',
+    `retrocession_flag` BOOLEAN COMMENT 'Indicates whether this treaty is a retrocession arrangement (reinsurer ceding risk to another reinsurer). True = retrocession; False = standard cedant-to-reinsurer treaty.',
+    `rol_pct` DECIMAL(7,4) COMMENT 'Rate on Line expressed as a decimal: treaty premium divided by treaty limit. Key pricing metric for XOL and CAT XL treaties used in reinsurance pricing analytics.',
+    `subject_premium_basis` STRING COMMENT 'Defines the premium base used to calculate ceded premium under proportional treaties: Gross Written Premium (GWP), Net Written Premium (NWP), Direct Premium Written (DPW), or Net Earned.. Valid values are `GWP|NWP|DPW|NET_EARNED`',
+    `territory` STRING COMMENT 'Geographic scope of risks covered by this treaty (e.g., USA, USA and Canada, Worldwide Excluding). Defines eligible cession geography for bordereaux reporting.',
+    `treaty_status` STRING COMMENT 'Current lifecycle state of the treaty. Controls whether new cessions can be written against it and whether recoveries are eligible.. Valid values are `ACTIVE|EXPIRED|CANCELLED|SUSPENDED|PENDING`',
+    `treaty_type` STRING COMMENT 'Classification of the treaty structure: Quota Share (QS), Excess of Loss (XOL), Stop Loss (SL), Catastrophe Excess of Loss (CAT XL), or Surplus. Drives cession and recovery calculation logic.. Valid values are `QS|XOL|SL|CAT_XL|STOP_LOSS|SURPLUS`',
+    `unl_basis` STRING COMMENT 'Defines how Ultimate Net Loss (UNL) is calculated for recovery purposes: gross of inuring reinsurance, net of inuring reinsurance, net of salvage/subrogation, or full UNL.. Valid values are `GROSS|NET_OF_INURING|NET_OF_SALVAGE|ULTIMATE_NET_LOSS`',
+    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp of the most recent update to this treaty record in the reinsurance management system. Supports change tracking and audit compliance.',
+    CONSTRAINT pk_treaty PRIMARY KEY(`treaty_id`)
+) COMMENT 'Defines a proportional or non-proportional treaty under a reinsurance agreement. One row per treaty. Captures treaty type (QS/XOL/SL/CAT XL), layer, retention, limit, ROL, and UNL basis.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` (
-    `treaty_layer_id` BIGINT COMMENT 'Unique surrogate identifier for each retention/limit layer record within a reinsurance treaty or facultative certificate structure.',
-    `currency_id` BIGINT COMMENT 'ISO 4217 three-letter currency code for all monetary amounts on this layer (e.g., USD, GBP, EUR). Supports multi-currency treaty structures.',
-    `insured_location_id` BIGINT COMMENT 'Foreign key linking to riskexposure.insured_location. Business justification: Treaty layers (especially CAT XOL) are priced against location exposure schedules.',
-    `lob_code_id` BIGINT COMMENT 'NAIC or internal Line of Business code identifying the class of business covered by this treaty layer (e.g., Commercial Auto, GL, Property, WC). Supports statutory reporting.',
-    `ri_treaty_id` BIGINT COMMENT 'Reference to the parent reinsurance treaty or facultative certificate to which this layer belongs.',
-    `adjusted_premium` DECIMAL(18,2) COMMENT 'Final reinsurance premium after year-end adjustment reconciling deposit premium against actual subject premium earned. Reflects true cost of the layer for the period.',
-    `aggregate_annual_limit` DECIMAL(18,2) COMMENT 'Maximum total reinsurer liability across all occurrences within the treaty year for this layer. Caps cumulative reinsurer exposure on aggregate XOL structures.',
-    `aggregate_deductible` DECIMAL(18,2) COMMENT 'Cumulative loss amount the cedant must retain before the aggregate XOL layer responds. Used in aggregate stop-loss and aggregate XOL treaty structures.',
-    `alae_included` BOOLEAN COMMENT 'Indicates whether Allocated Loss Adjustment Expense (ALAE) is included within the layer limit and attachment point calculations for this treaty layer.',
-    `attachment_point` DECIMAL(18,2) COMMENT 'The loss amount at which this reinsurance layer begins to respond. For XOL structures, losses must exceed this threshold before the reinsurer pays. Also known as the retention.',
-    `cat_event_limit` DECIMAL(18,2) COMMENT 'Maximum reinsurer liability per defined catastrophe event under a CAT XL layer. Distinct from per-risk occurrence limit; applies to accumulation of losses from a single CAT event.',
-    `ceding_commission_pct` DECIMAL(7,4) COMMENT 'Percentage of ceded premium returned to the cedant by the reinsurer as a ceding commission to cover acquisition and administrative costs on QS treaties.',
-    `cession_percentage` DECIMAL(7,4) COMMENT 'Percentage of risk ceded to reinsurers under a Quota Share (QS) layer. Expressed as a decimal (e.g., 0.3000 = 30%). Applicable to QS and proportional treaty structures.',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this treaty layer record was first created in the reinsurance management system. Supports audit trail and data lineage requirements.',
-    `deposit_premium` DECIMAL(18,2) COMMENT 'Provisional premium paid to the reinsurer at inception of the treaty period, subject to adjustment at year-end based on actual subject premium earned.',
-    `effective_date` DATE COMMENT 'Date on which this treaty layer becomes operative and eligible to accept ceded risk and premium.',
-    `exclusions_summary` STRING COMMENT 'Free-text summary of key exclusions applicable to this layer (e.g., nuclear, cyber, war, NBCR). Supports underwriting review and reinsurer communication.',
-    `exhaustion_point` DECIMAL(18,2) COMMENT 'The loss level at which this layer is fully exhausted, calculated as attachment point plus layer limit. Marks the top of the layer in the reinsurance tower.',
-    `expiry_date` DATE COMMENT 'Date on which this treaty layer ceases to be operative. Null for evergreen or continuous treaty layers.',
-    `hours_clause` BIGINT COMMENT 'Number of consecutive hours defining the event window for CAT XL loss aggregation. Losses occurring within this window are treated as a single occurrence (e.g., 72 or 168 hours).',
-    `index_base_year` BIGINT COMMENT 'The reference year used as the base for the index or stability clause adjustment. Applicable only when index_clause is true.',
-    `index_clause` BOOLEAN COMMENT 'Indicates whether an index or stability clause applies to this layer, adjusting the attachment point and limit for inflation over the treaty period.',
-    `lae_treatment` STRING COMMENT 'Specifies how LAE is handled within this layer. INCLUDED=LAE erodes the limit, EXCLUDED=LAE outside limit, PRO_RATA=LAE shared proportionally with losses.. Valid values are `INCLUDED|EXCLUDED|PRO_RATA`',
-    `layer_limit` DECIMAL(18,2) COMMENT 'Maximum amount the reinsurer will pay for losses within this layer per occurrence or per risk. Defines the top of the layer in the XOL tower.',
-    `layer_name` STRING COMMENT 'Descriptive business name for the layer (e.g., First XOL Layer, QS Tranche A, CAT XL Working Layer) used in bordereaux and reinsurer communications.',
-    `layer_number` BIGINT COMMENT 'Sequential position of this layer within the treaty structure (e.g., 1 = first XOL layer, 2 = second XOL layer). Drives ordering in multi-layer tower analysis.',
-    `layer_status` STRING COMMENT 'Current lifecycle state of the treaty layer. Drives whether cessions and premium calculations are applied against this layer.. Valid values are `ACTIVE|INACTIVE|PENDING|EXPIRED|CANCELLED`',
-    `layer_type` STRING COMMENT 'Classification of the reinsurance layer structure. XOL=Excess of Loss, QS=Quota Share, CAT XL=Catastrophe Excess of Loss, FAC=Facultative, AGGREGATE_XL=Aggregate Excess of Loss.. Valid values are `XOL|QS|CAT_XL|FAC|AGGREGATE_XL|CAT_BOND`',
-    `loss_basis` STRING COMMENT 'Trigger basis determining how losses are measured and applied to this layer. OCCURRENCE=per event, RISK=per insured risk, AGGREGATE=cumulative annual, CLAIMS_MADE=claims-made trigger.. Valid values are `OCCURRENCE|RISK|AGGREGATE|CLAIMS_MADE`',
-    `max_ceding_commission_pct` DECIMAL(7,4) COMMENT 'Ceiling ceding commission rate applicable under a sliding scale commission arrangement. The cedant receives at most this rate when loss ratio is at its lowest.',
-    `min_ceding_commission_pct` DECIMAL(7,4) COMMENT 'Floor ceding commission rate applicable under a sliding scale commission arrangement. The cedant receives at least this rate regardless of loss ratio.',
-    `minimum_premium` DECIMAL(18,2) COMMENT 'Minimum reinsurance premium guaranteed to the reinsurer for this layer regardless of subject premium volume. Protects reinsurer against low-volume treaty years.',
-    `occurrence_limit` DECIMAL(18,2) COMMENT 'Maximum reinsurer liability per single occurrence or event under this layer. Distinct from the aggregate annual limit. Applies to per-occurrence XOL and CAT XL structures.',
-    `pml_basis` STRING COMMENT 'Basis used to size the layer relative to the cedants exposure. PML=Probable Maximum Loss, TIV=Total Insured Value, EML=Estimated Maximum Loss, MFL=Maximum Foreseeable Loss.. Valid values are `PML|TIV|EML|MFL`',
-    `profit_commission_pct` DECIMAL(7,4) COMMENT 'Percentage of reinsurer profit returned to the cedant as a profit commission under proportional QS layers. Incentivizes cedant loss control.',
-    `reinstatement_count` BIGINT COMMENT 'Number of reinstatements available for this layer after a loss exhausts the limit. Common in CAT XL structures where one or two reinstatements are negotiated.',
-    `reinstatement_premium_pct` DECIMAL(7,4) COMMENT 'Percentage of the original layer premium charged to reinstate the full limit after a loss. Expressed as a decimal (e.g., 1.0000 = 100% pro-rata reinstatement).',
-    `reinsurance_premium` DECIMAL(18,2) COMMENT 'Gross premium ceded to reinsurers for this layer for the treaty period. For XOL layers, derived from ROL times limit; for QS, from cession percentage times subject premium.',
-    `rol` DECIMAL(7,4) COMMENT 'Rate on Line expressed as a decimal fraction of the layer limit. Used to price non-proportional XOL and CAT XL layers. ROL multiplied by limit yields the reinsurance premium.',
-    `signed_line_pct` DECIMAL(7,4) COMMENT 'Total percentage of the layer capacity that has been signed by reinsurers at placement. Should sum to 100% for a fully placed layer. Tracks placement completeness.',
-    `sliding_scale_commission` BOOLEAN COMMENT 'Indicates whether the ceding commission on this QS layer is subject to a sliding scale that varies inversely with the loss ratio, rewarding better underwriting performance.',
-    `subject_premium_basis` STRING COMMENT 'Premium base used to calculate ceded premium for proportional layers. GWP=Gross Written Premium, NWP=Net Written Premium, EP=Earned Premium, WP=Written Premium.. Valid values are `GWP|NWP|EP|WP`',
-    `territorial_scope` STRING COMMENT 'Geographic territory covered by this treaty layer (e.g., USA, USA and Canada, specific state codes). Defines the geographic boundary of reinsurer liability.',
-    `treaty_year` BIGINT COMMENT 'The underwriting or treaty year to which this layer belongs. Used for bordereaux processing, IBNR development, and year-of-account statutory reporting.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp of the most recent modification to this treaty layer record. Used for change tracking, audit compliance, and incremental data pipeline processing.',
-    `written_line_pct` DECIMAL(7,4) COMMENT 'Percentage of the layer capacity initially offered and written by reinsurers before signing. May differ from signed line if the market is oversubscribed or undersubscribed.',
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` (
+    `treaty_layer_id` BIGINT COMMENT 'Unique surrogate identifier for a single attachment/exhaustion layer within an XOL or CAT XL reinsurance treaty. One row per layer per treaty.',
+    `cat_zone_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.cat_zone. Business justification: Treaty layers often have zone-specific attachment points and limits for concentration management, regulatory capital calculations, and underwriting guidelines.',
+    `coverage_type_id` BIGINT COMMENT 'Foreign key linking to coverage.coverage_type. Business justification: Treaty layers often restrict coverage by type (e.g., layer covers only general liability, not property).',
+    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Layer limits and premiums are currency-denominated; currency master provides exchange rates for multi-currency treaty structures and ensures consistent financial reporting across layers.',
+    `ri_agreement_id` BIGINT COMMENT 'Reference to the parent reinsurance agreement under which this layer is structured. Links the layer to its governing treaty contract.',
+    `treaty_id` BIGINT COMMENT 'Foreign key linking to reinsurance.treaty. Business justification: treaty_layer represents individual attachment/exhaustion layers within a treaty. Currently only references ri_agreement, but should also reference the parent treaty.',
+    `parent_treaty_layer_id` BIGINT COMMENT 'Self-referencing identifier of the immediately underlying treaty layer in a multi-layer tower. Null for the first layer above the cedant retention.',
+    `accounting_basis` STRING COMMENT 'Basis on which losses are covered: losses_occurring (losses that occur during the treaty period) or risks_attaching (policies attaching during the treaty period).. Valid values are `losses_occurring|risks_attaching`',
+    `annual_aggregate_deductible` DECIMAL(18,2) COMMENT 'Cumulative loss amount the cedant must retain across all occurrences before the annual aggregate limit of this layer begins to respond.',
+    `annual_aggregate_limit` DECIMAL(18,2) COMMENT 'Maximum total dollar amount recoverable from reinsurers under this layer across all occurrences within the treaty year. Null if no aggregate cap applies.',
+    `attachment_point` DECIMAL(18,2) COMMENT 'Dollar amount of loss per occurrence at which this reinsurance layer begins to respond. Losses below this threshold are retained by the cedant.',
+    `broker_reference` STRING COMMENT 'Reinsurance brokers reference number or slip identifier for this layer as used in placement correspondence and market submissions.',
+    `cedant_retention_pct` DECIMAL(7,4) COMMENT 'Percentage of loss within this layer retained by the cedant (co-participation). Expressed as a decimal (e.g., 0.1000 = 10%). Remainder is ceded to reinsurers.',
+    `ceded_pct` DECIMAL(7,4) COMMENT 'Percentage of loss within this layer ceded to reinsurers. Equals 1 minus cedant_retention_pct. Stored explicitly for bordereaux and Schedule F reporting.',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this treaty layer record was first created in the reinsurance management system. Used for audit trail and data lineage.',
+    `deposit_premium` DECIMAL(18,2) COMMENT 'Provisional premium paid at inception of the treaty layer, subject to adjustment at year-end based on actual subject premium earned.',
+    `effective_date` DATE COMMENT 'Date on which this treaty layer becomes binding and coverage obligations commence. Used to determine which layer applies to a given loss date.',
+    `exhaustion_point` DECIMAL(18,2) COMMENT 'Dollar amount at which this layer is fully exhausted, equal to attachment_point plus layer_limit. Stored explicitly for bordereaux reporting and PML tower analysis.',
+    `expiration_date` DATE COMMENT 'Date on which this treaty layer expires and coverage obligations cease. Nullable for evergreen or continuous layers.',
+    `hours_clause` BIGINT COMMENT 'Maximum number of consecutive hours within which losses from a single catastrophic event are aggregated as one occurrence (e.g., 168 for windstorm, 72 for earthquake).',
+    `index_basis` STRING COMMENT 'Name or description of the index used for the index clause (e.g., CPI, Marshall & Swift construction cost index). Null if index_clause_flag is false.',
+    `index_clause_flag` BOOLEAN COMMENT 'Indicates whether an index or stability clause applies to this layer, adjusting the attachment point and limit in line with an inflation or price index.',
+    `layer_code` STRING COMMENT 'Externally-known alphanumeric code identifying this layer as referenced in bordereaux, reinsurer slips, and Schedule F filings.. Valid values are `^[A-Z0-9_-]{1,30}$`',
+    `layer_limit` DECIMAL(18,2) COMMENT 'Maximum dollar amount recoverable from reinsurers under this layer for a single occurrence or event. Defines the exhaustion point as attachment_point + layer_limit.',
+    `layer_name` STRING COMMENT 'Descriptive name for this layer (e.g., 1st XOL Layer, 2nd CAT XL Layer) used in reinsurer communications and internal reporting.',
+    `layer_notes` STRING COMMENT 'Free-text field for underwriter or reinsurance analyst notes regarding special terms, conditions, or exceptions applicable to this layer not captured in structured fields.',
+    `layer_number` BIGINT COMMENT 'Sequential ordinal position of this layer within the treaty tower, starting at 1 for the first layer above the retention. Used to reconstruct the full tower order.',
+    `layer_status` STRING COMMENT 'Current lifecycle state of the treaty layer indicating whether it is actively in force, expired, cancelled, pending placement, or suspended.. Valid values are `active|expired|cancelled|pending|suspended`',
+    `layer_type` STRING COMMENT 'Classification of the reinsurance layer structure. XOL=Excess of Loss, CAT_XL=Catastrophe Excess of Loss, QS=Quota Share, SL=Stop Loss, WORKING=working layer, CLASH=clash cover.. Valid values are `XOL|CAT_XL|QS|SL|WORKING|CLASH`',
+    `lob_scope` STRING COMMENT 'Comma-delimited list of Lines of Business covered by this layer (e.g., HO, PAP, CGL, BOP). Defines the subject business eligible for recovery under this layer.',
+    `loss_corridor_lower` DECIMAL(18,2) COMMENT 'Lower bound of a loss corridor within this layer where the cedant retains losses. Used in structured XOL layers with embedded retentions.',
+    `loss_corridor_upper` DECIMAL(18,2) COMMENT 'Upper bound of a loss corridor within this layer where the cedant retains losses. Losses above this bound revert to reinsurer coverage within the layer.',
+    `loss_occurrence_definition` STRING COMMENT 'Contractual definition of a single occurrence for this layer (e.g., 168-hour clause for windstorm, 72-hour clause for earthquake). Critical for CAT XL aggregation.',
+    `minimum_premium` DECIMAL(18,2) COMMENT 'Minimum reinsurance premium guaranteed to reinsurers for this layer regardless of subject premium volume. Protects reinsurers against low-volume scenarios.',
+    `peril_scope` STRING COMMENT 'Comma-delimited list of perils covered by this layer (e.g., WIND, QUAKE, FLOOD, FIRE, ALL). Determines which catastrophe events trigger recovery under this layer.',
+    `placed_pct` DECIMAL(7,4) COMMENT 'Percentage of this layer that has been placed with reinsurers. A value less than 1.0 indicates the layer is not fully subscribed.',
+    `profit_commission_pct` DECIMAL(7,4) COMMENT 'Percentage of underwriting profit returned to the cedant by reinsurers under a profit commission clause for this layer. Expressed as a decimal.',
+    `reinstatement_basis` STRING COMMENT 'Basis on which reinstatement premium is calculated: pro_rata (proportional to loss), flat (fixed percentage), or free (no additional premium charged).. Valid values are `pro_rata|flat|free`',
+    `reinstatement_count` BIGINT COMMENT 'Number of reinstatements available for this layer after a loss exhausts the layer limit. Zero indicates no reinstatements; null indicates unlimited reinstatements.',
+    `reinstatement_premium_pct` DECIMAL(7,4) COMMENT 'Percentage of the original layer premium charged per reinstatement to restore the layer limit after a loss. Expressed as a decimal (e.g., 1.0000 = 100% pro-rata).',
+    `reinsurance_premium` DECIMAL(18,2) COMMENT 'Gross reinsurance premium payable by the cedant to reinsurers for this layer for the treaty period. Used in bordereaux and Schedule F premium reporting.',
+    `retrocession_flag` BOOLEAN COMMENT 'Indicates whether this layer is a retrocession layer (reinsurance of reinsurance) rather than a direct cession from the primary insurer.',
+    `rol_pct` DECIMAL(7,4) COMMENT 'Rate on Line expressed as a decimal; the reinsurance premium for this layer divided by the layer limit. Key pricing metric for XOL and CAT XL layers.',
+    `signed_line_pct` DECIMAL(7,4) COMMENT 'Total signed line percentage across all reinsurers participating in this layer after signing-down from written lines. Should sum to placed_pct.',
+    `sliding_scale_flag` BOOLEAN COMMENT 'Indicates whether a sliding scale commission arrangement applies to this layer, where the ceding commission varies inversely with the loss ratio.',
+    `subject_premium_basis` STRING COMMENT 'Premium base used to calculate the reinsurance premium for this layer. GWP=Gross Written Premium, NWP=Net Written Premium, DPW=Direct Premium Written, NEP=Net Earned Premium, GEP=Gross Earned Premium.. Valid values are `GWP|NWP|DPW|NEP|GEP`',
+    `territory_scope` STRING COMMENT 'Geographic territory covered by this layer (e.g., USA, USA_GULF, NATIONWIDE). Defines the geographic boundary of eligible subject business for this layer.',
+    `unl_basis` STRING COMMENT 'Defines how Ultimate Net Loss is calculated for recovery under this layer: gross of all recoveries, net of other recoveries, or net of underlying reinsurance.. Valid values are `gross|net_of_recoveries|net_of_underlying_ri`',
+    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp of the most recent update to this treaty layer record. Used for change tracking, audit compliance, and incremental data loading.',
     CONSTRAINT pk_treaty_layer PRIMARY KEY(`treaty_layer_id`)
-) COMMENT 'Defines each retention/limit layer within a treaty (e.g., first XOL layer, second XOL layer, QS tranche). Stores attachment point, limit, ROL, and layer sequence for multi-layer treaty structures.';
+) COMMENT 'Individual attachment/exhaustion layer within an XOL or CAT XL treaty. One row per layer per treaty. Stores attachment point, limit per occurrence, annual aggregate limit, and reinstatement terms.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` (
-    `reinsurer_id` BIGINT COMMENT 'Unique surrogate identifier for each reinsurance counterparty record in the Pc_Insurance reinsurance management system.',
-    `am_best_outlook` STRING COMMENT 'A.M. Best rating outlook indicating the expected direction of the reinsurers financial strength rating over the medium term.. Valid values are `stable|positive|negative|developing|under_review`',
-    `am_best_rating` STRING COMMENT 'A.M. Best Financial Strength Rating (FSR) assigned to the reinsurer (e.g., A++, A+, A, A-, B++). Used to assess counterparty credit quality and treaty eligibility.',
-    `am_best_rating_date` DATE COMMENT 'Date on which the current A.M. Best Financial Strength Rating was assigned or last affirmed, used to assess rating currency for treaty approval.',
-    `approved_lob_list` STRING COMMENT 'Comma-delimited list of Lines of Business (LOB) for which this reinsurer is approved to accept cessions (e.g., GL, WC, APD, CAT XL). Governs treaty eligibility.',
-    `authorized_status` STRING COMMENT 'Regulatory authorization status of the reinsurer in the cedants domicile state, determining credit-for-reinsurance treatment under NAIC model law.. Valid values are `authorized|unauthorized|certified|accredited|suspended`',
-    `bank_account_reference` STRING COMMENT 'Internal reference code for the reinsurers designated bank account used for premium and loss settlement, stored as a tokenized reference to the financial system.',
-    `claims_contact_email` STRING COMMENT 'Email address of the reinsurers claims department or designated claims contact for loss notification and recovery correspondence.. Valid values are `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$`',
-    `class` STRING COMMENT 'Broad classification of the reinsurer by organizational class: professional reinsurer, captive, government-sponsored, Lloyds syndicate, or industry pool.. Valid values are `professional|captive|government|lloyd_syndicate|pool`',
-    `collateral_type` STRING COMMENT 'Type of collateral arrangement in place with this reinsurer to secure recoverable balances: none, letter of credit, trust fund, funds withheld, or cash deposit.. Valid values are `none|letter_of_credit|trust_fund|funds_withheld|cash_deposit`',
-    `counterparty_type` STRING COMMENT 'Classification of the reinsurance counterparty indicating its structural role: reinsurer, retrocessionaire, captive, pool, Lloyds syndicate, or fronting carrier.. Valid values are `reinsurer|retrocessionaire|captive|pool|syndicate|fronting_carrier`',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when the reinsurer master record was first created in the system, in ISO 8601 format with timezone offset.',
-    `credit_limit_currency` STRING COMMENT 'ISO 4217 three-letter currency code in which the reinsurer credit limit is denominated (e.g., USD, GBP, EUR).. Valid values are `^[A-Z]{3}$`',
-    `credit_limit_usd` DECIMAL(18,2) COMMENT 'Maximum aggregate ceded exposure in USD that Pc_Insurance is authorized to place with this reinsurer across all treaties and facultative certificates.',
-    `domicile_country` STRING COMMENT 'ISO 3166-1 alpha-3 country code of the jurisdiction where the reinsurer is legally domiciled and holds its primary insurance license.. Valid values are `^[A-Z]{3}$`',
-    `domicile_state` STRING COMMENT 'Two-letter US state code of the reinsurers state of domicile for domestic reinsurers, used in NAIC statutory reporting and credit-for-reinsurance determinations.. Valid values are `^[A-Z]{2}$`',
-    `fein` STRING COMMENT 'IRS-issued Federal Employer Identification Number (FEIN) for the reinsurer entity, used in tax reporting and financial settlement.. Valid values are `^[0-9]{2}-[0-9]{7}$`',
-    `funds_withheld_eligible` BOOLEAN COMMENT 'Indicates whether this reinsurer is eligible for funds-withheld collateral arrangements as an alternative to letters of credit for credit-for-reinsurance purposes.',
-    `last_review_date` DATE COMMENT 'Date of the most recent periodic counterparty credit and compliance review conducted by the reinsurance or risk management team.',
-    `legal_name` STRING COMMENT 'Full legal registered name of the reinsurance counterparty as filed with the domicile regulator and used in treaty and facultative contracts.',
-    `lifecycle_status` STRING COMMENT 'Current operational status of the reinsurer counterparty record, governing whether new treaties or facultative placements may be bound with this entity.. Valid values are `active|inactive|suspended|under_review|terminated`',
-    `lloyds_syndicate_number` STRING COMMENT 'Lloyds of London syndicate number for reinsurers operating as Lloyds syndicates. Null for non-Lloyds entities.',
-    `loc_required` BOOLEAN COMMENT 'Indicates whether a Letter of Credit (LOC) is required from this reinsurer as collateral to support credit-for-reinsurance on the cedants statutory balance sheet.',
-    `max_single_risk_limit_usd` DECIMAL(18,2) COMMENT 'Maximum ceded limit in USD that may be placed with this reinsurer on any single risk or facultative certificate, per internal counterparty concentration policy.',
-    `naic_code` STRING COMMENT 'Five-digit NAIC company code assigned to the reinsurer for statutory reporting, regulatory filings, and industry data exchange.. Valid values are `^[0-9]{5}$`',
-    `naic_group_code` STRING COMMENT 'NAIC-assigned group code identifying the reinsurance holding group, used for group-level concentration risk monitoring and statutory reporting.. Valid values are `^[0-9]{4,5}$`',
-    `next_review_date` DATE COMMENT 'Scheduled date for the next periodic counterparty credit and compliance review, based on rating tier and exposure concentration.',
-    `onboarding_date` DATE COMMENT 'Date on which the reinsurer was formally approved and onboarded as an authorized counterparty in the Pc_Insurance reinsurance management system.',
-    `parent_group_name` STRING COMMENT 'Name of the ultimate parent holding group or reinsurance group to which this reinsurer entity belongs, used for group-level credit limit aggregation.',
-    `preferred_settlement_currency` STRING COMMENT 'ISO 4217 three-letter currency code preferred by the reinsurer for premium and loss settlement transactions.. Valid values are `^[A-Z]{3}$`',
-    `primary_contact_email` STRING COMMENT 'Email address of the primary relationship contact at the reinsurer for operational communications.. Valid values are `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$`',
-    `primary_contact_name` STRING COMMENT 'Full name of the primary relationship contact at the reinsurer for treaty negotiations, claims, and bordereaux submissions.',
-    `primary_contact_phone` STRING COMMENT 'Direct telephone number of the primary relationship contact at the reinsurer.. Valid values are `^+?[0-9s-().]{7,20}$`',
-    `registered_address_city` STRING COMMENT 'City of the reinsurers official registered office address.',
-    `registered_address_country` STRING COMMENT 'ISO 3166-1 alpha-3 country code of the reinsurers registered office address.. Valid values are `^[A-Z]{3}$`',
-    `registered_address_line1` STRING COMMENT 'First line of the reinsurers official registered office address as filed with the domicile regulator.',
-    `sanctions_screen_date` DATE COMMENT 'Date on which the most recent OFAC and international sanctions screening was completed for this reinsurer counterparty.',
-    `sanctions_screened` BOOLEAN COMMENT 'Indicates whether this reinsurer has passed the most recent OFAC and international sanctions screening required before treaty placement or payment.',
-    `settlement_terms_days` BIGINT COMMENT 'Standard number of days from bordereaux submission or loss advice to expected settlement payment from the reinsurer, per treaty or market convention.',
-    `sp_rating` STRING COMMENT 'S&P Global Ratings insurer financial strength rating for the reinsurer (e.g., AAA, AA+, AA, A+, A, BBB). Supplements A.M. Best for counterparty risk assessment.',
-    `sp_rating_date` DATE COMMENT 'Date on which the current S&P Global financial strength rating was assigned or last affirmed.',
-    `swift_bic_code` STRING COMMENT 'SWIFT Bank Identifier Code (BIC) for the reinsurers settlement bank, used for international wire transfers of premium and loss payments.. Valid values are `^[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}([A-Z0-9]{3})?$`',
-    `trading_name` STRING COMMENT 'Doing Business As (DBA) or commercial brand name used by the reinsurer in market communications, distinct from the legal registered name.',
-    `trust_fund_eligible` BOOLEAN COMMENT 'Indicates whether this reinsurer maintains a qualifying US trust fund under NAIC model law, enabling credit-for-reinsurance without LOC for unauthorized reinsurers.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp of the most recent update to the reinsurer master record, used for change tracking and data lineage in the Databricks Silver layer.',
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` (
+    `fac_agreement_id` BIGINT COMMENT 'Unique surrogate primary key for the facultative reinsurance agreement. One row per FAC placement covering a single risk or policy.',
+    `catastrophe_event_id` BIGINT COMMENT 'Reference to a catastrophe event record if this FAC placement was triggered or influenced by a specific CAT event exposure.',
+    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Facultative certificates are often in foreign currencies; currency master provides exchange rates for premium settlement, collateral valuation, and financial reporting.',
+    `fac_broker_party_id` BIGINT COMMENT 'Reference to the party record for the reinsurance intermediary/broker who placed this FAC agreement on behalf of the cedant.',
+    `fac_cedant_party_id` BIGINT COMMENT 'Reference to the party record representing the ceding insurer (Pc_Insurance) transferring risk under this FAC agreement.',
+    `fac_reinsurer_party_id` BIGINT COMMENT 'Reference to the party record representing the assuming reinsurer accepting the ceded risk under this FAC placement.',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Facultative certificates require LOB master for Schedule F reporting, reinsurer authorization by line, and collateral requirement calculations.',
+    `policy_id` BIGINT COMMENT 'Reference to the underlying policy whose risk is being ceded under this facultative agreement.',
+    `producers_producer_id` BIGINT COMMENT 'Foreign key linking to producers.producers_producer. Business justification: Facultative certificates are often placed by individual producers who negotiate coverage with reinsurers.',
+    `quote_id` BIGINT COMMENT 'Foreign key linking to coverage.quote. Business justification: Facultative underwriting evaluates quote terms (limits, deductibles, pricing) before issuing certificates. Reinsurers review quote details to price fac participation.',
+    `reinsurer_id` BIGINT COMMENT 'Foreign key linking to reinsurance.reinsurer. Business justification: fac_agreement has reinsurer_party_id pointing to generic party table, but also needs FK to specialized reinsurer master for reinsurer-specific attributes (ratings, authorization status',
+    `ri_agreement_id` BIGINT COMMENT 'Reference to the parent reinsurance agreement record under which this facultative placement is administered.',
+    `riskexposure_insured_risk_id` BIGINT COMMENT 'Foreign key linking to riskexposure.insured_risk. Business justification: Facultative reinsurance is placed on specific high-value or unusual individual risks. Underwriters submit detailed risk characteristics to reinsurers for facultative quotes.',
+    `submission_id` BIGINT COMMENT 'Reference to the underwriting submission associated with this FAC placement, used when the FAC is placed prior to policy binding.',
+    `uw_decision_id` BIGINT COMMENT 'Foreign key linking to coverage.uw_decision. Business justification: Facultative reinsurers require underwriting decision context (risk tier, referral reasons, conditions, decline rationale) to assess participation and price fac certificates.',
+    `uw_referral_id` BIGINT COMMENT 'Foreign key linking to coverage.uw_referral. Business justification: High-risk submissions triggering underwriting referrals often require facultative reinsurance.',
+    `agreement_status` STRING COMMENT 'Current lifecycle state of the FAC agreement. Tracks progression from offer through binding, active coverage, and termination.. Valid values are `draft|bound|active|expired|cancelled|declined`',
+    `authorized_reinsurer_flag` BOOLEAN COMMENT 'Indicates whether the reinsurer is authorized/accredited in the cedants state of domicile. Affects Schedule F credit and collateral requirements.',
+    `bound_date` DATE COMMENT 'Date on which the reinsurer formally bound coverage under this facultative agreement, confirming acceptance of the ceded risk.',
+    `broker_commission_rate` DECIMAL(7,4) COMMENT 'Percentage of ceded premium payable to the reinsurance broker as intermediary commission for placing this FAC agreement.',
+    `cancellation_date` DATE COMMENT 'Date on which the facultative agreement was cancelled, if applicable. Null for agreements that run to natural expiry.',
+    `ceded_limit_amount` DECIMAL(18,2) COMMENT 'Maximum dollar amount of loss the reinsurer will pay under this FAC agreement. Represents the reinsurers liability cap for the placement.',
+    `ceded_percentage` DECIMAL(7,4) COMMENT 'Percentage of the original risk ceded to the reinsurer under this FAC agreement, expressed as a decimal (e.g., 0.5000 = 50%). Applies to pro-rata placements.',
+    `ceded_premium_amount` DECIMAL(18,2) COMMENT 'Dollar amount of premium ceded to the reinsurer under this FAC agreement. Reduces net written premium (NWP) for the cedant.',
+    `ceding_commission_amount` DECIMAL(18,2) COMMENT 'Dollar amount of ceding commission receivable from the reinsurer. Calculated as ceded premium multiplied by the ceding commission rate.',
+    `ceding_commission_rate` DECIMAL(7,4) COMMENT 'Percentage of ceded premium returned to the cedant by the reinsurer as a ceding commission to offset acquisition and administrative costs.',
+    `collateral_amount` DECIMAL(18,2) COMMENT 'Dollar amount of collateral posted by the reinsurer (letter of credit or trust) to secure obligations under this FAC agreement.',
+    `collateral_required_flag` BOOLEAN COMMENT 'Indicates whether the reinsurer is required to post collateral (letter of credit or trust fund) due to unauthorized status under NAIC credit for reinsurance rules.',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this FAC agreement record was first created in the reinsurance management system. Used for audit trail and data lineage.',
+    `expiry_date` DATE COMMENT 'Date on which the facultative reinsurance coverage expires. Typically co-terminus with the underlying policy expiration date.',
+    `fac_certificate_number` STRING COMMENT 'Certificate number issued by the reinsurer confirming acceptance of the facultative placement. Used for claims recovery and bordereaux reconciliation.',
+    `fac_premium_rate` DECIMAL(10,6) COMMENT 'Rate applied to the ceded limit or TIV to derive the FAC reinsurance premium. Expressed as a decimal (e.g., 0.005000 = 0.50%). Also known as Rate on Line (ROL) for XOL placements.',
+    `fac_reference_number` STRING COMMENT 'Externally-known business identifier assigned to this FAC placement, used in bordereaux reporting and reinsurer correspondence. Unique per placement.',
+    `fac_type` STRING COMMENT 'Structural type of the facultative placement: pro-rata (quota share basis) or excess of loss. Determines how premium and losses are shared.. Valid values are `pro_rata|excess_of_loss`',
+    `gross_written_premium` DECIMAL(18,2) COMMENT 'Total gross written premium on the underlying policy before cession. Basis for calculating the ceded reinsurance premium.',
+    `inception_date` DATE COMMENT 'Date on which the facultative reinsurance coverage becomes effective. Must align with or precede the underlying policy effective date.',
+    `loss_participation_rate` DECIMAL(7,4) COMMENT 'Percentage of losses the cedant participates in alongside the reinsurer under profit-sharing or loss-sensitive FAC structures.',
+    `original_insured_tiv` DECIMAL(18,2) COMMENT 'Total Insured Value of the underlying risk at the time of FAC placement. Used to calculate ceded exposure and Rate on Line (ROL).',
+    `placement_basis` STRING COMMENT 'Basis on which the FAC agreement responds: risks attaching (policies incepting during the period) or losses occurring (losses during the period).. Valid values are `risks_attaching|losses_occurring`',
+    `reinstatement_premium_rate` DECIMAL(7,4) COMMENT 'Rate applied to the original FAC premium to calculate the reinstatement premium payable when the ceded limit is reinstated after a loss.',
+    `reinstatement_provision` BOOLEAN COMMENT 'Indicates whether the FAC agreement includes a reinstatement provision allowing the ceded limit to be restored after a loss, typically for XOL placements.',
+    `reinsurer_share_percentage` DECIMAL(7,4) COMMENT 'Percentage of the FAC placement accepted by this specific reinsurer. Relevant when a single FAC risk is placed with multiple reinsurers (co-reinsurance).',
+    `reinsurer_underwriter_name` STRING COMMENT 'Name of the underwriter at the assuming reinsurer who accepted and bound this FAC placement.',
+    `retention_amount` DECIMAL(18,2) COMMENT 'Dollar amount of loss retained by the cedant (Pc_Insurance) before the reinsurers liability attaches. Applies to excess-of-loss FAC placements.',
+    `retrocession_flag` BOOLEAN COMMENT 'Indicates whether this FAC agreement is a retrocession (reinsurance of reinsurance), where the cedant is itself a reinsurer passing risk further.',
+    `schedule_f_category` STRING COMMENT 'NAIC Schedule F classification of the reinsurer for statutory reporting: authorized, unauthorized, certified, or reciprocal jurisdiction reinsurer.. Valid values are `authorized|unauthorized|certified|reciprocal_jurisdiction`',
+    `slip_reference` STRING COMMENT 'Market slip or cover note reference number associated with this FAC placement, used in London Market or broker-placed reinsurance transactions.',
+    `special_conditions` STRING COMMENT 'Free-text description of any special terms, conditions, exclusions, or warranties specific to this facultative placement not captured in structured fields.',
+    `underwriter_name` STRING COMMENT 'Name of the cedants underwriter responsible for placing and managing this facultative reinsurance agreement.',
+    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp when this FAC agreement record was last modified in the reinsurance management system. Supports audit trail and change tracking.',
+    CONSTRAINT pk_fac_agreement PRIMARY KEY(`fac_agreement_id`)
+) COMMENT 'Facultative reinsurance agreement covering a single risk or policy. One row per FAC placement. Captures cedant, reinsurer, ceded percentage, premium rate, inception/expiry, and the linked policy or submission.';
+
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` (
+    `reinsurer_id` BIGINT COMMENT 'Unique surrogate identifier for each reinsurance counterparty record. Primary key of the reinsurer master table. One row per reinsurer entity.',
+    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Reinsurer credit limits and collateral are currency-denominated; currency master provides exchange rates for credit monitoring, collateral adequacy assessment, and multi-currency reinsurer',
+    `parent_reinsurer_id` BIGINT COMMENT 'Self-referencing identifier pointing to the parent reinsurer entity for group-level exposure aggregation, credit limit monitoring, and group Schedule F reporting.',
+    `party_id` BIGINT COMMENT 'Foreign key linking to party.party. Business justification: Reinsurer entities are parties requiring KYC, address, contact, and identifier management. Multiple reinsurance products already use reinsurer_party_id FK to party.party, but reinsurer table',
+    `am_best_outlook` STRING COMMENT 'AM Best rating outlook indicating the likely direction of the reinsurers financial strength rating over the medium term. Informs counterparty risk monitoring.. Valid values are `stable|positive|negative|developing|under_review`',
+    `am_best_rating` STRING COMMENT 'AM Best Financial Strength Rating (FSR) assigned to the reinsurer. Used in underwriting guidelines to validate counterparty credit quality and treaty eligibility thresholds.. Valid values are `^(A++|A+|A|A-|B++|B+|B|B-|C++|C+|C|C-|D|E|F|S|NR)$`',
+    `am_best_rating_date` DATE COMMENT 'Date on which the current AM Best Financial Strength Rating was assigned or last affirmed. Used to assess rating currency and trigger counterparty review workflows.',
+    `approval_date` DATE COMMENT 'Date on which the reinsurer was most recently approved by the internal credit committee for new cession activity. Supports counterparty governance audit trails.',
+    `approval_expiry_date` DATE COMMENT 'Date on which the current internal approval for the reinsurer expires and must be renewed by the credit committee. Drives counterparty review scheduling.',
+    `approved_flag` BOOLEAN COMMENT 'Indicates whether the reinsurer has been formally approved by the cedants internal credit and counterparty risk committee for placement of new reinsurance agreements.',
+    `authorization_status` STRING COMMENT 'Indicates whether the reinsurer is authorized, unauthorized, certified, or accredited in the cedants domicile state. Determines Schedule F credit for reinsurance and collateral obligations.. Valid values are `authorized|unauthorized|certified|accredited|reciprocal_jurisdiction`',
+    `broker_intermediary_name` STRING COMMENT 'Name of the reinsurance broker or intermediary through which business is placed with this reinsurer. Used for commission tracking and intermediary credit risk assessment.',
+    `reinsurer_code` STRING COMMENT 'Internal alphanumeric code assigned to uniquely identify the reinsurer within the Reinsurance Management System for bordereaux and cession processing.',
+    `collateral_amount` DECIMAL(18,2) COMMENT 'Total USD amount of collateral currently posted by the reinsurer. Used in Schedule F credit calculations and counterparty exposure monitoring.',
+    `collateral_required_flag` BOOLEAN COMMENT 'Indicates whether the reinsurer is required to post collateral (letter of credit, trust fund, or funds withheld) to support Schedule F credit for unauthorized reinsurers.',
+    `collateral_type` STRING COMMENT 'Type of collateral arrangement posted by the reinsurer to secure Schedule F credit. Applicable to unauthorized and certified reinsurers per NAIC Model Law #785.. Valid values are `letter_of_credit|trust_fund|funds_withheld|cash_deposit|none`',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when the reinsurer master record was first created in the system. Supports audit trail, data lineage, and SOX compliance requirements.',
+    `credit_limit_amount` DECIMAL(18,2) COMMENT 'Maximum aggregate ceded exposure (in USD) approved for this reinsurer by the internal credit committee. Enforced at cession booking to prevent counterparty concentration breaches.',
+    `domicile_country` STRING COMMENT 'ISO 3166-1 alpha-3 country code of the jurisdiction where the reinsurer is legally domiciled. Used for Schedule F foreign reinsurer classification and credit determination.. Valid values are `^[A-Z]{3}$`',
+    `domicile_state` STRING COMMENT 'Two-letter US state or territory code where the reinsurer is domiciled, if a domestic entity. Used for state-level authorization and credit for reinsurance analysis.. Valid values are `^[A-Z]{2}$`',
+    `federal_excise_tax_exempt_flag` BOOLEAN COMMENT 'Indicates whether the reinsurer is exempt from US Federal Excise Tax on reinsurance premiums under a tax treaty or qualified jurisdiction status per IRC Section 4371.',
+    `fein` STRING COMMENT 'IRS-assigned Federal Employer Identification Number (FEIN) for the reinsurer entity. Used for tax reporting, 1099 issuance, and AP payment processing.. Valid values are `^[0-9]{2}-[0-9]{7}$`',
+    `group_name` STRING COMMENT 'Name of the reinsurance group or holding company to which this reinsurer belongs. Used for group-level credit exposure aggregation and counterparty concentration risk.',
+    `last_review_date` DATE COMMENT 'Date of the most recent formal counterparty credit review conducted by the cedants reinsurance credit committee. Supports ORSA and governance audit requirements.',
+    `lloyds_syndicate_number` STRING COMMENT 'Four-digit Lloyds of London syndicate number. Populated only when reinsurer_type is lloyds_syndicate. Required for Lloyds-specific bordereaux and premium trust fund reporting.. Valid values are `^[0-9]{4}$`',
+    `minimum_am_best_rating` STRING COMMENT 'Minimum AM Best Financial Strength Rating required by internal policy for this reinsurer to remain eligible for new cessions. Triggers review if current rating falls below threshold.',
+    `moodys_rating` STRING COMMENT 'Moodys Investors Service insurance financial strength rating for the reinsurer. Used as a tertiary credit quality indicator in counterparty risk frameworks.',
+    `naic_code` STRING COMMENT 'Five-digit NAIC company code assigned to the reinsurer. Required for NAIC Schedule F statutory reporting and credit for reinsurance determinations.. Valid values are `^[0-9]{5}$`',
+    `next_review_date` DATE COMMENT 'Scheduled date for the next formal counterparty credit review. Drives workflow alerts in the Reinsurance Management System to ensure timely governance compliance.',
+    `notes` STRING COMMENT 'Free-text field for underwriting, credit, or operational notes about the reinsurer, such as special collateral arrangements, run-off status details, or relationship history.',
+    `pool_name` STRING COMMENT 'Name of the reinsurance pool or facility when the reinsurer participates as a pool member. Used for pool-level aggregation in bordereaux and Schedule F reporting.',
+    `reinsurer_status` STRING COMMENT 'Current operational status of the reinsurer in the cedants system. Controls eligibility for new cessions and triggers collection escalation for run-off or insolvent counterparties.. Valid values are `active|inactive|suspended|run_off|insolvent`',
+    `reinsurer_type` STRING COMMENT 'Classification of the reinsurer entity structure. Drives Schedule F credit treatment and collateral requirements. [ENUM-REF-CANDIDATE: assuming_company|lloyds_syndicate|pool|captive|government|other — promote to reference product]. Valid values are `assuming_company|lloyds_syndicate|pool|captive|government|other`',
+    `relationship_inception_date` DATE COMMENT 'Date on which the cedant first entered into a reinsurance agreement with this counterparty. Used for relationship tenure analysis and counterparty history reporting.',
+    `retrocession_flag` BOOLEAN COMMENT 'Indicates whether this reinsurer also acts as a retrocessionaire, accepting ceded risk from other reinsurers. Used to identify retrocession (RETRO) relationships in the reinsurance chain.',
+    `schedule_f_category` STRING COMMENT 'NAIC Schedule F reporting category for this reinsurer. Determines the statutory credit treatment, penalty charges, and collateral requirements in the Annual Statement.. Valid values are `authorized|unauthorized_with_collateral|unauthorized_without_collateral|certified|accredited|reciprocal_jurisdiction`',
+    `short_name` STRING COMMENT 'Abbreviated or commonly used trading name of the reinsurer used in bordereaux reports, internal systems, and operational communications.',
+    `sp_rating` STRING COMMENT 'S&P Global Ratings financial strength rating for the reinsurer. Supplementary credit quality indicator used alongside AM Best for counterparty risk assessment.',
+    `tax_withholding_rate` DECIMAL(5,4) COMMENT 'Federal excise tax or withholding rate applicable to premium payments to this reinsurer, expressed as a decimal (e.g., 0.01 = 1%). Applies to foreign unauthorized reinsurers per IRC Section 4371.',
+    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp when the reinsurer master record was most recently modified. Used for change data capture, audit trails, and data quality monitoring in the Silver layer.',
     CONSTRAINT pk_reinsurer PRIMARY KEY(`reinsurer_id`)
-) COMMENT 'Master record for each reinsurance counterparty (reinsurer or retrocessionaire). Captures legal name, NAIC code, A.M. Best rating, domicile, authorized status, and credit limit for counterparty risk management.';
+) COMMENT 'Master record for each reinsurance counterparty (assuming company, Lloyds syndicate, or pool). One row per reinsurer. Stores legal name, NAIC code, AM Best rating, domicile, and authorized/unauthorized status for Schedule F credit.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` (
-    `treaty_reinsurer_id` BIGINT COMMENT 'Unique surrogate identifier for each treaty-reinsurer participation record in the reinsurance panel.',
-    `assumed_reinsurer_id` BIGINT COMMENT 'Reference to the reinsurer party entity participating in this treaty panel.',
-    `ri_broker_id` BIGINT COMMENT 'Reference to the reinsurance broker who placed this reinsurers line on the treaty, used for brokerage commission and placement tracking.',
-    `ri_treaty_id` BIGINT COMMENT 'Reference to the parent reinsurance treaty to which this reinsurer participates.',
-    `treaty_replacement_reinsurer_id` BIGINT COMMENT 'Reference to the reinsurer who replaced this participant on the treaty panel following a withdrawal or capacity reduction.',
-    `am_best_rating` STRING COMMENT 'A.M. Best financial strength rating of the reinsurer at the time of treaty placement, used for credit quality and security assessment.',
-    `brokerage_commission_pct` DECIMAL(7,4) COMMENT 'Percentage of ceded premium payable to the reinsurance broker for placing this reinsurers line on the treaty.',
-    `ceded_lae_amount` DECIMAL(18,2) COMMENT 'Total Loss Adjustment Expense (LAE) ceded to this reinsurer under this treaty participation for the current treaty period.',
-    `ceded_loss_amount` DECIMAL(18,2) COMMENT 'Total losses ceded to this reinsurer under this treaty participation for the current treaty period, in the treaty currency.',
-    `ceded_premium_amount` DECIMAL(18,2) COMMENT 'Total premium ceded to this reinsurer under this treaty participation for the current treaty period, in the treaty currency.',
-    `collateral_held_amount` DECIMAL(18,2) COMMENT 'Actual amount of collateral currently held from this reinsurer (letters of credit, trust funds, funds withheld) for credit for reinsurance.',
-    `collateral_required_amount` DECIMAL(18,2) COMMENT 'Amount of collateral required from this reinsurer to support credit for reinsurance, based on authorization status and applicable regulations.',
-    `collateral_type` STRING COMMENT 'Type of collateral arrangement held from this reinsurer (e.g., letter of credit, trust fund, funds withheld, cash deposit).. Valid values are `letter_of_credit|trust_fund|funds_withheld|cash_deposit|other`',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this treaty-reinsurer participation record was first created in the reinsurance management system.',
-    `currency_code` STRING COMMENT 'ISO 4217 three-letter currency code in which ceded premium, losses, and recoverable balances are denominated for this reinsurer.. Valid values are `^[A-Z]{3}$`',
-    `domicile_country_code` STRING COMMENT 'ISO 3166-1 alpha-3 country code of the reinsurers domicile jurisdiction, used for credit for reinsurance and regulatory reporting.. Valid values are `^[A-Z]{3}$`',
-    `effective_date` DATE COMMENT 'Date on which this reinsurers participation in the treaty becomes binding and effective.',
-    `expiry_date` DATE COMMENT 'Date on which this reinsurers participation in the treaty expires or terminates. Null for open-ended participations.',
-    `funds_withheld_amount` DECIMAL(18,2) COMMENT 'Amount of ceded premium withheld by the cedant from this reinsurer under a funds withheld arrangement, reducing settlement cash flows.',
-    `is_authorized_reinsurer` BOOLEAN COMMENT 'Indicates whether this reinsurer is authorized (licensed) in the cedants domicile state, affecting credit for reinsurance treatment.',
-    `is_certified_reinsurer` BOOLEAN COMMENT 'Indicates whether this reinsurer holds certified reinsurer status under NAIC Credit for Reinsurance Model Law, enabling reduced collateral requirements.',
-    `is_lead_reinsurer` BOOLEAN COMMENT 'Indicates whether this reinsurer is the lead underwriter on the treaty panel, responsible for setting terms and conditions.',
-    `naic_reinsurer_code` STRING COMMENT 'NAIC-assigned five-digit company code for the reinsurer, used in statutory Schedule F and reinsurance regulatory filings.. Valid values are `^[0-9]{5}$`',
-    `offered_line_pct` DECIMAL(7,4) COMMENT 'The percentage of the treaty capacity initially offered to this reinsurer during placement, before signing adjustments.',
-    `order_hereon_pct` DECIMAL(7,4) COMMENT 'The percentage of the total treaty order placed with this reinsurer, reflecting the cedants actual placement instruction.',
-    `panel_sequence` BIGINT COMMENT 'Ordering sequence of this reinsurer within the treaty panel, used for bordereaux presentation and cession processing priority.',
-    `participation_notes` STRING COMMENT 'Free-text notes capturing special conditions, side agreements, or underwriting remarks specific to this reinsurers participation on the treaty.',
-    `participation_reference` STRING COMMENT 'Externally-known unique reference number assigned to this reinsurers line on the treaty, used in bordereaux and cession statements.',
-    `participation_status` STRING COMMENT 'Current lifecycle status of the reinsurers participation on the treaty panel (e.g., active, signed, withdrawn, pending, cancelled, suspended).. Valid values are `active|signed|withdrawn|pending|cancelled|suspended`',
-    `profit_commission_pct` DECIMAL(7,4) COMMENT 'Profit commission percentage payable by this reinsurer to the cedant if the treaty produces a profit, per the profit commission formula.',
-    `rating_as_of_date` DATE COMMENT 'Date as of which the reinsurers financial strength ratings (A.M. Best, S&P) were captured for this participation record.',
-    `recoverable_balance` DECIMAL(18,2) COMMENT 'Outstanding reinsurance recoverable balance owed by this reinsurer to the cedant, representing unpaid ceded losses and LAE.',
-    `reinsurance_commission_pct` DECIMAL(7,4) COMMENT 'Commission percentage payable by this reinsurer to the cedant on ceded premium, applicable for quota share and proportional treaties.',
-    `reinsurer_role` STRING COMMENT 'Role of the reinsurer on the treaty panel (e.g., lead, follow, co-reinsurer, fronting, security), indicating their authority and position.. Valid values are `lead|follow|co-reinsurer|fronting|security`',
-    `signed_line_pct` DECIMAL(7,4) COMMENT 'The final signed share percentage allocated to this reinsurer after signing-down of the oversubscribed panel.',
-    `signing_date` DATE COMMENT 'Date on which this reinsurer formally signed their line on the treaty, confirming their participation and subscribed share.',
-    `sliding_scale_max_commission_pct` DECIMAL(7,4) COMMENT 'Maximum commission percentage under a sliding scale commission arrangement, applied when the loss ratio is at its minimum threshold.',
-    `sliding_scale_min_commission_pct` DECIMAL(7,4) COMMENT 'Minimum commission percentage under a sliding scale commission arrangement, applied when the loss ratio reaches its maximum threshold.',
-    `sp_rating` STRING COMMENT 'Standard & Poors (S&P) financial strength rating of the reinsurer at the time of treaty placement, used for panel security evaluation.',
-    `subscribed_share_pct` DECIMAL(7,4) COMMENT 'The reinsurers confirmed subscribed share of the treaty, representing their proportional participation used for cession and premium allocation.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp when this treaty-reinsurer participation record was last modified in the reinsurance management system.',
-    `withdrawal_date` DATE COMMENT 'Date on which this reinsurer withdrew from the treaty panel, if applicable. Null for active participations.',
-    `withdrawal_reason` STRING COMMENT 'Reason for the reinsurers withdrawal from the treaty panel (e.g., capacity reduction, credit downgrade, market exit, cedant request).. Valid values are `capacity_reduction|credit_downgrade|market_exit|cedant_request|regulatory|other`',
-    `written_line_pct` DECIMAL(7,4) COMMENT 'The percentage of the treaty capacity written (committed) by this reinsurer at the time of placement, prior to signing-down.',
-    CONSTRAINT pk_treaty_reinsurer PRIMARY KEY(`treaty_reinsurer_id`)
-) COMMENT 'Junction table linking a treaty to its participating reinsurers with each reinsurers subscribed share percentage, signed line, written line, and participation status. Supports multi-reinsurer panel structures.';
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` (
+    `ri_participant_id` BIGINT COMMENT 'Unique surrogate identifier for a reinsurers participation record within a treaty or facultative agreement. One row per reinsurer per agreement.',
+    `reinsurer_id` BIGINT COMMENT 'Foreign key linking to reinsurance.reinsurer. Business justification: ri_participant has reinsurer_party_id but also extensive denormalized reinsurer attributes.',
+    `ri_agreement_id` BIGINT COMMENT 'Reference to the parent reinsurance agreement (treaty or facultative) under which this participation is recorded.',
+    `ri_party_id` BIGINT COMMENT 'Reference to the reinsurance intermediary (broker) who placed this participants line. Used for broker commission settlement and bordereaux routing.',
+    `ri_reinsurer_party_id` BIGINT COMMENT 'Reference to the Party record representing the reinsurer entity participating in this agreement.',
+    `account_current_basis` STRING COMMENT 'Basis on which the account current (bordereaux) is prepared for this participant: written premium basis, earned premium basis, or cash basis.. Valid values are `written|earned|cash`',
+    `agreement_type` STRING COMMENT 'Type of reinsurance agreement: Quota Share (QS), Excess of Loss (XOL), Stop Loss (SL), Catastrophe XL (CAT XL), or Facultative (FAC). Determines cession and recovery mechanics.. Valid values are `treaty_qs|treaty_xol|treaty_sl|treaty_cat_xl|facultative`',
+    `brokerage_commission_pct` DECIMAL(7,4) COMMENT 'Percentage of ceded premium payable to the reinsurance broker for placing this participants line. Applied to the participants share of written premium.',
+    `ceding_commission_pct` DECIMAL(7,4) COMMENT 'Percentage of ceded premium returned to the cedant by this reinsurer as a ceding commission, covering acquisition and overhead costs. Applicable primarily to QS treaties.',
+    `cession_share_pct` DECIMAL(7,4) COMMENT 'Effective share of each cession allocated to this participant, derived from signed line and order hereon. Used to compute this reinsurers portion of premium and loss.',
+    `commutation_amount` DECIMAL(18,2) COMMENT 'Lump-sum amount agreed upon in the commutation to settle all outstanding reserves and future obligations for this reinsurers participation share.',
+    `commutation_date` DATE COMMENT 'Date on which the commutation agreement was executed, extinguishing all future obligations between the cedant and this reinsurer under this participation.',
+    `commutation_flag` BOOLEAN COMMENT 'Indicates whether this participation has been commuted, meaning all outstanding obligations have been settled by a lump-sum payment and the agreement extinguished.',
+    `currency_code` STRING COMMENT 'ISO 4217 three-letter currency code in which premiums, losses, and settlements with this reinsurer are denominated (e.g., USD, GBP, EUR).. Valid values are `^[A-Z]{3}$`',
+    `cut_through_clause_flag` BOOLEAN COMMENT 'Indicates whether a cut-through endorsement exists allowing the cedants policyholders to claim directly against this reinsurer in the event of the cedants insolvency.',
+    `effective_date` DATE COMMENT 'Date on which the reinsurers participation in the agreement becomes binding and cessions may be allocated to this participant.',
+    `expiration_date` DATE COMMENT 'Date on which the reinsurers participation ends. Null for open-ended participations. Used to determine in-force panel at any given date.',
+    `funds_withheld_flag` BOOLEAN COMMENT 'Indicates whether the cedant withholds ceded premium from this reinsurer under a funds-withheld arrangement, used as collateral for unauthorized reinsurers.',
+    `insolvency_clause_flag` BOOLEAN COMMENT 'Indicates whether the standard insolvency clause is included, requiring the reinsurer to pay claims even if the cedant becomes insolvent, per NAIC model law requirements.',
+    `lc_amount` DECIMAL(18,2) COMMENT 'Dollar amount of the letter of credit posted by this reinsurer as collateral. Required for Schedule F credit for reinsurance calculations for unauthorized reinsurers.',
+    `lc_required_flag` BOOLEAN COMMENT 'Indicates whether this reinsurer is required to post a letter of credit as collateral for credit for reinsurance purposes under state regulation.',
+    `offset_clause_flag` BOOLEAN COMMENT 'Indicates whether the participation agreement includes an offset clause allowing mutual debts between cedant and reinsurer to be netted in settlement.',
+    `order_hereon_pct` DECIMAL(7,4) COMMENT 'The cedants order percentage representing the total share of risk placed with the reinsurance market. Used to scale signed and written lines to the actual ceded amount.',
+    `participant_reference_number` STRING COMMENT 'Externally-known unique identifier assigned by the reinsurance management system to this participation line, used in bordereaux and Schedule F reporting.',
+    `participant_status` STRING COMMENT 'Current lifecycle state of the reinsurers participation in the agreement. Controls whether cessions and recoveries can be posted against this participant.. Valid values are `active|inactive|pending|terminated|suspended`',
+    `participation_type` STRING COMMENT 'Classifies the reinsurers role in the panel: leader sets terms, followers subscribe, sole reinsurer takes 100%. Drives bordereaux and settlement logic.. Valid values are `leader|follower|sole_reinsurer|co_reinsurer|retrocessionaire`',
+    `placement_date` DATE COMMENT 'Date on which the reinsurers line was formally placed and agreed, which may precede the participation effective date. Used for audit trail and contract management.',
+    `profit_commission_pct` DECIMAL(7,4) COMMENT 'Percentage of underwriting profit returned to the cedant by this reinsurer under a profit commission clause. Calculated after losses and expenses against this participants share.',
+    `retrocession_flag` BOOLEAN COMMENT 'Indicates whether this participation is part of a retrocession arrangement where the reinsurer is itself ceding risk onward to a retrocessionaire.',
+    `rol_pct` DECIMAL(7,4) COMMENT 'Rate on Line expressed as a percentage of the limit, representing the reinsurance premium as a proportion of the coverage limit for this participants share. Key XOL pricing metric.',
+    `settlement_frequency` STRING COMMENT 'Frequency at which premium and loss accounts are settled between the cedant and this reinsurer. Drives bordereaux generation and cash settlement scheduling.. Valid values are `monthly|quarterly|semi_annual|annual|as_agreed`',
+    `signed_line_pct` DECIMAL(7,4) COMMENT 'The percentage of the agreements risk that the reinsurer has formally signed and committed to. Signed lines across all participants must sum to 100% for a fully placed agreement.',
+    `signing_date` DATE COMMENT 'Date on which the reinsurer formally signed the slip or contract, confirming their committed signed line percentage. Distinct from placement date.',
+    `source_system_code` STRING COMMENT 'Identifier of the originating reinsurance management system record (e.g., Sapiens ReinsurancePro participant ID) for lineage and reconciliation purposes.',
+    `termination_date` DATE COMMENT 'Date on which the reinsurers participation was terminated prior to the scheduled expiration date, such as due to insolvency, commutation, or mutual agreement.',
+    `termination_reason` STRING COMMENT 'Reason code for early termination of the reinsurers participation. Used in commutation accounting and Schedule F disclosures.. Valid values are `commutation|insolvency|mutual_agreement|regulatory|non_renewal`',
+    `trust_fund_amount` DECIMAL(18,2) COMMENT 'Amount held in a reinsurance trust fund by this reinsurer as an alternative collateral mechanism for credit for reinsurance under NAIC model law.',
+    `written_line_pct` DECIMAL(7,4) COMMENT 'The percentage of the agreement initially offered to and accepted by the reinsurer before signing-down. May differ from signed line when the placement is oversubscribed.',
+    CONSTRAINT pk_ri_participant PRIMARY KEY(`ri_participant_id`)
+) COMMENT 'Allocation of a reinsurers share within a treaty or FAC agreement. One row per reinsurer per agreement. Captures signed line percentage, written line percentage, and participation effective dates.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` (
-    `reinsurance_cession_id` BIGINT COMMENT 'Unique surrogate identifier for each cession transaction record in the reinsurance cession ledger.',
-    `bordereaux_id` BIGINT COMMENT 'Foreign key linking to reinsurance.bordereaux. Business justification: Cessions are reported in bordereaux submissions. Currently has bordereaux_period (string), should have proper FK to the actual bordereaux record for referential integrity and join',
-    `currency_id` BIGINT COMMENT 'ISO 4217 three-letter currency code for all monetary amounts on this cession record (e.g., USD, GBP, EUR).',
-    `fac_certificate_id` BIGINT COMMENT 'Foreign key linking to reinsurance.fac_certificate. Business justification: Cessions can be under either treaty OR FAC certificate. Currently cession has treaty_id but missing fac_certificate_id for FAC-based cessions.',
-    `insured_location_id` BIGINT COMMENT 'Foreign key linking to riskexposure.insured_location. Business justification: Property cessions reference specific insured locations to determine ceded TIV, apply retention and limit, and validate treaty coverage.',
-    `lob_code_id` BIGINT COMMENT 'NAIC line of business code or description for the ceded risk (e.g., Commercial Auto, GL, Property, WC). Used in bordereaux and statutory reporting. [ENUM-REF-CANDIDATE: promote to reference product]',
-    `coverage_policy_coverage_id` BIGINT COMMENT 'Foreign key linking to coverage.coverage_policy_coverage. Business justification: Cessions must identify the specific coverage being ceded for accurate premium allocation, loss recovery calculations, and bordereaux reporting.',
-    `policy_id` BIGINT COMMENT 'Reference to the underlying insurance policy whose risk is being ceded to the reinsurer.',
-    `reinsurer_id` BIGINT COMMENT 'Reference to the reinsurer counterparty accepting the ceded risk on this transaction.',
-    `ri_treaty_id` BIGINT COMMENT 'Reference to the reinsurance treaty or facultative (FAC) certificate under which this cession is placed.',
-    `risk_unit_id` BIGINT COMMENT 'Reference to the specific risk exposure or scheduled item being ceded, enabling sub-policy cession granularity.',
-    `treaty_layer_id` BIGINT COMMENT 'Foreign key linking to reinsurance.treaty_layer. Business justification: Cessions apply to specific treaty layers. Currently has layer_number (INT), should have proper FK to treaty_layer for full layer definition and terms.',
-    `am_best_rating` STRING COMMENT 'A.M. Best financial strength rating of the assuming reinsurer at the time of cession placement, used for credit quality and collateral requirement assessment.',
-    `attachment_point` DECIMAL(18,2) COMMENT 'Dollar threshold at which the reinsurers liability begins for excess of loss (XOL) and CAT XL structures. Null for pro-rata cessions.',
-    `basis` STRING COMMENT 'Contractual basis on which losses are ceded: risks attaching, losses occurring, or claims made. Determines which policy periods are covered under the treaty.. Valid values are `risks_attaching|losses_occurring|claims_made`',
-    `cat_event_code` STRING COMMENT 'Industry catastrophe event code (e.g., ISO/PCS event code) linking this cession to a declared catastrophe (CAT) occurrence for CAT XL recovery tracking.',
-    `ceded_alae` DECIMAL(18,2) COMMENT 'Allocated loss adjustment expense (ALAE) ceded to the reinsurer under this transaction, representing defense and cost containment expenses.',
-    `ceded_earned_premium` DECIMAL(18,2) COMMENT 'Portion of the ceded written premium that has been earned through the exposure period to date, used in loss ratio and statutory reporting.',
-    `ceded_ibnr` DECIMAL(18,2) COMMENT 'Actuarial estimate of incurred but not reported (IBNR) losses ceded to the reinsurer, used in statutory reserving and Schedule F reporting.',
-    `ceded_limit` DECIMAL(18,2) COMMENT 'Maximum reinsurance recovery limit ceded under this transaction. For XOL structures, this is the layer limit above the retention.',
-    `ceded_loss_paid` DECIMAL(18,2) COMMENT 'Cumulative paid loss amount ceded to and recovered from the reinsurer under this cession as of the reporting date.',
-    `ceded_loss_reserve` DECIMAL(18,2) COMMENT 'Outstanding case reserve (OCR) amount ceded to the reinsurer representing estimated future loss payments recoverable under this cession.',
-    `ceded_share_pct` DECIMAL(7,4) COMMENT 'Percentage of the risk ceded to the reinsurer under this transaction, expressed as a decimal (e.g., 0.3000 = 30%). Used in quota share (QS) and pro-rata calculations.',
-    `ceded_tiv` DECIMAL(18,2) COMMENT 'Total insured value (TIV) of the risk exposure ceded to the reinsurer under this cession, used for property and CAT accumulation tracking.',
-    `ceded_unearned_premium` DECIMAL(18,2) COMMENT 'Unearned portion of the ceded written premium representing the reinsurers liability for unexpired risk as of the reporting date.',
-    `ceded_written_premium` DECIMAL(18,2) COMMENT 'Portion of the gross written premium (GWP) ceded to the reinsurer under this transaction. Reduces net written premium (NWP) on the cedants books.',
-    `ceding_commission_amount` DECIMAL(18,2) COMMENT 'Dollar amount of ceding commission receivable from the reinsurer on this cession, calculated as ceded premium multiplied by the ceding commission rate.',
-    `ceding_commission_pct` DECIMAL(7,4) COMMENT 'Percentage of ceded premium returned to the cedant by the reinsurer as a ceding commission to offset acquisition and administrative costs.',
-    `collateral_amount` DECIMAL(18,2) COMMENT 'Dollar amount of collateral posted by the reinsurer (letter of credit or trust) to secure the cedants reinsurance recoverable on this cession.',
-    `collateral_required` BOOLEAN COMMENT 'Indicates whether the reinsurer is required to post collateral (e.g., letter of credit or trust fund) for this cession due to unauthorized reinsurer status.',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this cession record was first created in the reinsurance management system.',
-    `effective_date` DATE COMMENT 'Date on which this cession becomes effective and the reinsurer assumes its share of the ceded risk.',
-    `endorsement_reference` STRING COMMENT 'Reference to the policy endorsement (ENDT) that triggered or modified this cession, linking mid-term changes to the corresponding cession adjustment.',
-    `expiry_date` DATE COMMENT 'Date on which this cession expires and the reinsurers liability for new losses ceases under the ceded risk.',
-    `gross_written_premium` DECIMAL(18,2) COMMENT 'Total gross written premium (GWP) on the underlying policy or risk exposure before any cession or reinsurance deduction.',
-    `is_retrocession` BOOLEAN COMMENT 'Indicates whether this cession is a retrocession (i.e., the cedant is itself a reinsurer ceding risk further to a retrocessionaire).',
-    `naic_company_code` STRING COMMENT 'Five-digit NAIC company code of the assuming reinsurer, required for Schedule F statutory reporting and reinsurer credit risk assessment.. Valid values are `^[0-9]{5}$`',
-    `number` STRING COMMENT 'Externally-known business reference number assigned to this cession event, used in bordereaux reporting and reinsurer correspondence.. Valid values are `^CES-[0-9]{4}-[0-9]{8}$`',
-    `placement_type` STRING COMMENT 'Indicates whether the cession is placed under a standing reinsurance treaty or a facultative (FAC) certificate for an individual risk.. Valid values are `treaty|facultative`',
-    `profit_commission_pct` DECIMAL(7,4) COMMENT 'Percentage of reinsurer profit returned to the cedant as a profit commission under sliding-scale or profit-sharing treaty arrangements.',
-    `rate_on_line_pct` DECIMAL(7,4) COMMENT 'Rate on line (ROL) expressed as a percentage of the reinsurance limit, used to price XOL and CAT XL layers and assess cost efficiency.',
-    `reinstatement_premium` DECIMAL(18,2) COMMENT 'Additional premium paid to reinstate the reinsurance limit after a loss occurrence has eroded the layer, applicable to XOL and CAT XL structures.',
-    `reinsurance_cession_date` DATE COMMENT 'The business event date on which the cession was formally recorded and submitted to the reinsurer, distinct from the risk effective date.',
-    `reinsurance_cession_status` STRING COMMENT 'Current lifecycle state of the cession transaction. [ENUM-REF-CANDIDATE: draft|active|amended|cancelled|expired|settled — promote to reference product if statuses expand]. Valid values are `draft|active|amended|cancelled|expired|settled`',
-    `reinsurance_cession_type` STRING COMMENT 'Classification of the cession structure: pro-rata (quota share), excess of loss (XOL), facultative (FAC), catastrophe excess of loss (CAT XL), or catastrophe bond (CAT Bond).. Valid values are `pro_rata|excess_of_loss|facultative|cat_xl|cat_bond`',
-    `reinsurance_recoverable` DECIMAL(18,2) COMMENT 'Total reinsurance recoverable balance on this cession, comprising ceded paid losses, ceded reserves, and ceded IBNR outstanding from the reinsurer.',
-    `retention_amount` DECIMAL(18,2) COMMENT 'The cedants net retained loss amount before reinsurance recovery applies. For XOL, this is the attachment point; for QS, it is the retained share amount.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp of the most recent modification to this cession record, supporting audit trail and change tracking.',
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` (
+    `reinsurance_cession_id` BIGINT COMMENT 'Unique surrogate identifier for each cession record. One row per policy term per treaty layer or facultative agreement. Primary key of the cession table.',
+    `catastrophe_event_id` BIGINT COMMENT 'Reference to the catastrophe event associated with this cession when is_catastrophe_cession is true. Links to the catastrophe event for PML and AAL aggregation.',
+    `catastrophegeography_peril_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.peril. Business justification: Cessions must identify the triggering peril for treaty allocation, bordereaux reporting, Schedule F classification, and reinsurer accounting.',
+    `claimfinancials_accounting_period_id` BIGINT COMMENT 'Reference to the accounting period in which this cession is booked for statutory and GAAP financial reporting purposes.',
+    `coverage_id` BIGINT COMMENT 'Foreign key linking to coverage.coverage. Business justification: Cessions record the actual transfer of risk to reinsurers. Premium and claim cessions must trace to the specific coverage being ceded for accurate bordereaux reporting, treaty allocation',
+    `currency_id` BIGINT COMMENT 'Foreign key linking to shared.currency. Business justification: Cession accounting requires currency master for exchange rate application, multi-currency premium and loss aggregation, and statutory reporting in reporting currency.',
+    `fac_agreement_id` BIGINT COMMENT 'Reference to the facultative reinsurance agreement if this is a FAC cession. Null for treaty cessions.',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Cession accounting and bordereaux submission require LOB master for consistent line classification, treaty applicability rules, and regulatory reporting.',
+    `policy_term_id` BIGINT COMMENT 'Reference to the policy term being ceded. Links the cession to the specific time-bounded policy period in force at the time of cession.',
+    `premium_transaction_id` BIGINT COMMENT 'Foreign key linking to premium.premium_transaction. Business justification: Each cession records the reinsurance share of a specific gross premium transaction.',
+    `reinsurer_party_id` BIGINT COMMENT 'Reference to the reinsurer party accepting this cession. Supports multi-reinsurer panels where each reinsurer has a separate cession row.',
+    `ri_agreement_id` BIGINT COMMENT 'Reference to the parent reinsurance agreement (treaty or facultative) under which this cession is placed.',
+    `riskexposure_insured_risk_id` BIGINT COMMENT 'Foreign key linking to riskexposure.insured_risk. Business justification: Cessions represent the actual transfer of specific risk exposure to reinsurers. Exposure management and catastrophe modeling require linking cessions to underlying insured risks to',
+    `treaty_layer_id` BIGINT COMMENT 'Reference to the specific treaty layer (e.g., first excess layer, second excess layer) within the reinsurance agreement to which this cession attaches.',
+    `accident_year` BIGINT COMMENT 'Accident Year (AY) associated with losses ceded under this cession. Used for loss development triangles and IBNR reserving on ceded basis.',
+    `agreement_type` STRING COMMENT 'Classifies the cession as treaty-based (automatic, per agreed terms) or facultative (individually negotiated per risk).. Valid values are `treaty|facultative`',
+    `attachment_point` DECIMAL(18,2) COMMENT 'Dollar threshold at which the reinsurers liability begins under an XOL or CAT XL treaty. Equivalent to the cedants retention for excess layers.',
+    `booking_date` DATE COMMENT 'Date on which this cession was recorded in the Reinsurance Management System and booked to the general ledger for statutory reporting.',
+    `bordereaux_period` STRING COMMENT 'Reporting period (YYYY-MM or YYYY-Q#) for which this cession is included in the reinsurance bordereaux submission to the reinsurer.. Valid values are `^[0-9]{4}-(Q[1-4]|[0-9]{2})$`',
+    `ceded_case_reserve` DECIMAL(18,2) COMMENT 'Reinsurers share of the case reserve for known reported losses ceded under this cession. Used for ceded reserve reporting on Schedule F.',
+    `ceded_earned_premium` DECIMAL(18,2) COMMENT 'Portion of the ceded premium that has been earned as of the reporting date, based on the pro-rata exposure period elapsed.',
+    `ceded_gwp` DECIMAL(18,2) COMMENT 'Gross Written Premium (GWP) ceded to the reinsurer for this policy term. Represents the cedants cost of reinsurance before ceding commission.',
+    `ceded_ibnr_reserve` DECIMAL(18,2) COMMENT 'Reinsurers share of the IBNR reserve for losses incurred but not yet reported under this cession. Required for ceded IBNR disclosure on Schedule F.',
+    `ceded_limit` DECIMAL(18,2) COMMENT 'Maximum reinsurer liability under this cession. For XOL treaties, this is the layer limit; for QS, it is the proportional share of the policy limit.',
+    `ceded_tiv` DECIMAL(18,2) COMMENT 'Total Insured Value (TIV) transferred to the reinsurer under this cession. Represents the gross exposure ceded for property lines.',
+    `ceded_unearned_premium` DECIMAL(18,2) COMMENT 'Portion of the ceded premium not yet earned as of the reporting date. Represents the reinsurers liability for the unexpired risk period.',
+    `ceding_commission_amount` DECIMAL(18,2) COMMENT 'Commission paid by the reinsurer to the cedant to offset acquisition and administrative costs. Reduces the net cost of reinsurance.',
+    `ceding_commission_pct` DECIMAL(7,4) COMMENT 'Ceding commission expressed as a percentage of ceded written premium. Used to calculate the ceding commission amount for QS treaties.',
+    `collateral_amount` DECIMAL(18,2) COMMENT 'Amount of collateral (letters of credit, trust funds) posted by an unauthorized reinsurer to secure their obligations under this cession.',
+    `collateral_type` STRING COMMENT 'Type of collateral instrument posted by the reinsurer to secure obligations. Required for unauthorized reinsurers per NAIC credit for reinsurance rules.. Valid values are `letter_of_credit|trust_fund|cash|none`',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this cession record was first created in the Reinsurance Management System. Used for audit trail and data lineage.',
+    `direction` STRING COMMENT 'Indicates whether this is an outward cession (cedant to reinsurer) or a retrocession (reinsurer ceding further). Distinguishes primary cession from retro.. Valid values are `outward|retrocession`',
+    `effective_date` DATE COMMENT 'Date on which this cession becomes effective and the reinsurer assumes the ceded risk. Aligns with the policy term effective date for automatic treaty cessions.',
+    `exhaustion_point` DECIMAL(18,2) COMMENT 'Dollar amount at which the reinsurers layer is fully exhausted (attachment point plus ceded limit). Defines the upper boundary of the reinsurers liability.',
+    `expiration_date` DATE COMMENT 'Date on which the cession expires and the reinsurers liability ceases. Typically aligns with the policy term expiration date.',
+    `funds_held_amount` DECIMAL(18,2) COMMENT 'Amount of reinsurance premium held by the cedant as funds held under the reinsurance agreement, rather than remitted to the reinsurer.',
+    `is_catastrophe_cession` BOOLEAN COMMENT 'Indicates whether this cession is associated with a catastrophe event (CAT XL treaty). Flags cessions for CAT PML aggregation and catastrophe bordereaux reporting.',
+    `number` STRING COMMENT 'Externally-known business identifier for this cession, used in bordereaux reporting and reinsurer correspondence. Assigned by the Reinsurance Management System.',
+    `policy_year` BIGINT COMMENT 'Policy Year (PY) in which the ceded policy term incepted. Used for actuarial loss development, Schedule P, and reinsurance year-of-account reporting.',
+    `rate_on_line` DECIMAL(7,4) COMMENT 'Rate on Line (ROL) expressed as a percentage of the ceded limit. Key pricing metric for XOL and CAT XL layers; equals ceded premium divided by ceded limit.',
+    `reinsurance_cession_status` STRING COMMENT 'Current lifecycle state of the cession record within the reinsurance management workflow.. Valid values are `active|pending|cancelled|expired|suspended`',
+    `reinsurer_authorization_status` STRING COMMENT 'NAIC authorization classification of the assuming reinsurer: authorized, accredited, certified, unauthorized, or reciprocal. Drives collateral and credit requirements.. Valid values are `authorized|accredited|certified|unauthorized|reciprocal`',
+    `reinsurer_domicile_country` STRING COMMENT 'ISO 3166-1 alpha-3 country code of the reinsurers domicile. Determines whether the reinsurer is authorized, accredited, or unauthorized under NAIC Schedule F.. Valid values are `^[A-Z]{3}$`',
+    `reinsurer_naic_code` STRING COMMENT 'Five-digit NAIC company code of the assuming reinsurer. Required for NAIC Schedule F statutory reporting and reinsurer credit risk assessment.. Valid values are `^[0-9]{5}$`',
+    `retention_amount` DECIMAL(18,2) COMMENT 'Amount retained by the cedant (Self-Insured Retention / SIR) before the reinsurers liability attaches. Attachment point for XOL; retained share for QS.',
+    `share_pct` DECIMAL(7,4) COMMENT 'Proportional share (as a percentage) ceded to the reinsurer. Applicable for Quota Share treaties. For XOL, this represents the reinsurers participation percentage in the layer.',
+    `source_system_code` STRING COMMENT 'Identifier of the originating Reinsurance Management System record (e.g., Sapiens ReinsurancePro cession ID or SICS record key) for traceability and reconciliation.',
+    `treaty_type` STRING COMMENT 'Type of reinsurance treaty structure: Quota Share (QS), Excess of Loss (XOL), Stop Loss (SL), or Catastrophe Excess of Loss (CAT XL). Null for FAC cessions.. Valid values are `quota_share|excess_of_loss|stop_loss|cat_xl`',
+    `ultimate_net_loss` DECIMAL(18,2) COMMENT 'Ultimate Net Loss (UNL) ceded under this cession, representing the reinsurers share of total incurred losses including LAE. Key metric for XOL treaty performance.',
+    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp of the most recent modification to this cession record. Used for change tracking and incremental data pipeline processing.',
     CONSTRAINT pk_reinsurance_cession PRIMARY KEY(`reinsurance_cession_id`)
-) COMMENT 'Transactional cession event linking a ceded policy or risk exposure to a treaty or FAC certificate via foreign keys. Captures ceded TIV, premium, limit, retention, effective date, share, per-policy endorsement reference, and cession basis (pro-rata or';
+) COMMENT 'Records risk transfer of a policy term to a treaty layer or FAC. Grain: one row per policy term per treaty layer (or FAC). Direction flag (outward/retro) distinguishes cession from retrocession.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` (
-    `policy_cession_id` BIGINT COMMENT 'Unique surrogate identifier for each policy-cession pairing record in the junction table.',
-    `currency_id` BIGINT COMMENT 'ISO 4217 three-letter currency code for all monetary amounts on this policy-cession record (e.g., USD, GBP, EUR).',
-    `endorsement_id` BIGINT COMMENT 'Reference to the policy endorsement (ENDT) that triggered or modified this policy-cession pairing, if applicable.',
-    `fac_certificate_id` BIGINT COMMENT 'Foreign key linking to reinsurance.fac_certificate. Business justification: Policy_cession can link to FAC certificates. Currently has facultative_certificate_number (string), should have proper FK to fac_certificate for referential integrity.',
-    `lob_code_id` BIGINT COMMENT 'NAIC or internal line of business (LOB) code for the ceded policy (e.g., GL, WC, APD, BOP, CPP). Used for bordereaux segmentation and statutory reporting.',
-    `coverage_policy_coverage_id` BIGINT COMMENT 'Foreign key linking to coverage.coverage_policy_coverage. Business justification: Policy cessions often apply to specific coverages within a policy rather than all coverages uniformly.',
-    `policy_id` BIGINT COMMENT 'Reference to the insurance policy being ceded under this record.',
-    `reinsurance_cession_id` BIGINT COMMENT 'Reference to the reinsurance cession record (treaty or facultative certificate) under which this policy is ceded.',
-    `ri_treaty_id` BIGINT COMMENT 'Reference to the reinsurance treaty or facultative (FAC) certificate governing this cession.',
-    `attachment_point` DECIMAL(18,2) COMMENT 'The loss amount at which the reinsurers liability attaches under an Excess of Loss (XOL) or CAT XL layer for this policy-cession pairing.',
-    `bordereaux_included` BOOLEAN COMMENT 'Indicates whether this policy-cession record has been included in a bordereaux submission to the reinsurer for the current reporting period.',
-    `bordereaux_period` STRING COMMENT 'The YYYY-MM reporting period for which this policy-cession record is included in the bordereaux submission to the reinsurer.. Valid values are `^d{4}-(0[1-9]|1[0-2])$`',
-    `cancellation_date` DATE COMMENT 'Date on which this policy-cession pairing was cancelled, if applicable. Null for active or expired records.',
-    `cancellation_reason` STRING COMMENT 'Reason code for the cancellation of this policy-cession pairing.. Valid values are `POLICY_CANCELLED|TREATY_TERMINATED|ENDORSEMENT|REUNDERWRITING|ERROR_CORRECTION`',
-    `cat_event_code` STRING COMMENT 'Industry or internal catastrophe (CAT) event code associated with this cession, used for CAT XL recovery tracking and PML reporting.',
-    `ceded_alae` DECIMAL(18,2) COMMENT 'Allocated loss adjustment expense (ALAE) ceded to the reinsurer under this policy-cession pairing.',
-    `ceded_ibnr` DECIMAL(18,2) COMMENT 'Actuarial estimate of ceded IBNR reserves attributable to this policy-cession pairing, representing unreported losses expected to be recovered from the reinsurer.',
-    `ceded_limit_amount` DECIMAL(18,2) COMMENT 'Maximum monetary amount the reinsurer is liable for under this policy-cession pairing, representing the reinsurers limit layer.',
-    `ceded_loss_paid` DECIMAL(18,2) COMMENT 'Total loss amounts paid by the reinsurer under this policy-cession pairing to date.',
-    `ceded_loss_reserve` DECIMAL(18,2) COMMENT 'Outstanding case reserve (OCR) amount ceded to the reinsurer for open claims under this policy-cession pairing.',
-    `ceded_premium_earned` DECIMAL(18,2) COMMENT 'Portion of the ceded written premium that has been earned as of the reporting date, based on the policy exposure period.',
-    `ceded_premium_written` DECIMAL(18,2) COMMENT 'Gross written premium (GWP) ceded to the reinsurer for this policy-cession pairing at policy inception or renewal.',
-    `ceded_share_pct` DECIMAL(7,4) COMMENT 'Percentage of the risk ceded to the reinsurer under this pairing, expressed as a decimal (e.g., 0.3000 = 30%). Used in Quota Share (QS) and proportional treaties.',
-    `ceded_unearned_premium` DECIMAL(18,2) COMMENT 'Portion of the ceded written premium not yet earned as of the reporting date, representing the reinsurers unearned premium reserve liability.',
-    `ceding_commission_amount` DECIMAL(18,2) COMMENT 'Monetary amount of ceding commission receivable from the reinsurer for this policy-cession pairing.',
-    `ceding_commission_pct` DECIMAL(7,4) COMMENT 'Percentage of ceded premium returned to the cedant as ceding commission by the reinsurer under proportional (QS) treaties.',
-    `cession_reference_number` STRING COMMENT 'Externally-known alphanumeric reference number assigned to this policy-cession pairing, used in bordereaux and reinsurer reporting.',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this policy-cession record was first created in the system.',
-    `effective_date` DATE COMMENT 'Date on which this policy-cession pairing becomes effective and the ceded risk transfer begins.',
-    `exhaustion_point` DECIMAL(18,2) COMMENT 'The loss amount at which the reinsurers layer is fully exhausted (attachment point plus ceded limit). Defines the top of the reinsurance layer.',
-    `expiration_date` DATE COMMENT 'Date on which this policy-cession pairing expires and the ceded risk transfer ends. Null for open-ended cessions.',
-    `net_written_premium` DECIMAL(18,2) COMMENT 'Net written premium (NWP) retained by Pc_Insurance after cession for this policy, calculated as gross written premium minus ceded written premium.',
-    `policy_term_type` STRING COMMENT 'Indicates whether this cession relates to a new business (NB), renewal (REN), endorsement (ENDT), cancellation (CANC), or reinstatement transaction.. Valid values are `NB|REN|ENDT|CANC|REINSTATE`',
-    `profit_commission_amount` DECIMAL(18,2) COMMENT 'Profit commission receivable from the reinsurer based on favorable loss experience under this policy-cession pairing.',
-    `reinstatement_premium` DECIMAL(18,2) COMMENT 'Additional premium paid to reinstate the reinsurance limit after a loss occurrence has partially or fully exhausted the ceded layer.',
-    `reinsurance_recoverable` DECIMAL(18,2) COMMENT 'Total reinsurance recoverable balance outstanding from the reinsurer for this policy-cession pairing, including paid and reserved amounts.',
-    `reinsurer_share_pct` DECIMAL(7,4) COMMENT 'Percentage of the ceded layer subscribed by a specific reinsurer where multiple reinsurers participate in the same treaty or FAC placement.',
-    `retention_amount` DECIMAL(18,2) COMMENT 'Monetary amount retained by the cedant (Pc_Insurance) before the reinsurers layer attaches. Represents the cedants net retention per policy.',
-    `source_system_code` STRING COMMENT 'Code identifying the operational system of record from which this policy-cession record originated (e.g., SICS, Sapiens ReinsuranceMaster, Guidewire PolicyCenter).. Valid values are `SICS|SAPIENS_RI|GUIDEWIRE_PC|DUCK_CREEK|MANUAL`',
-    `tiv_ceded` DECIMAL(18,2) COMMENT 'Total insured value (TIV) of the ceded risk exposure under this policy-cession pairing, used for property CAT modeling and PML calculations.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp when this policy-cession record was last modified.',
-    CONSTRAINT pk_policy_cession PRIMARY KEY(`policy_cession_id`)
-) COMMENT 'Junction table resolving the many-to-many relationship between policies and cessions. Tracks which policies are ceded under which cession records, with ceded share, effective period, and endorsement reference per policy-cession pairing.';
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` (
+    `ri_premium_transaction_id` BIGINT COMMENT 'Unique surrogate key for each reinsurance ceded premium financial movement. One row per written, earned, unearned, return, or reinstatement transaction for a cession. TRANSACTION_HEADER role.',
+    `claimfinancials_accounting_period_id` BIGINT COMMENT 'Reference to the accounting period (month/quarter/year) in which this reinsurance premium transaction is booked for statutory and GAAP financial reporting purposes.',
+    `fac_agreement_id` BIGINT COMMENT 'Foreign key linking to reinsurance.fac_agreement. Business justification: Premium transactions can be for facultative placements in addition to treaty layers. Currently has treaty_layer_id. Adding optional fac_agreement_id for FAC premium transactions.',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Premium transactions must classify by line for GL coding, treaty allocation, and statutory accounting; LOB master provides chart of accounts mappings and ensures consistent line',
+    `original_transaction_id` BIGINT COMMENT 'For reversal or correction transactions, references the ri_premium_transaction_id of the original entry being reversed. Null for original transactions. Supports audit trail and net balance reconciliation.',
+    `policy_id` BIGINT COMMENT 'Reference to the underlying direct policy whose premium is being ceded. Required for facultative cessions and policy-level bordereaux reporting under Schedule F.',
+    `policy_term_id` BIGINT COMMENT 'Reference to the specific policy term period for which ceded premium is being transacted. Enables reconstruction of in-force ceded premium at any historical date.',
+    `premium_transaction_id` BIGINT COMMENT 'Foreign key linking to premium.premium_transaction. Business justification: Reinsurance premium transactions must trace to the originating gross premium transaction for reconciliation, bordereaux preparation, ceded/net premium calculation, and regulatory',
+    `reinsurance_cession_id` BIGINT COMMENT 'Reference to the reinsurance cession record that this premium transaction belongs to. Links the financial movement to the specific risk ceded under a treaty or facultative agreement.',
+    `reinsurer_id` BIGINT COMMENT 'Reference to the reinsurer party record (assuming entity in the party domain) to whom the premium is ceded. Required for Schedule F counterparty-level reporting.',
+    `ri_agreement_id` BIGINT COMMENT 'Reference to the reinsurance agreement (treaty or facultative) under which this premium transaction is recorded. Supports bordereaux reporting and treaty-level premium aggregation.',
+    `treaty_layer_id` BIGINT COMMENT 'Reference to the specific treaty layer (e.g., first excess, second excess) within a multi-layer XOL or CAT XL program to which this ceded premium is allocated.',
+    `accident_year` BIGINT COMMENT 'The calendar year in which losses covered by this ceded premium are expected to occur. Used for accident year (AY) loss development triangles and actuarial reserving analysis.',
+    `accounting_date` DATE COMMENT 'The date on which this transaction is recognized in the general ledger and statutory accounts. May differ from transaction_date due to period-end cut-off adjustments.',
+    `agreement_type` STRING COMMENT 'The structural type of the reinsurance agreement: Quota Share (QS), Excess of Loss (XOL), Stop Loss (SL), Catastrophe Excess of Loss (CAT XL), or Surplus Share.. Valid values are `Quota Share|Excess of Loss|Stop Loss|CAT XL|Surplus Share`',
+    `bordereaux_period` STRING COMMENT 'The YYYY-MM period for which this transaction is included in the reinsurance bordereaux submission to the reinsurer. Format: YYYY-MM. Drives bordereaux extract and reinsurer statement reconciliation.. Valid values are `^[0-9]{4}-(0[1-9]|1[0-2])$`',
+    `bordereaux_status` STRING COMMENT 'Tracks the submission lifecycle of this transaction in the reinsurance bordereaux process. Acknowledged by reinsurer confirms premium settlement; Disputed triggers reconciliation workflow.. Valid values are `Pending|Submitted|Acknowledged|Disputed|Settled`',
+    `ceded_earned_premium` DECIMAL(18,2) COMMENT 'The pro-rata portion of ceded written premium recognized as earned during the accounting period. Used for ceded loss ratio and earned premium calculations in Schedule P and Schedule F.',
+    `ceded_unearned_premium` DECIMAL(18,2) COMMENT 'The portion of ceded written premium not yet earned as of the accounting date. Represents the reinsurers liability for the unexpired policy period. Required for NAIC Annual Statement balance sheet.',
+    `ceded_written_premium` DECIMAL(18,2) COMMENT 'The portion of written premium transferred to the reinsurer under this cession. For QS treaties, equals GWP multiplied by the cession percentage. Core field for NWP and DPW calculations.',
+    `ceding_commission` DECIMAL(18,2) COMMENT 'Commission paid by the reinsurer to the cedant to offset acquisition and administrative costs. Expressed as a flat amount per transaction. Reduces the net cost of reinsurance.',
+    `ceding_commission_rate` DECIMAL(7,4) COMMENT 'The rate applied to ceded written premium to calculate the ceding commission (e.g., 0.2500 = 25%). Used for sliding-scale commission calculations under profit-sharing treaties.',
+    `cession_percentage` DECIMAL(7,4) COMMENT 'The percentage of the underlying risk ceded to the reinsurer under a quota share or surplus share treaty (e.g., 0.3000 = 30%). Null for XOL treaties where cession is event-triggered.',
+    `cession_type` STRING COMMENT 'Indicates whether the ceded premium relates to a treaty arrangement, a facultative (FAC) placement, or a retrocession. Drives bordereaux format and Schedule F classification.. Valid values are `Treaty|Facultative|Retrocession`',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this reinsurance premium transaction record was first created in the reinsurance management system (Sapiens ReinsurancePro or SICS).',
+    `currency_code` STRING COMMENT 'ISO 4217 three-letter currency code for all monetary amounts on this transaction (e.g., USD, GBP, EUR). Required for multi-currency reinsurance programs and foreign reinsurer reporting.. Valid values are `^[A-Z]{3}$`',
+    `exchange_rate` DECIMAL(18,6) COMMENT 'Exchange rate used to convert foreign currency amounts to the cedants functional reporting currency (USD). Applied as of the accounting_date for statutory reporting purposes.',
+    `gl_account_code` STRING COMMENT 'The general ledger account code to which this reinsurance premium transaction is posted in the statutory accounting system (Oracle/SAP GL). Required for Schedule F and NAIC Annual Statement mapping.',
+    `gross_written_premium` DECIMAL(18,2) COMMENT 'The total direct written premium on the underlying policy before any reinsurance cession. Base for calculating the ceded share under quota share or facultative agreements.',
+    `occurrence_reference_code` BIGINT COMMENT 'Reference to the loss occurrence or catastrophe event that triggered a reinstatement premium. Populated only for transaction_type = Reinstatement. Links to the loss event record.',
+    `policy_effective_date` DATE COMMENT 'The date the underlying direct policy became effective. Used to assign the ceded premium to the correct policy year (PY) for actuarial and Schedule P/F reporting.',
+    `policy_expiration_date` DATE COMMENT 'The date the underlying direct policy expires. Used to calculate the unearned premium period and pro-rata earning of ceded premium over the policy term.',
+    `policy_year` BIGINT COMMENT 'The year in which the underlying policy was written. Used for policy year (PY) experience analysis and reinsurance program performance monitoring per NAIC Schedule F.',
+    `profit_commission` DECIMAL(18,2) COMMENT 'Contingent commission earned by the cedant when the reinsurers loss ratio on the treaty falls below a specified threshold. Booked as a reduction in net reinsurance cost.',
+    `rate_on_line` DECIMAL(7,4) COMMENT 'The reinsurance premium expressed as a percentage of the treaty limit (ROL = premium / limit). Key pricing metric for XOL and CAT XL treaties used in actuarial and underwriting analysis.',
+    `reinstated_limit` DECIMAL(18,2) COMMENT 'The amount of treaty limit reinstated following a loss occurrence, for which the reinstatement_premium is charged. Applicable only when transaction_type = Reinstatement.',
+    `reinstatement_premium` DECIMAL(18,2) COMMENT 'Additional premium paid to the reinsurer to reinstate exhausted treaty limit following a loss occurrence. Applicable to XOL and CAT XL treaties. Linked to occurrence_reference_id.',
+    `reporting_currency_amount` DECIMAL(18,2) COMMENT 'Ceded written premium converted to the cedants statutory reporting currency (USD) using the exchange_rate. Used for NAIC Annual Statement and Schedule F USD-denominated filings.',
+    `return_premium` DECIMAL(18,2) COMMENT 'Premium returned to the cedant from the reinsurer due to policy cancellation, mid-term endorsement reducing exposure, or audit adjustment. Negative impact on ceded written premium.',
+    `reversal_flag` BOOLEAN COMMENT 'Indicates whether this transaction is a reversal of a previously posted reinsurance premium entry. True = reversal transaction. Used for audit trail and net premium reconciliation.',
+    `risk_effective_date` DATE COMMENT 'The date from which the reinsurers coverage obligation begins for this cession. May differ from policy_effective_date for mid-term facultative placements or endorsements.',
+    `risk_expiration_date` DATE COMMENT 'The date on which the reinsurers coverage obligation ends for this cession. Used to determine the ceded unearned premium reserve at any balance sheet date.',
+    `source_system_code` STRING COMMENT 'Identifies the operational system that originated this reinsurance premium transaction (e.g., SICS, Sapiens ReinsurancePro, manual entry). Used for data lineage and reconciliation.. Valid values are `SICS|ReinsurancePro|Manual|PAS|BillingCenter`',
+    `transaction_date` DATE COMMENT 'The business event date on which this premium movement occurred (e.g., policy effective date for written, pro-rata date for earned, cancellation date for return).',
+    `transaction_number` STRING COMMENT 'Externally visible business identifier for this reinsurance premium transaction, used in bordereaux submissions, reinsurer statements, and Schedule F regulatory filings.',
+    `transaction_status` STRING COMMENT 'Current workflow state of the premium transaction in the reinsurance management system. Posted transactions are included in bordereaux and statutory filings.. Valid values are `Draft|Pending|Posted|Reversed|Voided`',
+    `transaction_type` STRING COMMENT 'Classification of the premium movement: Written (new cession), Earned (pro-rata recognition), Unearned (reserve release), Return (cancellation/endorsement), or Reinstatement (post-loss premium).. Valid values are `Written|Earned|Unearned|Return|Reinstatement`',
+    `treaty_year` BIGINT COMMENT 'The underwriting year of the reinsurance treaty under which this premium is ceded (e.g., 2024). Used for treaty-year loss ratio monitoring and bordereaux aggregation.',
+    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp of the most recent modification to this reinsurance premium transaction record. Used for audit trail and incremental data pipeline processing.',
+    CONSTRAINT pk_ri_premium_transaction PRIMARY KEY(`ri_premium_transaction_id`)
+) COMMENT 'Ceded premium ledger. One row per financial movement (written, earned, unearned, return, reinstatement) for a cession. FK to cession, accounting period, treaty layer. Reinstatement rows carry occurrence reference and reinstated limit.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` (
-    `bordereaux_id` BIGINT COMMENT 'Unique surrogate identifier for the bordereaux submission record in the reinsurance management system.',
-    `currency_id` BIGINT COMMENT 'ISO 4217 three-letter currency code in which all monetary amounts on this bordereaux are denominated.',
-    `fac_certificate_id` BIGINT COMMENT 'Foreign key linking to reinsurance.fac_certificate. Business justification: Bordereaux submissions can be for FAC certificates, not just treaties. Currently only has treaty_id. Missing FK for FAC bordereaux reporting.',
-    `lob_code_id` BIGINT COMMENT 'NAIC or internal Line of Business code identifying the class of business covered by this bordereaux (e.g., GL, WC, APD, BOP).',
-    `prior_bordereaux_id` BIGINT COMMENT 'Reference to the previous version of this bordereaux that was superseded by the current corrected or amended submission.',
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` (
+    `ri_claim_cession_id` BIGINT COMMENT 'Unique surrogate primary key for the reinsurance claim cession record. One row per claim exposure per treaty layer or facultative agreement.',
+    `catastrophe_event_id` BIGINT COMMENT 'Reference to the catastrophe event record if this claim cession is associated with a CAT event, enabling CAT XL treaty aggregation and PML tracking.',
+    `catastrophegeography_peril_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.peril. Business justification: Claim cessions require peril identification for treaty layer matching, coverage verification, and reinsurer reporting.',
+    `claim_exposure_id` BIGINT COMMENT 'Reference to the claim exposure (coverage line within a claim) being ceded to the reinsurer. Links the cession to the specific coverage and insured risk.',
+    `claim_id` BIGINT COMMENT 'Reference to the parent claim record associated with this cession, enabling claim-level reinsurance aggregation and bordereaux reporting.',
+    `claimfinancials_accounting_period_id` BIGINT COMMENT 'Reference to the accounting period in which this cession is recognized for statutory and GAAP financial reporting purposes.',
+    `fac_agreement_id` BIGINT COMMENT 'Foreign key linking to reinsurance.fac_agreement. Business justification: Claim cessions can be to facultative agreements in addition to treaty layers. Description states Links a claim exposure to a reinsurance treaty layer or FAC agreement. Currently',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Claim cessions aggregate by line for treaty layer attachment, bordereaux reporting, and Schedule P reconciliation; LOB master ensures consistent classification across claims and',
+    `reinsurer_id` BIGINT COMMENT 'FK to reinsurance.reinsurer',
+    `ri_agreement_id` BIGINT COMMENT 'Reference to the reinsurance agreement (treaty or facultative) under which this claim cession is made.',
+    `riskexposure_insured_risk_id` BIGINT COMMENT 'Foreign key linking to riskexposure.insured_risk. Business justification: When ceding claim recoveries, reinsurers require detailed risk characteristics (TIV, construction type, occupancy, protection class, year built) to validate coverage applicability',
+    `treaty_layer_id` BIGINT COMMENT 'Reference to the specific treaty layer (e.g., first XOL layer, second XOL layer) within the reinsurance agreement applicable to this cession.',
+    `accident_year` BIGINT COMMENT 'Calendar year in which the loss event occurred. Used for actuarial loss triangle development and reinsurance recovery analysis by accident year.',
+    `bordereaux_period` STRING COMMENT 'Reporting period (e.g., 2024-Q1 or 2024-M03) for which this cession is included in the reinsurance bordereaux submission to the reinsurer.. Valid values are `^[0-9]{4}-(Q[1-4]|M(0[1-9]|1[0-2]))$`',
+    `bordereaux_submission_date` DATE COMMENT 'Date on which this cession record was included in a bordereaux submission to the reinsurer for loss recovery billing.',
+    `cat_event_code` STRING COMMENT 'Industry-standard catastrophe event code (e.g., ISO PCS serial number) identifying the CAT event for aggregation under CAT XL treaty layers.',
+    `ceded_alae_amount` DECIMAL(18,2) COMMENT 'Allocated Loss Adjustment Expense (ALAE) component of the ceded LAE, representing defense and cost containment (DCC) expenses ceded to the reinsurer.',
+    `ceded_lae_amount` DECIMAL(18,2) COMMENT 'The portion of Loss Adjustment Expense (LAE) ceded to the reinsurer, including ALAE and applicable ULAE, per the treaty terms.',
+    `ceded_loss_amount` DECIMAL(18,2) COMMENT 'The portion of the gross incurred loss ceded to the reinsurer under this agreement layer. Core financial metric for reinsurance recovery eligibility.',
+    `ceded_paid_loss_amount` DECIMAL(18,2) COMMENT 'Cumulative loss payments already recovered from or billed to the reinsurer under this cession as of the reporting date.',
+    `ceded_reserve_amount` DECIMAL(18,2) COMMENT 'Outstanding case reserve amount ceded to the reinsurer for this claim exposure, representing the reinsurers share of unpaid losses.',
+    `cession_effective_date` DATE COMMENT 'Date on which this claim cession becomes effective under the reinsurance agreement, typically aligned with the loss date or treaty inception.',
+    `cession_number` STRING COMMENT 'Externally-known business identifier for this claim cession, used in bordereaux reporting and reinsurer correspondence. Assigned by the reinsurance management system.',
+    `cession_percentage` DECIMAL(7,4) COMMENT 'Proportional cession percentage applied to the gross loss for quota share treaties (e.g., 0.7500 = 75%). Null for non-proportional XOL structures.',
+    `cession_status` STRING COMMENT 'Current lifecycle state of the claim cession record within the reinsurance recovery workflow.. Valid values are `pending|active|settled|disputed|withdrawn|closed`',
+    `cession_type` STRING COMMENT 'Indicates whether the cession is under a treaty arrangement, a facultative (FAC) agreement, or a retrocession.. Valid values are `treaty|facultative|retrocession`',
+    `commutation_date` DATE COMMENT 'Date on which the commutation agreement was executed for this cession, if applicable. Null when commutation_flag is false.',
+    `commutation_flag` BOOLEAN COMMENT 'Indicates whether this cession has been subject to a commutation agreement with the reinsurer, settling all future obligations in a lump sum.',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this reinsurance claim cession record was first created in the reinsurance management system.',
+    `currency_code` STRING COMMENT 'ISO 4217 three-letter currency code for all monetary amounts on this cession record (e.g., USD, GBP, EUR).. Valid values are `^[A-Z]{3}$`',
+    `dispute_reason` STRING COMMENT 'Description of the reason for a reinsurer dispute on this cession, if applicable. Populated when recovery_status is disputed.',
+    `funds_held_amount` DECIMAL(18,2) COMMENT 'Amount of funds held by the cedant on behalf of the reinsurer as collateral or per treaty terms, reported on Schedule F.',
+    `gross_loss_amount` DECIMAL(18,2) COMMENT 'Total gross (pre-reinsurance) incurred loss amount for the claim exposure, including paid losses and outstanding reserves before any cession.',
+    `is_cat_claim` BOOLEAN COMMENT 'Indicates whether this claim cession is associated with a declared catastrophe event, triggering CAT XL treaty layer eligibility review.',
+    `layer_limit_amount` DECIMAL(18,2) COMMENT 'Maximum reinsurance recovery available under this treaty layer for the ceded claim exposure. Defines the per-occurrence or per-risk limit.',
+    `layer_retention_amount` DECIMAL(18,2) COMMENT 'The cedants retained loss amount at the applicable treaty layer before reinsurance recovery applies. Represents the SIR or attachment point retention.',
+    `loss_date` DATE COMMENT 'Date of the underlying loss event that triggered the claim, used to determine which treaty year and layer applies for cession eligibility.',
+    `policy_year` BIGINT COMMENT 'Year in which the policy that generated the ceded claim was written, used for policy-year loss development and reinsurance program analysis.',
+    `recovery_billed_date` DATE COMMENT 'Date on which the reinsurance recovery was formally billed to the reinsurer for this claim cession.',
+    `recovery_received_date` DATE COMMENT 'Date on which payment was received from the reinsurer for this cession, used for cash flow and Schedule F counterparty aging analysis.',
+    `recovery_status` STRING COMMENT 'Current status of the reinsurance recovery billing and collection process for this cession. Tracks progress from billing through settlement.. Valid values are `not_billed|billed|partially_recovered|fully_recovered|disputed|written_off`',
+    `reinsurance_type` STRING COMMENT 'Classification of the reinsurance structure: Quota Share (QS), Excess of Loss (XOL), Stop Loss (SL), CAT XL, or facultative variants. [ENUM-REF-CANDIDATE: quota_share|excess_of_loss|stop_loss|cat_xl|facultative_proportional|facultative_non_proportional —. Valid values are `quota_share|excess_of_loss|stop_loss|cat_xl|facultative_proportional|facultative_non_proportional`',
+    `reinsurer_participation_pct` DECIMAL(7,4) COMMENT 'The reinsurers share of the treaty layer as a decimal (e.g., 0.5000 = 50%), used when multiple reinsurers participate in a single layer.',
+    `report_date` DATE COMMENT 'Date the claim was reported to the cedant, used for claims-made policy cession eligibility and IBNR bordereaux reporting.',
+    `rol_rate` DECIMAL(7,4) COMMENT 'Rate on Line (ROL) applicable to this treaty layer, expressed as a decimal. Used for pricing analysis and reinsurance cost allocation.',
+    `schedule_f_category` STRING COMMENT 'NAIC Schedule F regulatory classification of the reinsurer for statutory reporting: authorized, unauthorized, certified, or other alien reinsurer.. Valid values are `authorized|unauthorized|certified|other_alien`',
+    `treaty_year` BIGINT COMMENT 'The underwriting or treaty year (e.g., 2023) under which this cession falls, used for bordereaux aggregation and Schedule F reporting.',
+    `unl_amount` DECIMAL(18,2) COMMENT 'Ultimate Net Loss (UNL) calculation basis for this cession, representing the net loss after salvage, subrogation, and other recoveries, used to determine XOL trigger.',
+    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp of the most recent update to this reinsurance claim cession record, supporting audit trail and data lineage requirements.',
+    CONSTRAINT pk_ri_claim_cession PRIMARY KEY(`ri_claim_cession_id`)
+) COMMENT 'Links a claim exposure to a reinsurance treaty layer or FAC agreement for loss recovery eligibility. One row per claim exposure per treaty layer. Stores ceded loss amount, ceded LAE, and UNL calculation basis.';
+
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` (
+    `ri_recovery_id` BIGINT COMMENT 'Unique identifier for each reinsurance recovery financial movement. Primary key. Grain: one row per movement per cession per accounting period.',
+    `bordereaux_id` BIGINT COMMENT 'Identifier of the bordereaux batch in which this recovery was reported to the reinsurer (for treaty business).',
+    `catastrophe_event_id` BIGINT COMMENT 'Foreign key to the catastrophe event, if this recovery is related to a catastrophic loss.',
+    `claim_exposure_id` BIGINT COMMENT 'Foreign key to the underlying claim exposure that generated this ceded loss and recovery.',
+    `claimfinancials_accounting_period_id` BIGINT COMMENT 'Foreign key to the accounting period in which this recovery movement was recorded.',
+    `fac_agreement_id` BIGINT COMMENT 'Foreign key linking to reinsurance.fac_agreement. Business justification: Recoveries can be from facultative agreements in addition to treaty layers. Currently has reinsurance_agreement_id but no specific FAC reference.',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Recoveries are analyzed by line for treaty performance monitoring and reinsurer credit evaluation; LOB master provides loss ratio targets and combined ratio benchmarks for performance',
+    `reinsurer_id` BIGINT COMMENT 'Foreign key to the reinsurer party responsible for this recovery.',
+    `ri_agreement_id` BIGINT COMMENT 'Foreign key to the reinsurance agreement (treaty or facultative) under which this recovery is claimed.',
+    `ri_claim_cession_id` BIGINT COMMENT 'Foreign key to the reinsurance claim cession that this recovery movement applies to.',
+    `accident_year` BIGINT COMMENT 'The accident year of the underlying loss for which this recovery is claimed.',
+    `authorized_reinsurer_flag` BOOLEAN COMMENT 'Boolean indicator (True/False) whether the reinsurer is authorized or accredited in the ceding companys domiciliary state for statutory credit purposes.',
+    `billed_date` DATE COMMENT 'The date on which the recovery was billed to the reinsurer via bordereaux or facultative certificate.',
+    `bordereaux_submission_date` DATE COMMENT 'The date on which the bordereaux containing this recovery was submitted to the reinsurer.',
+    `calendar_year` BIGINT COMMENT 'The calendar year in which this recovery movement was recorded.',
+    `cat_code` STRING COMMENT 'Industry-standard catastrophe code (e.g., PCS number) identifying the catastrophic event.',
+    `ceded_share_percentage` DECIMAL(5,2) COMMENT 'The percentage of the underlying loss that is ceded to the reinsurer under the agreement (e.g., 50.00 for 50% quota share).',
+    `collateral_required_flag` BOOLEAN COMMENT 'Boolean indicator (True/False) whether collateral (e.g., letter of credit, trust account) is required from the reinsurer for statutory credit.',
+    `collected_amount` DECIMAL(18,2) COMMENT 'The actual cash amount collected from the reinsurer, which may differ from the billed recovery amount due to disputes or adjustments.',
+    `collected_date` DATE COMMENT 'The date on which cash payment was received from the reinsurer for this recovery.',
+    `commutation_date` DATE COMMENT 'The date on which the reinsurance agreement was commuted, if applicable.',
+    `commutation_flag` BOOLEAN COMMENT 'Boolean indicator (True/False) whether this recovery is part of a commutation (final settlement) of the reinsurance agreement.',
+    `created_timestamp` TIMESTAMP COMMENT 'The timestamp when this recovery record was first created in the reinsurance management system.',
+    `currency_code` STRING COMMENT 'Three-letter ISO 4217 currency code for the recovery amount (e.g., USD, EUR, GBP).. Valid values are `^[A-Z]{3}$`',
+    `dispute_date` DATE COMMENT 'The date on which the reinsurer formally disputed this recovery.',
+    `dispute_flag` BOOLEAN COMMENT 'Boolean indicator (True/False) whether this recovery is currently in dispute with the reinsurer.',
+    `dispute_reason` STRING COMMENT 'Free-text description of the reason for dispute, if applicable (e.g., coverage interpretation, late notice, policy exclusion).',
+    `exchange_rate` DECIMAL(12,6) COMMENT 'The exchange rate applied to convert the recovery amount from policy currency to USD.',
+    `facultative_certificate_number` STRING COMMENT 'The certificate number for facultative reinsurance agreements, if applicable.',
+    `movement_date` DATE COMMENT 'The business date on which this recovery movement was recorded or effective.',
+    `movement_type` STRING COMMENT 'Discriminator indicating the type of financial movement: reserve position (case/IBNR/LAE) or cash recovery (loss/LAE/DCC payment, subrogation, salvage). [ENUM-REF-CANDIDATE',
+    `notes` STRING COMMENT 'Free-text notes or comments regarding this recovery movement, including adjustments, disputes, or special handling instructions.',
+    `outstanding_amount` DECIMAL(18,2) COMMENT 'The amount of recovery still outstanding (billed but not yet collected) from the reinsurer.',
+    `payment_type` STRING COMMENT 'Type of payment for cash movements: loss (indemnity), LAE (loss adjustment expense), DCC (defense and cost containment), subrogation, salvage.. Valid values are `loss|lae|dcc|subrogation|salvage`',
+    `policy_year` BIGINT COMMENT 'The policy year of the underlying policy for which this recovery is claimed.',
+    `recovery_amount` DECIMAL(18,2) COMMENT 'The gross amount of reinsurance recovery for this movement, in the policy currency. Positive for recoveries due from reinsurer, negative for adjustments or reversals.',
+    `recovery_amount_usd` DECIMAL(18,2) COMMENT 'The recovery amount converted to USD for statutory and consolidated reporting purposes.',
+    `recovery_status` STRING COMMENT 'Current status of the recovery: pending (not yet billed), billed (invoice sent), collected (cash received), disputed, written off, or reversed.. Valid values are `pending|billed|collected|disputed|written_off|reversed`',
+    `reinstatement_premium_amount` DECIMAL(18,2) COMMENT 'The amount of reinstatement premium payable to the reinsurer to restore coverage after a loss recovery.',
+    `reinstatement_premium_flag` BOOLEAN COMMENT 'Boolean indicator (True/False) whether a reinstatement premium is due to the reinsurer as a result of this recovery.',
+    `reserve_type` STRING COMMENT 'Type of reserve for reserve movements: case (reported loss), IBNR (incurred but not reported), LAE (loss adjustment expense), ULAE (unallocated LAE), ALAE (allocated LAE).. Valid values are `case|ibnr|lae|ulae|alae`',
+    `transaction_timestamp` TIMESTAMP COMMENT 'The precise timestamp when this recovery transaction was posted to the reinsurance ledger.',
+    `treaty_year` BIGINT COMMENT 'The treaty year (underwriting year) to which this recovery applies, for treaty accounting and reporting.',
+    `updated_timestamp` TIMESTAMP COMMENT 'The timestamp when this recovery record was last modified.',
+    CONSTRAINT pk_ri_recovery PRIMARY KEY(`ri_recovery_id`)
+) COMMENT 'Single ceded loss ledger. Grain: one row per movement per ri_claim_cession per accounting period, discriminated by movement_type: case/IBNR/LAE reserve position, or cash recovery (loss/LAE/DCC, subrogation, salvage).';
+
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` (
+    `bordereaux_id` BIGINT COMMENT 'Unique identifier for the bordereaux submission record. Primary key.',
+    `bordereaux_broker_party_id` BIGINT COMMENT 'Reference to the reinsurance broker party facilitating this bordereaux submission, if applicable.',
+    `bordereaux_party_id` BIGINT COMMENT 'Reference to the ceding company party submitting this bordereaux.',
+    `claimfinancials_accounting_period_id` BIGINT COMMENT 'Reference to the accounting period this bordereaux submission is associated with for financial reporting.',
+    `fac_agreement_id` BIGINT COMMENT 'Foreign key linking to reinsurance.fac_agreement. Business justification: Bordereaux submissions can cover facultative business in addition to treaty business. Currently only has treaty_id.',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Bordereaux submissions report premium and loss by line; LOB master provides treaty applicability rules and regulatory line definitions required for reinsurer acceptance and statutory',
+    `prior_bordereaux_id` BIGINT COMMENT 'Reference to the previous bordereaux submission this amendment replaces, if applicable.',
     `reinsurer_id` BIGINT COMMENT 'Reference to the reinsurer party receiving this bordereaux submission.',
-    `ri_treaty_id` BIGINT COMMENT 'Reference to the reinsurance treaty under which this bordereaux is submitted.',
-    `accounting_period` STRING COMMENT 'Fiscal accounting period (e.g., 2024-Q1 or 2024-M03) to which the ceded premium and loss figures in this bordereaux are posted.. Valid values are `^[0-9]{4}-(Q[1-4]|M(0[1-9]|1[0-2]))$`',
-    `acknowledgement_date` DATE COMMENT 'Date on which the reinsurer formally acknowledged receipt and acceptance of the bordereaux submission.',
-    `authorized_reinsurer_flag` BOOLEAN COMMENT 'Indicates whether the reinsurer is authorized or accredited in the cedants domicile state, affecting credit for reinsurance on statutory balance sheet.',
-    `bordereaux_type` STRING COMMENT 'Classifies the bordereaux as a premium bordereaux (ceded premium activity), loss bordereaux (ceded loss activity), combined, or adjustment.. Valid values are `premium|loss|combined|adjustment`',
-    `cat_event_code` STRING COMMENT 'Industry or internal CAT event code (e.g., ISO PCS code) identifying a catastrophe event included in this loss bordereaux.',
-    `cat_exposed_flag` BOOLEAN COMMENT 'Indicates whether this bordereaux includes losses or premiums attributable to a declared catastrophe (CAT) event.',
-    `ceded_alae_amount` DECIMAL(18,2) COMMENT 'Allocated Loss Adjustment Expense (ALAE) ceded to the reinsurer for the reporting period, recoverable under treaty terms.',
-    `ceded_ibnr_amount` DECIMAL(18,2) COMMENT 'Ceded portion of the Incurred But Not Reported (IBNR) reserve included in this bordereaux for the reporting period.',
-    `ceded_loss_amount` DECIMAL(18,2) COMMENT 'Total paid and outstanding ceded loss amount recoverable from the reinsurer for the reporting period.',
-    `ceded_premium_adjustment` DECIMAL(18,2) COMMENT 'Adjustment to ceded premium arising from endorsements, cancellations, or audit premiums included in this bordereaux period.',
-    `ceded_share_pct` DECIMAL(7,4) COMMENT 'Percentage of risk ceded to the reinsurer under the treaty for this bordereaux period, expressed as a decimal (e.g., 0.3000 = 30%).',
-    `ceded_tiv` DECIMAL(18,2) COMMENT 'Aggregate Total Insured Value (TIV) of risks ceded to the reinsurer under this bordereaux for the reporting period.',
-    `ceded_ulae_amount` DECIMAL(18,2) COMMENT 'Unallocated Loss Adjustment Expense (ULAE) ceded to the reinsurer for the reporting period where treaty terms permit recovery.',
-    `ceding_commission_amount` DECIMAL(18,2) COMMENT 'Total ceding commission earned by the cedant on ceded premium for the reporting period, reducing net ceded premium payable.',
-    `claim_count` BIGINT COMMENT 'Number of individual claims included in this loss bordereaux submission for the reporting period.',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this bordereaux record was first created in the reinsurance management system.',
-    `due_date` DATE COMMENT 'Contractual due date by which the bordereaux must be submitted to the reinsurer per treaty terms.',
-    `experience_refund_amount` DECIMAL(18,2) COMMENT 'Experience refund or sliding scale commission adjustment payable under the treaty based on loss experience for the period.',
-    `gross_ceded_premium` DECIMAL(18,2) COMMENT 'Total gross written premium ceded to the reinsurer for the reporting period before deduction of ceding commission.',
-    `net_ceded_premium` DECIMAL(18,2) COMMENT 'Net premium ceded to the reinsurer after deducting ceding commission from gross ceded premium for the reporting period.',
-    `number` STRING COMMENT 'Externally-known unique reference number assigned to this bordereaux submission, used in reinsurer correspondence and bordereaux registers.. Valid values are `^BDX-[0-9]{4}-[0-9]{6}$`',
-    `placement_broker` STRING COMMENT 'Name of the reinsurance intermediary or broker who placed the treaty and through whom the bordereaux may be routed.',
-    `policy_count` BIGINT COMMENT 'Number of individual policies included in this bordereaux submission for the reporting period.',
-    `profit_commission_amount` DECIMAL(18,2) COMMENT 'Profit commission payable to the cedant by the reinsurer based on treaty profitability for the reporting period.',
-    `recoverable_balance` DECIMAL(18,2) COMMENT 'Net outstanding reinsurance recoverable balance owed by the reinsurer as of the bordereaux reporting period end date.',
-    `remarks` STRING COMMENT 'Free-text remarks or notes accompanying the bordereaux submission, such as explanations for adjustments or disputed items.',
-    `reporting_period_end_date` DATE COMMENT 'Last day of the treaty period or accounting period covered by this bordereaux submission.',
-    `reporting_period_start_date` DATE COMMENT 'First day of the treaty period or accounting period covered by this bordereaux submission.',
-    `retention_amount` DECIMAL(18,2) COMMENT 'Cedant net retention amount for the reporting period, representing the portion of risk not ceded to the reinsurer.',
-    `submission_date` DATE COMMENT 'Calendar date on which the bordereaux was formally submitted to the reinsurer or reinsurance broker.',
-    `submission_format` STRING COMMENT 'File or data format in which the bordereaux was submitted to the reinsurer (e.g., ACORD standard, CSV, XML, XLSX, PDF).. Valid values are `ACORD|CSV|XML|XLSX|PDF`',
-    `submission_method` STRING COMMENT 'Channel or method used to transmit the bordereaux to the reinsurer (electronic data interchange, reinsurer portal, email, or paper).. Valid values are `electronic|portal|email|paper`',
-    `submission_status` STRING COMMENT 'Current lifecycle state of the bordereaux submission workflow from draft through reinsurer acknowledgement or dispute resolution.. Valid values are `draft|submitted|acknowledged|disputed|accepted|voided`',
-    `treaty_type` STRING COMMENT 'Type of reinsurance arrangement covered by this bordereaux: Quota Share (QS), Excess of Loss (XOL), Catastrophe Excess of Loss (CAT XL), surplus, or Facultative (FAC).. Valid values are `QS|XOL|CAT_XL|surplus|FAC`',
-    `treaty_year` BIGINT COMMENT 'Underwriting or treaty year to which this bordereaux relates, used for year-of-account tracking and statutory reporting.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp when this bordereaux record was most recently modified in the reinsurance management system.',
-    `version_number` BIGINT COMMENT 'Sequential version number of this bordereaux submission, incremented when a corrected or amended bordereaux replaces a prior submission.',
+    `ri_agreement_id` BIGINT COMMENT 'Foreign key linking to reinsurance.ri_agreement. Business justification: Bordereaux should have direct reference to the master reinsurance agreement. Currently navigates via treaty, but with addition of fac_agreement_id, direct ri_agreement_id provides',
+    `treaty_id` BIGINT COMMENT 'Reference to the reinsurance treaty this bordereaux submission covers.',
+    `accepted_date` DATE COMMENT 'Date the bordereaux submission was accepted by the reinsurer.',
+    `amendment_number` BIGINT COMMENT 'Sequential number indicating how many times this bordereaux has been amended. Zero for original submission.',
+    `approved_by_user_code` STRING COMMENT 'Identifier of the user who approved this bordereaux submission for transmission to the reinsurer.',
+    `bordereaux_status` STRING COMMENT 'Current status of the bordereaux submission in its lifecycle.. Valid values are `draft|submitted|accepted|rejected|amended|finalized`',
+    `bordereaux_type` STRING COMMENT 'Type of bordereaux submission: premium bordereaux, loss bordereaux, combined, statistical, exposure, or claim detail.. Valid values are `premium|loss|combined|statistical|exposure|claim_detail`',
+    `ceded_alae_amount` DECIMAL(18,2) COMMENT 'Total ceded allocated loss adjustment expense amount reported in this bordereaux for the reporting period.',
+    `ceded_earned_premium_amount` DECIMAL(18,2) COMMENT 'Total ceded earned premium amount reported in this bordereaux for the reporting period.',
+    `ceded_ibnr_amount` DECIMAL(18,2) COMMENT 'Total ceded incurred but not reported reserve amount reported in this bordereaux as of the reporting period end date.',
+    `ceded_lae_amount` DECIMAL(18,2) COMMENT 'Total ceded loss adjustment expense amount reported in this bordereaux for the reporting period.',
+    `ceded_loss_amount` DECIMAL(18,2) COMMENT 'Total ceded loss amount reported in this bordereaux for the reporting period, including paid and outstanding reserves.',
+    `ceded_outstanding_loss_reserve_amount` DECIMAL(18,2) COMMENT 'Total ceded outstanding loss reserve amount reported in this bordereaux as of the reporting period end date.',
+    `ceded_paid_loss_amount` DECIMAL(18,2) COMMENT 'Total ceded paid loss amount reported in this bordereaux for the reporting period.',
+    `ceded_ulae_amount` DECIMAL(18,2) COMMENT 'Total ceded unallocated loss adjustment expense amount reported in this bordereaux for the reporting period.',
+    `ceded_unearned_premium_amount` DECIMAL(18,2) COMMENT 'Total ceded unearned premium amount reported in this bordereaux as of the reporting period end date.',
+    `ceded_written_premium_amount` DECIMAL(18,2) COMMENT 'Total ceded written premium amount reported in this bordereaux for the reporting period.',
+    `claim_count` BIGINT COMMENT 'Number of claims included in this bordereaux submission for the reporting period.',
+    `commission_amount` DECIMAL(18,2) COMMENT 'Total ceding commission amount calculated for this bordereaux submission.',
+    `commission_rate` DECIMAL(5,4) COMMENT 'Ceding commission rate applied to ceded premium in this bordereaux, expressed as a decimal.',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this bordereaux record was first created in the system.',
+    `currency_code` STRING COMMENT 'Three-letter ISO 4217 currency code for all monetary amounts in this bordereaux submission.. Valid values are `^[A-Z]{3}$`',
+    `due_date` DATE COMMENT 'Date by which the bordereaux submission is contractually due to the reinsurer per treaty terms.',
+    `finalized_timestamp` TIMESTAMP COMMENT 'Timestamp when this bordereaux submission was finalized and locked from further changes.',
+    `loss_ratio` DECIMAL(5,4) COMMENT 'Calculated loss ratio for this bordereaux period, expressed as a decimal.',
+    `modified_timestamp` TIMESTAMP COMMENT 'Timestamp when this bordereaux record was last modified in the system.',
+    `net_balance_due_amount` DECIMAL(18,2) COMMENT 'Net amount due to or from the reinsurer based on this bordereaux submission, after offsetting premium and loss amounts.',
+    `notes` STRING COMMENT 'Free-text notes or comments regarding this bordereaux submission.',
+    `number` STRING COMMENT 'Business identifier for the bordereaux submission, typically assigned by the ceding company or reinsurer.',
+    `policy_count` BIGINT COMMENT 'Number of policies included in this bordereaux submission for the reporting period.',
+    `prepared_by_user_code` STRING COMMENT 'Identifier of the user who prepared this bordereaux submission.',
+    `profit_commission_amount` DECIMAL(18,2) COMMENT 'Profit commission amount earned by the cedent based on favorable loss experience, if applicable.',
+    `rejected_date` DATE COMMENT 'Date the bordereaux submission was rejected by the reinsurer, if applicable.',
+    `rejection_reason` STRING COMMENT 'Reason provided by the reinsurer for rejecting the bordereaux submission, if applicable.',
+    `reporting_period_end_date` DATE COMMENT 'End date of the period covered by this bordereaux submission.',
+    `reporting_period_start_date` DATE COMMENT 'Start date of the period covered by this bordereaux submission.',
+    `submission_date` DATE COMMENT 'Date the bordereaux was submitted to the reinsurer.',
+    `submission_format` STRING COMMENT 'Data format used for the bordereaux submission. [ENUM-REF-CANDIDATE: acord|proprietary|excel|csv|xml|json|pdf — 7 candidates stripped; promote to reference product]',
+    `submission_method` STRING COMMENT 'Method used to submit the bordereaux to the reinsurer.. Valid values are `electronic|paper|email|portal|api|edi`',
     CONSTRAINT pk_bordereaux PRIMARY KEY(`bordereaux_id`)
-) COMMENT 'Periodic bordereaux submission record sent to reinsurers summarizing ceded premium and loss activity for a treaty period. Captures bordereaux type (premium or loss), reporting period, submission date, and aggregate ceded amounts.';
+) COMMENT 'Periodic bordereau submission record sent to reinsurers summarizing ceded premium and loss activity. One row per bordereaux run per treaty per reporting period. Captures submission date, period, status, and totals.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` (
-    `bordereaux_line_id` BIGINT COMMENT 'Unique surrogate identifier for each individual line item within a bordereaux submission. Primary key for the bordereaux_line entity.',
-    `bordereaux_id` BIGINT COMMENT 'Reference to the parent bordereaux submission header that this line belongs to. Links the line to its submission batch.',
-    `claim_id` BIGINT COMMENT 'Reference to the underlying claim record for claim-type bordereaux lines. Null for premium-only cession lines.',
-    `currency_id` BIGINT COMMENT 'ISO 4217 three-letter currency code for all monetary amounts on this bordereaux line (e.g., USD, GBP, EUR).',
-    `fac_certificate_id` BIGINT COMMENT 'Reference to the facultative reinsurance certificate under which this line is reported. Applicable for facultative bordereaux submissions.',
-    `insured_location_id` BIGINT COMMENT 'Foreign key linking to riskexposure.insured_location. Business justification: Bordereaux line items for property risks report location-specific details (address, TIV, construction type, occupancy) to reinsurers for premium and loss validation.',
-    `lob_code_id` BIGINT COMMENT 'NAIC or internal line of business code identifying the insurance product class for this cession line (e.g., GL, WC, APD, PD, BI).',
-    `coverage_policy_coverage_id` BIGINT COMMENT 'Foreign key linking to coverage.coverage_policy_coverage. Business justification: Bordereaux lines report individual coverage exposures and losses to reinsurers per treaty terms.',
-    `policy_id` BIGINT COMMENT 'Reference to the underlying insurance policy associated with this bordereaux cession or claim line.',
-    `reinsurance_cession_id` BIGINT COMMENT 'Foreign key linking to reinsurance.cession. Business justification: Each bordereaux line reports a specific cession. Missing the cession FK that links bordereaux line items back to the cession being reported.',
-    `ri_treaty_id` BIGINT COMMENT 'Reference to the reinsurance treaty under which this cession line is reported. Applicable for treaty bordereaux submissions.',
-    `cat_event_code` STRING COMMENT 'Industry or internal CAT event identifier (e.g., ISO PCS code) associated with this bordereaux line for catastrophe loss aggregation and CAT XL recovery.',
-    `cat_exposed_flag` BOOLEAN COMMENT 'Indicates whether this bordereaux line is associated with a catastrophe-exposed risk or loss event, used for CAT XL treaty aggregation.',
-    `ceded_alae_amount` DECIMAL(18,2) COMMENT 'The Allocated Loss Adjustment Expense ceded to the reinsurer for this line, representing the reinsurers share of directly attributable claim expenses.',
-    `ceded_earned_premium` DECIMAL(18,2) COMMENT 'The portion of earned premium ceded to the reinsurer for this bordereaux line, representing the time-proportionate share of ceded written premium.',
-    `ceded_limit_amount` DECIMAL(18,2) COMMENT 'The maximum reinsurance recovery limit applicable to this cession line under the treaty or FAC certificate.',
-    `ceded_loss_amount` DECIMAL(18,2) COMMENT 'The gross loss amount ceded to the reinsurer for this bordereaux line, representing the reinsurers share of paid or incurred losses.',
-    `ceded_share_pct` DECIMAL(7,4) COMMENT 'The percentage of the risk ceded to the reinsurer under the treaty or FAC certificate for this line, expressed as a decimal (e.g., 0.3000 = 30%).',
-    `ceded_ulae_amount` DECIMAL(18,2) COMMENT 'The Unallocated Loss Adjustment Expense ceded to the reinsurer for this line, representing the reinsurers share of overhead claim handling costs.',
-    `ceded_written_premium` DECIMAL(18,2) COMMENT 'The portion of written premium ceded to the reinsurer for this bordereaux line, calculated as GWP multiplied by the ceded share percentage.',
-    `ceding_commission_amount` DECIMAL(18,2) COMMENT 'The monetary ceding commission payable by the reinsurer to the cedant on this bordereaux line, derived from ceded premium and commission rate.',
-    `ceding_commission_pct` DECIMAL(7,4) COMMENT 'The commission rate payable by the reinsurer to the cedant on ceded premium for this line, expressed as a decimal (e.g., 0.2500 = 25%).',
-    `certificate_number` STRING COMMENT 'The externally-known facultative certificate number carried on the line for FAC bordereaux reconciliation. Null for treaty lines.',
-    `coverage_type` STRING COMMENT 'The specific coverage type ceded on this line (e.g., BI, PD, UM, UIM, PIP, MedPay, GL, WC). Aligns to the coverage part of the underlying policy.',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this bordereaux line record was first created in the system, used for audit trail and data lineage.',
-    `date_of_loss` DATE COMMENT 'The date on which the insured loss event occurred. Populated for claim-type bordereaux lines; null for premium-only lines.',
-    `dispute_reason` STRING COMMENT 'Narrative explanation of the reason this bordereaux line is in disputed status, capturing the cedant or reinsurers basis for disagreement.',
-    `gross_written_premium` DECIMAL(18,2) COMMENT 'The total gross written premium on the underlying cedant policy for this bordereaux line before any cession.',
-    `insured_name` STRING COMMENT 'Name of the insured party on the underlying policy for this bordereaux line, as reported to the reinsurer on the cession record.',
-    `line_number` BIGINT COMMENT 'Sequential line number within the bordereaux submission, used for ordering and reconciliation of individual cession or claim entries.',
-    `line_status` STRING COMMENT 'Current processing status of this bordereaux line in the reconciliation workflow between cedant and reinsurer.. Valid values are `DRAFT|SUBMITTED|ACCEPTED|DISPUTED|SETTLED|VOIDED`',
-    `line_type` STRING COMMENT 'Classifies the nature of the bordereaux line: premium cession, claim loss, adjustment, reinstatement premium, or return premium.. Valid values are `PREMIUM|CLAIM|ADJUSTMENT|REINSTATEMENT|RETURN_PREMIUM`',
-    `net_ceded_premium` DECIMAL(18,2) COMMENT 'The net premium remitted to the reinsurer after deducting the ceding commission from the ceded written premium for this bordereaux line.',
-    `original_tiv` DECIMAL(18,2) COMMENT 'Total Insured Value of the underlying risk exposure on the cedant policy for this bordereaux line, used for proportional share calculations.',
-    `policy_expiry_date` DATE COMMENT 'The expiration date of the underlying cedant policy associated with this bordereaux line.',
-    `policy_inception_date` DATE COMMENT 'The effective start date of the underlying cedant policy associated with this bordereaux line.',
-    `recoverable_balance` DECIMAL(18,2) COMMENT 'Outstanding reinsurance recoverable balance for this bordereaux line, representing amounts owed by the reinsurer not yet collected by the cedant.',
-    `reinstatement_premium_amount` DECIMAL(18,2) COMMENT 'Premium charged to reinstate the reinsurance limit after a loss occurrence under XOL or CAT XL treaties. Populated for reinstatement-type lines only.',
-    `report_period_end_date` DATE COMMENT 'End date of the reporting period covered by this bordereaux line, used for earned premium and loss period attribution.',
-    `report_period_start_date` DATE COMMENT 'Start date of the reporting period covered by this bordereaux line, used for earned premium and loss period attribution.',
-    `retention_amount` DECIMAL(18,2) COMMENT 'The cedants retained portion of the risk or loss for this line, representing the amount not ceded to the reinsurer.',
-    `risk_description` STRING COMMENT 'Narrative description of the insured risk or exposure associated with this bordereaux line, as reported to the reinsurer.',
-    `risk_expiry_date` DATE COMMENT 'The date on which the ceded risk exposure terminates under the reinsurance treaty or FAC certificate for this line.',
-    `risk_inception_date` DATE COMMENT 'The date on which the ceded risk exposure commenced under the reinsurance treaty or FAC certificate for this line.',
-    `settlement_date` DATE COMMENT 'The date on which this bordereaux line was financially settled between the cedant and the reinsurer.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp of the most recent modification to this bordereaux line record, used for change tracking and reconciliation audit.',
-    `xol_attachment_point` DECIMAL(18,2) COMMENT 'The loss threshold at which the XOL reinsurance layer attaches for this bordereaux line. Null for quota share or non-XOL treaty lines.',
-    `xol_exhaustion_point` DECIMAL(18,2) COMMENT 'The loss level at which the XOL reinsurance layer is fully exhausted for this bordereaux line. Null for quota share or non-XOL treaty lines.',
-    CONSTRAINT pk_bordereaux_line PRIMARY KEY(`bordereaux_line_id`)
-) COMMENT 'Individual line item within a bordereaux submission representing one cession or claim entry. Stores policy reference, ceded premium, ceded loss, ceded LAE, and line-level status for granular bordereaux reconciliation.';
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` (
+    `reinsurance_bordereaux_line_id` BIGINT COMMENT 'Unique surrogate primary key for one bordereaux line item representing a single cession or claim cession within a bordereaux submission run. Grain: one row per cession per bordereaux.',
+    `bordereaux_id` BIGINT COMMENT 'Foreign key reference to the parent bordereaux submission run that this line belongs to. Links the line to its batch/run header.',
+    `catastrophe_event_id` BIGINT COMMENT 'Reference to the catastrophe event associated with this claim-cession line. Used for CAT XL treaty aggregation and PML/AAL reporting.',
+    `catastrophegeography_peril_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.peril. Business justification: Bordereaux lines report per-peril ceded premium and losses for treaty reconciliation, reinsurer accounting, and profit commission calculations.',
+    `claim_id` BIGINT COMMENT 'Reference to the claim for claim-cession bordereaux lines. Null for premium-only cession lines. Links to the Claim entity in the claims domain.',
+    `claimfinancials_accounting_period_id` BIGINT COMMENT 'Reference to the accounting period (calendar year/quarter/month) to which this bordereaux line is attributed for statutory and GAAP reporting.',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Bordereaux reporting aggregates cessions by line for statutory filings; LOB master provides NAIC/ISO mappings and regulatory line definitions required for Schedule P and Schedule F',
+    `policy_id` BIGINT COMMENT 'Reference to the ceded policy. Enables linkage from the bordereaux line back to the full policy lifecycle in the policy domain.',
+    `premium_transaction_id` BIGINT COMMENT 'Foreign key linking to premium.premium_transaction. Business justification: Bordereaux lines report individual cessions to reinsurers with transaction-level detail.',
+    `reinsurance_cession_id` BIGINT COMMENT 'Reference to the underlying cession record that this bordereaux line represents. Links to the Cession entity in the reinsurance domain.',
+    `reinsurer_party_id` BIGINT COMMENT 'Reference to the reinsurer party record. Identifies the specific reinsurance counterparty receiving this cession for credit risk and Schedule F counterparty reporting.',
+    `ri_agreement_id` BIGINT COMMENT 'Reference to the reinsurance agreement (treaty or facultative) under which this cession is reported.',
+    `agreement_number` STRING COMMENT 'Human-readable external identifier of the reinsurance treaty or facultative agreement under which this cession is reported. Used in bordereaux submissions to reinsurers.',
+    `agreement_type` STRING COMMENT 'Indicates whether the cession is under a treaty (automatic) or facultative (individually negotiated) reinsurance agreement.. Valid values are `TREATY|FACULTATIVE`',
+    `attachment_point` DECIMAL(18,2) COMMENT 'The loss threshold at which the XOL or CAT XL reinsurance layer attaches for this cession. Losses below this amount are retained by the cedant.',
+    `bordereaux_line_type` STRING COMMENT 'Classifies the nature of this bordereaux line: premium cession, claim cession, adjustment, return premium, or reinstatement. Drives financial processing logic.. Valid values are `PREMIUM_CESSION|CLAIM_CESSION|ADJUSTMENT|RETURN_PREMIUM|REINSTATEMENT`',
+    `catastrophe_code` STRING COMMENT 'Industry or internal catastrophe event code (e.g., PCS event number) associated with this cession line. Denormalized for bordereaux reporting and CAT XL aggregation.',
+    `ceded_earned_premium` DECIMAL(18,2) COMMENT 'The portion of earned premium ceded to the reinsurer for the reporting period. Used for loss ratio calculations and IFRS 17 insurance revenue reporting.',
+    `ceded_ibnr_reserve` DECIMAL(18,2) COMMENT 'Reinsurers share of IBNR reserves allocated to this cession line. Used in actuarial reserving and Schedule F statutory reporting.',
+    `ceded_lae_paid` DECIMAL(18,2) COMMENT 'Loss Adjustment Expense (LAE) paid by the reinsurer under this cession line. Includes ALAE and ULAE components ceded per agreement terms.',
+    `ceded_lae_reserve` DECIMAL(18,2) COMMENT 'Outstanding LAE reserve amount ceded to the reinsurer for this line. Represents the reinsurers share of unpaid loss adjustment expenses.',
+    `ceded_loss_paid` DECIMAL(18,2) COMMENT 'Losses paid by the reinsurer under this cession line to date. Represents actual cash recoveries received from the reinsurer for indemnity payments.',
+    `ceded_loss_reserve` DECIMAL(18,2) COMMENT 'Outstanding case reserve amount ceded to the reinsurer for this line. Represents the reinsurers share of unpaid loss reserves (OSLR/RBNS).',
+    `ceded_unearned_premium` DECIMAL(18,2) COMMENT 'The unearned portion of ceded written premium as of the reporting date. Represents the reinsurers liability for unexpired risk. Used in balance sheet reserving.',
+    `ceded_written_premium` DECIMAL(18,2) COMMENT 'The portion of written premium ceded to the reinsurer under this agreement for this line. Key metric for Schedule F and bordereaux reporting. Expressed in reporting currency.',
+    `ceding_commission_amount` DECIMAL(18,2) COMMENT 'Commission paid by the reinsurer to the cedant on ceded premium for this line. Offsets acquisition costs. Applicable to quota share and surplus treaties.',
+    `ceding_commission_rate` DECIMAL(7,4) COMMENT 'The contractual rate applied to ceded premium to compute the ceding commission (e.g., 0.2500 = 25%). Defined in the reinsurance agreement terms.',
+    `cession_percentage` DECIMAL(7,4) COMMENT 'The percentage of the risk ceded to the reinsurer under this agreement line (e.g., 0.3000 = 30%). Applicable primarily to quota share treaties.',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this bordereaux line record was first created in the data platform. Supports audit trail and data lineage requirements per SOX and MAR.',
+    `currency_code` STRING COMMENT 'ISO 4217 three-letter currency code for all monetary amounts on this bordereaux line (e.g., USD, GBP, EUR). Supports multi-currency reinsurance agreements.. Valid values are `^[A-Z]{3}$`',
+    `exchange_rate` DECIMAL(18,6) COMMENT 'Foreign exchange rate used to convert cession amounts to the reporting currency. Applicable when the ceded policy is denominated in a currency other than USD.',
+    `gross_written_premium` DECIMAL(18,2) COMMENT 'Total gross written premium on the ceded policy for the cession period before reinsurance. Basis for computing ceded written premium. Expressed in reporting currency.',
+    `insured_name` STRING COMMENT 'Name of the insured party on the ceded policy as reported on the bordereaux. Required by reinsurers for risk identification and facultative certificate matching.',
+    `is_retrocession` BOOLEAN COMMENT 'Indicates whether this cession line represents a retrocession (cession of assumed reinsurance) rather than a direct cession. True = retrocession; False = direct cession.',
+    `line_sequence_number` BIGINT COMMENT 'Sequential line number of this record within the parent bordereaux run. Used for ordering, reconciliation, and error identification during bordereaux processing.',
+    `line_status` STRING COMMENT 'Current processing status of this bordereaux line in the reinsurer settlement workflow. Tracks lifecycle from draft through acceptance or dispute resolution.. Valid values are `DRAFT|SUBMITTED|ACCEPTED|DISPUTED|SETTLED|VOIDED`',
+    `loss_date` DATE COMMENT 'Date of the insured loss event for claim-cession lines. Used to determine treaty year applicability (accident year basis) and XOL layer attachment. Null for premium lines.',
+    `policy_effective_date` DATE COMMENT 'The date the ceded policy term became effective. Used to determine the applicable treaty year and cession period for bordereaux allocation.',
+    `policy_expiration_date` DATE COMMENT 'The date the ceded policy term expires. Used with effective date to compute the cession period and pro-rata premium calculations.',
+    `rate_on_line` DECIMAL(7,4) COMMENT 'Rate on Line (ROL) expressed as a decimal — the ratio of reinsurance premium to the reinsurers limit. Key pricing metric for XOL and CAT XL treaties.',
+    `reinsurer_limit` DECIMAL(18,2) COMMENT 'Maximum amount the reinsurer is liable to pay above the attachment point for this cession line. Defines the XOL layer limit (e.g., $5M xs $1M).',
+    `reinsurer_share_percentage` DECIMAL(7,4) COMMENT 'The specific reinsurers participation percentage in the reinsurance agreement for this line (e.g., 0.5000 = 50% of a 100% placed treaty layer).',
+    `report_date` DATE COMMENT 'Date the claim was first reported (FNOL date) for claim-cession lines. Used for IBNR analysis and claims-made policy trigger determination.',
+    `reporting_period_end_date` DATE COMMENT 'End date of the reporting period covered by this bordereaux line. Together with start date defines the bordereaux reporting window.',
+    `reporting_period_start_date` DATE COMMENT 'Start date of the reporting period covered by this bordereaux line. Defines the window for premium and loss movements included in this submission.',
+    `retention_amount` DECIMAL(18,2) COMMENT 'The cedants net retained loss amount for this cession line after reinsurance recovery. For XOL treaties, this is the SIR/retention layer below the attachment point.',
+    `source_system_reference` STRING COMMENT 'The originating systems unique identifier for this bordereaux line record (e.g., Sapiens ReinsurancePro internal line ID). Supports data lineage and reconciliation.',
+    `treaty_type` STRING COMMENT 'Specific treaty structure: Quota Share (QS), Excess of Loss (XOL), Stop Loss (SL), Catastrophe Excess of Loss (CAT XL), or Surplus. Determines cession calculation method.. Valid values are `QUOTA_SHARE|EXCESS_OF_LOSS|STOP_LOSS|CAT_XL|SURPLUS`',
+    `treaty_year` BIGINT COMMENT 'The underwriting or accident year of the reinsurance treaty applicable to this cession line. Used for treaty-year loss development and Schedule F segmentation.',
+    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp when this bordereaux line record was last modified. Used for incremental data processing, change detection, and audit trail compliance.',
+    CONSTRAINT pk_reinsurance_bordereaux_line PRIMARY KEY(`reinsurance_bordereaux_line_id`)
+) COMMENT 'Individual line item within a bordereaux submission, representing one cession or claim cession. One row per cession per bordereaux. Stores ceded premium, ceded loss, ceded LAE, and policy/claim reference keys. Belongs to a parent bordereaux run.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` (
-    `ceded_premium_transaction_id` BIGINT COMMENT 'Unique surrogate identifier for each ceded premium transaction record in the reinsurance ledger.',
-    `currency_id` BIGINT COMMENT 'ISO 4217 three-letter currency code in which the ceded premium amounts are denominated (e.g., USD, GBP, EUR).',
-    `fac_certificate_id` BIGINT COMMENT 'Reference to the facultative reinsurance certificate when the cession is FAC rather than treaty-based. Null for treaty transactions.',
-    `lob_code_id` BIGINT COMMENT 'NAIC or internal Line of Business code identifying the insurance product line (e.g., GL, WC, APD, BOP) for the ceded premium transaction.',
-    `policy_id` BIGINT COMMENT 'Reference to the underlying insurance policy whose premium is being ceded under this transaction.',
-    `reinsurance_cession_id` BIGINT COMMENT 'Foreign key linking to reinsurance.cession. Business justification: Premium transactions are generated from cessions. Currently only has treaty/fac/policy FKs, missing the cession FK that ties them together.',
-    `reinsurer_id` BIGINT COMMENT 'Reference to the reinsurer party entity receiving the ceded premium under this transaction.',
-    `reversed_transaction_ceded_premium_transaction_id` BIGINT COMMENT 'Reference to the original ceded premium transaction that this record reverses. Populated only when reversal_flag is true.',
-    `ri_treaty_id` BIGINT COMMENT 'Reference to the reinsurance treaty under which this ceded premium transaction is recorded.',
-    `accounting_period_end_date` DATE COMMENT 'End date of the accounting period to which this ceded premium transaction is attributed for statutory and GAAP reporting.',
-    `accounting_period_start_date` DATE COMMENT 'Start date of the accounting period (month or quarter) to which this ceded premium transaction is attributed for statutory and GAAP reporting.',
-    `adjustment_premium_amount` DECIMAL(18,2) COMMENT 'Premium adjustment amount arising from the difference between deposit premium and the final calculated premium based on actual subject premium volume.',
-    `authorized_reinsurer_flag` BOOLEAN COMMENT 'Indicates whether the reinsurer is authorized/accredited in the cedants domicile state, affecting credit for reinsurance on the statutory balance sheet.',
-    `bordereaux_reference` STRING COMMENT 'Reference number of the bordereaux submission in which this ceded premium transaction was reported to the reinsurer for settlement.',
-    `cat_event_code` STRING COMMENT 'Industry or internal CAT event code (e.g., PCS event number) associated with this ceded premium transaction when triggered by a catastrophe occurrence.',
-    `ceding_commission_amount` DECIMAL(18,2) COMMENT 'Commission received from the reinsurer on the ceded premium, representing reimbursement of acquisition and overhead costs. Reduces net ceded premium.',
-    `cession_pct` DECIMAL(7,4) COMMENT 'Percentage of the original policy premium ceded to the reinsurer under this transaction, applicable to quota share and surplus treaties.',
-    `cession_type` STRING COMMENT 'Indicates whether the cession is under a treaty, a facultative (FAC) certificate, or a facultative-obligatory arrangement.. Valid values are `treaty|facultative|facultative_obligatory`',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this ceded premium transaction record was first created in the data platform, used for audit trail and data lineage.',
-    `dac_ceded_amount` DECIMAL(18,2) COMMENT 'Deferred acquisition cost attributable to the ceded portion of the policy, representing the ceded DAC asset to be amortized over the policy term.',
-    `deposit_premium_amount` DECIMAL(18,2) COMMENT 'Provisional deposit premium paid to the reinsurer at inception of the treaty period, subject to adjustment when actual subject premium is known.',
-    `earned_premium_ceded_amount` DECIMAL(18,2) COMMENT 'Portion of the ceded written premium that has been earned during the accounting period, computed on a pro-rata or other basis per treaty terms.',
-    `gl_account_code` STRING COMMENT 'General ledger account code to which this ceded premium transaction is posted in the financial ledger (Oracle Financials GL or SAP FI).',
-    `gwp_ceded_amount` DECIMAL(18,2) COMMENT 'Gross written premium ceded to the reinsurer under this transaction before deduction of ceding commission. Represents the cedants gross exposure transferred.',
-    `layer_number` BIGINT COMMENT 'Numeric identifier of the XOL or CAT XL program layer to which this ceded premium transaction belongs, enabling multi-layer program analysis.',
-    `nwp_ceded_amount` DECIMAL(18,2) COMMENT 'Net written premium ceded after deducting ceding commission from GWP ceded. Represents the net cost of reinsurance protection for this transaction.',
-    `policy_effective_date` DATE COMMENT 'Effective date of the underlying policy term to which this ceded premium transaction relates, used for earned premium proration.',
-    `policy_expiry_date` DATE COMMENT 'Expiry date of the underlying policy term, used together with effective date to compute the pro-rata earned ceded premium.',
-    `profit_commission_amount` DECIMAL(18,2) COMMENT 'Profit commission receivable from the reinsurer for this accounting period, calculated when the treaty loss ratio falls below the profit commission threshold.',
-    `reinstatement_premium_amount` DECIMAL(18,2) COMMENT 'Additional premium payable to reinstate the reinsurance limit after a loss occurrence, applicable to XOL and CAT XL treaties. Zero for QS transactions.',
-    `reversal_flag` BOOLEAN COMMENT 'Indicates whether this transaction is a reversal of a previously posted ceded premium entry, used for correction and audit trail purposes.',
-    `rol_pct` DECIMAL(7,4) COMMENT 'Rate on Line expressed as a percentage of the reinsurance limit, used for XOL and CAT XL layers to derive the ceded premium from the limit purchased.',
-    `settlement_date` DATE COMMENT 'Actual date on which the ceded premium was remitted to or received from the reinsurer. Null if not yet settled.',
-    `settlement_due_date` DATE COMMENT 'Contractual due date by which the ceded premium must be remitted to the reinsurer per the treaty or FAC certificate payment terms.',
-    `settlement_status` STRING COMMENT 'Current settlement state of the ceded premium transaction with the reinsurer: pending, submitted in bordereaux, agreed, paid, or disputed.. Valid values are `pending|submitted|agreed|paid|disputed`',
-    `source_system_code` STRING COMMENT 'Code identifying the operational system of record that originated this ceded premium transaction (e.g., SICS, Sapiens ReinsuranceMaster, Guidewire PolicyCenter).. Valid values are `SICS|ReinsuranceMaster|Guidewire|DuckCreek|Manual`',
-    `source_transaction_reference` STRING COMMENT 'The native transaction identifier from the originating source system (e.g., SICS transaction ID), enabling traceability back to the system of record.',
-    `subject_premium_amount` DECIMAL(18,2) COMMENT 'The base premium amount on which the reinsurance rate or cession percentage is applied to derive the ceded premium for this transaction.',
-    `transaction_date` DATE COMMENT 'The business date on which the ceded premium movement was recorded or triggered, representing the principal real-world event date.',
-    `transaction_number` STRING COMMENT 'Externally visible business reference number for this ceded premium transaction, used in bordereaux and reinsurer settlement statements.. Valid values are `^CPT-[0-9]{4}-[0-9]{8}$`',
-    `transaction_status` STRING COMMENT 'Current lifecycle state of the ceded premium transaction from draft through settlement or void.. Valid values are `draft|posted|settled|voided|disputed`',
-    `transaction_type` STRING COMMENT 'Classifies the nature of the ceded premium movement: written (new/renewal), earned (periodic recognition), return (cancellation/endorsement), adjustment, or reinstatement premium.. Valid values are `written|earned|return|adjustment|reinstatement`',
-    `treaty_type` STRING COMMENT 'Type of reinsurance structure governing this cession: Quota Share (QS), Excess of Loss (XOL), Catastrophe Excess of Loss (CAT XL), Surplus, or Stop Loss.. Valid values are `quota_share|excess_of_loss|cat_xl|surplus|stop_loss`',
-    `uep_ceded_amount` DECIMAL(18,2) COMMENT 'Portion of the ceded written premium that is unearned as of the accounting period end date, representing the ceded UEP reserve on the balance sheet.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp of the most recent update to this ceded premium transaction record, supporting audit trail and change tracking requirements.',
-    CONSTRAINT pk_ceded_premium_transaction PRIMARY KEY(`ceded_premium_transaction_id`)
-) COMMENT 'Transactional record of each ceded premium movement (written, earned, return) under a treaty or FAC certificate. Tracks GWP ceded, NWP ceded, UEP ceded, DAC ceded, accounting period, and settlement status.';
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` (
+    `ri_reinstatement_id` BIGINT COMMENT 'Unique surrogate primary key for each treaty layer reinstatement event. One row per reinstatement event per treaty layer occurrence.',
+    `catastrophe_event_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.catastrophe_event. Business justification: Reinstatements are triggered by specific catastrophe events exhausting layer limits.',
+    `catastrophegeography_peril_id` BIGINT COMMENT 'Foreign key linking to catastrophegeography.peril. Business justification: Reinstatements are peril-specific (e.g., hurricane layer exhaustion triggers hurricane reinstatement premium).',
+    `claimfinancials_accounting_period_id` BIGINT COMMENT 'Reference to the accounting period in which the reinstatement premium is booked for statutory and GAAP financial reporting.',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Reinstatement premium calculations are line-specific; LOB master provides rate-on-line benchmarks and treaty term applicability by line for accurate premium computation and treaty',
+    `reinsurance_cession_id` BIGINT COMMENT 'Reference to the cession record associated with the loss occurrence that triggered this reinstatement, linking ceded exposure to the reinstated layer.',
+    `reinsurer_id` BIGINT COMMENT 'Foreign key linking to reinsurance.reinsurer. Business justification: Reinstatements track premium per reinsurer (reinsurer_share_pct, reinsurer_reinstatement_premium_amt). Should have FK to reinsurer master for reinsurer attributes.',
+    `ri_agreement_id` BIGINT COMMENT 'Reference to the parent reinsurance agreement (contract) under which the treaty layer and this reinstatement event exist.',
+    `treaty_id` BIGINT COMMENT 'Reference to the reinsurance treaty under which this reinstatement is triggered. Links to the Treaty master record.',
+    `treaty_layer_id` BIGINT COMMENT 'Foreign key linking to reinsurance.treaty_layer. Business justification: Reinstatements occur at the layer level (when a layer limit is exhausted and reinstated). Currently has treaty_id, but reinstatements are layer-specific for XOL/CAT XL structures.',
+    `bordereaux_period` STRING COMMENT 'Year-month (YYYY-MM) reporting period in which this reinstatement is included on the reinsurance bordereaux submitted to the reinsurer for reconciliation.. Valid values are `^[0-9]{4}-(0[1-9]|1[0-2])$`',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this reinstatement record was first created in the Reinsurance Management System, used for audit trail and data lineage.',
+    `dispute_reason` STRING COMMENT 'Free-text description of the reason for a disputed reinstatement status, capturing reinsurer objections or cedant counter-arguments for resolution tracking.',
+    `due_date` DATE COMMENT 'Date by which the reinstatement premium must be paid to the reinsurer per the treaty credit terms, used for cash flow and delinquency tracking.',
+    `effective_date` DATE COMMENT 'Date on which the reinstated treaty layer limit becomes effective and available for future losses, as agreed with the reinsurer.',
+    `exhausted_limit_amt` DECIMAL(18,2) COMMENT 'The amount of the treaty layer limit that was exhausted by the triggering loss occurrence, forming the basis for calculating the reinstatement premium.',
+    `expiration_date` DATE COMMENT 'Date on which the reinstated limit expires, typically aligned with the treaty year end or a specific occurrence-based expiry per treaty wording.',
+    `gl_account_code` STRING COMMENT 'General Ledger account code to which the reinstatement premium expense is posted in the statutory and GAAP accounting systems for financial reporting.',
+    `invoice_date` DATE COMMENT 'Date on which the reinstatement premium invoice or debit note was issued to the reinsurer for settlement.',
+    `invoice_number` STRING COMMENT 'Invoice or debit note number issued to the reinsurer for the reinstatement premium, used for accounts payable reconciliation and bordereaux reporting.',
+    `is_automatic` BOOLEAN COMMENT 'Indicates whether the reinstatement is triggered automatically upon layer exhaustion (true) or requires explicit reinsurer consent and notification (false).',
+    `is_free_reinstatement` BOOLEAN COMMENT 'Indicates whether this reinstatement is provided at no additional premium cost per treaty wording (true = free reinstatement; false = premium-bearing reinstatement).',
+    `layer_limit_amt` DECIMAL(18,2) COMMENT 'The original per-occurrence limit of the treaty layer being reinstated, expressed in the treaty currency. Represents the maximum ceded recovery per occurrence.',
+    `max_reinstatements_allowed` BIGINT COMMENT 'Maximum number of reinstatements permitted under the treaty layer per treaty year as specified in the treaty wording, used to validate reinstatement_sequence.',
+    `notes` STRING COMMENT 'Free-text operational notes or comments entered by the reinsurance analyst regarding special conditions, treaty wording interpretations, or settlement instructions.',
+    `occurrence_date` DATE COMMENT 'Date of the loss occurrence that triggered the layer exhaustion and necessitated this reinstatement, used for accident year and treaty year attribution.',
+    `occurrence_reference` STRING COMMENT 'External reference code or name for the loss occurrence that exhausted the layer (e.g., CAT event code, storm name, occurrence number per treaty wording).',
+    `occurrence_reference_code` BIGINT COMMENT 'Reference to the loss occurrence or catastrophe event that exhausted the treaty layer and triggered this reinstatement.',
+    `original_premium_basis_amt` DECIMAL(18,2) COMMENT 'The original treaty premium (annual deposit or minimum premium) used as the basis for computing the reinstatement premium under pro-rata-of-original-premium treaty structures.',
+    `payment_date` DATE COMMENT 'Actual date on which the reinstatement premium was remitted to the reinsurer, used for cash settlement reconciliation and Schedule F reporting.',
+    `payment_reference` STRING COMMENT 'Wire transfer, check, or settlement reference number confirming remittance of the reinstatement premium to the reinsurer.',
+    `pro_rata_factor` DECIMAL(10,6) COMMENT 'Pro-rata time adjustment factor applied when the reinstatement is time-limited (e.g., reinstated limit covers only a partial treaty year), reducing the reinstatement premium accordingly.',
+    `reinstated_limit_amt` DECIMAL(18,2) COMMENT 'The amount of treaty layer limit reinstated by this event. May equal the full layer limit or a partial amount if only partially exhausted or partially reinstated.',
+    `reinstatement_number` STRING COMMENT 'Externally-known business identifier for this reinstatement event, assigned by the Reinsurance Management System for bordereaux and counterparty communication.',
+    `reinstatement_premium_amt` DECIMAL(18,2) COMMENT 'Gross reinstatement premium payable to the reinsurer for restoring the exhausted layer limit, calculated as reinstated limit multiplied by the reinstatement premium rate.',
+    `reinstatement_premium_currency` STRING COMMENT 'ISO 4217 three-letter currency code for the reinstatement premium amount (e.g., USD, GBP, EUR), matching the treaty settlement currency.. Valid values are `^[A-Z]{3}$`',
+    `reinstatement_premium_rate` DECIMAL(10,6) COMMENT 'Rate on Line (ROL) percentage applied to the reinstated limit to calculate the reinstatement premium due, as specified in the treaty wording (e.g., 100% pro-rata, 50%).',
+    `reinstatement_sequence` BIGINT COMMENT 'Ordinal sequence of this reinstatement within the treaty layer for the treaty year (1st reinstatement, 2nd reinstatement, etc.), as defined in the treaty wording.',
+    `reinstatement_status` STRING COMMENT 'Current workflow status of the reinstatement event, tracking progression from pending confirmation through premium invoicing and payment settlement.. Valid values are `pending|confirmed|invoiced|paid|cancelled|disputed`',
+    `reinstatement_type` STRING COMMENT 'Classification of the reinstatement as automatic (triggered by loss), conditional (subject to reinsurer consent), free (no additional premium), or paid (premium-bearing).. Valid values are `automatic|conditional|free|paid`',
+    `reinsurer_confirmation_ref` STRING COMMENT 'Reference number or acknowledgment code provided by the reinsurer confirming acceptance of the reinstatement, required for conditional reinstatements.',
+    `reinsurer_reinstatement_premium_amt` DECIMAL(18,2) COMMENT 'Reinsurers proportional share of the reinstatement premium, derived from the gross reinstatement premium multiplied by the reinsurer share percentage.',
+    `reinsurer_share_pct` DECIMAL(7,4) COMMENT 'Percentage share of the treaty layer held by the reinsurer (or lead reinsurer on a co-reinsurance panel), used to apportion the reinstated limit and reinstatement premium.',
+    `retention_amt` DECIMAL(18,2) COMMENT 'The cedants retained loss amount (attachment point or SIR) below the reinstated treaty layer, confirming the layer structure at the time of reinstatement.',
+    `source_system_code` STRING COMMENT 'Code identifying the operational source system from which this reinstatement record was ingested (e.g., SAPIENS_RI, SICS), supporting data lineage in the lakehouse.',
+    `treaty_year` BIGINT COMMENT 'The underwriting or treaty year (e.g., 2024) to which this reinstatement belongs, used for Schedule F and bordereaux reporting by treaty year.',
+    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp of the most recent update to this reinstatement record, supporting audit trail requirements and change tracking for regulatory compliance.',
+    CONSTRAINT pk_ri_reinstatement PRIMARY KEY(`ri_reinstatement_id`)
+) COMMENT 'Records the reinstatement of treaty limit after a loss occurrence exhausts a layer. One row per reinstatement event per treaty layer. Captures reinstatement premium, reinstated limit, occurrence reference, and effective date.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` (
-    `ceded_loss_transaction_id` BIGINT COMMENT 'Unique identifier for the ceded loss transaction record.',
-    `bordereaux_id` BIGINT COMMENT 'Identifier for the bordereaux batch in which this transaction was reported to the reinsurer.',
-    `claim_id` BIGINT COMMENT 'Reference to the underlying claim generating this ceded loss.',
-    `currency_id` BIGINT COMMENT 'Three-letter ISO currency code for all monetary amounts in this transaction.',
-    `fac_certificate_id` BIGINT COMMENT 'Reference to the facultative certificate if this loss is ceded under FAC placement.',
-    `insured_location_id` BIGINT COMMENT 'Foreign key linking to riskexposure.insured_location. Business justification: Property loss transactions must identify the loss location to determine treaty attachment (per-risk vs. CAT), apply retention, and assign CAT event codes.',
-    `lob_code_id` BIGINT COMMENT 'Code identifying the line of business for this ceded loss.',
-    `coverage_policy_coverage_id` BIGINT COMMENT 'Foreign key linking to coverage.coverage_policy_coverage. Business justification: Loss cessions must identify which coverage the claim arose from to apply correct treaty/fac terms, especially in multi-coverage policies.',
-    `policy_id` BIGINT COMMENT 'Reference to the policy associated with the ceded loss.',
-    `reinsurance_cession_id` BIGINT COMMENT 'Foreign key linking to reinsurance.cession. Business justification: Loss transactions are generated from cessions. Missing the cession FK that links loss transactions back to the originating cession event.',
-    `reinsurer_id` BIGINT COMMENT 'Reference to the reinsurer receiving this ceded loss transaction.',
-    `ri_treaty_id` BIGINT COMMENT 'Reference to the reinsurance treaty under which this loss is ceded.',
-    `accounting_date` DATE COMMENT 'Date when the transaction is recognized for financial accounting purposes.',
-    `attachment_point` DECIMAL(18,2) COMMENT 'Loss threshold at which reinsurance coverage begins for excess of loss treaties.',
-    `bordereaux_submission_date` DATE COMMENT 'Date when the bordereaux containing this transaction was submitted to the reinsurer.',
-    `cat_event_code` STRING COMMENT 'Code identifying the catastrophe event if this loss is part of a CAT event.',
-    `cat_flag` BOOLEAN COMMENT 'Indicates whether this ceded loss is associated with a catastrophe event.',
-    `ceded_alae_amount` DECIMAL(18,2) COMMENT 'Amount of allocated loss adjustment expense ceded to the reinsurer.',
-    `ceded_loss_amount` DECIMAL(18,2) COMMENT 'Amount of loss ceded to the reinsurer under this transaction.',
-    `ceded_total_amount` DECIMAL(18,2) COMMENT 'Total amount ceded including loss, ALAE, and ULAE.',
-    `ceded_ulae_amount` DECIMAL(18,2) COMMENT 'Amount of unallocated loss adjustment expense ceded to the reinsurer.',
-    `cession_percentage` DECIMAL(5,4) COMMENT 'Percentage of the gross loss ceded to the reinsurer under this transaction.',
-    `coverage_code` STRING COMMENT 'Code identifying the specific coverage under which the loss is ceded.',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this ceded loss transaction record was first created in the system.',
-    `current_reserve_amount` DECIMAL(18,2) COMMENT 'Current ceded reserve amount after this transaction.',
-    `dispute_flag` BOOLEAN COMMENT 'Indicates whether this ceded loss transaction is under dispute with the reinsurer.',
-    `dispute_reason` STRING COMMENT 'Reason for dispute if the transaction is contested by the reinsurer.',
-    `dol` DATE COMMENT 'Date when the underlying loss event occurred.',
-    `exhaustion_point` DECIMAL(18,2) COMMENT 'Loss threshold at which reinsurance coverage ends for excess of loss treaties.',
-    `gross_loss_amount` DECIMAL(18,2) COMMENT 'Total gross loss amount before reinsurance cession.',
-    `layer_number` BIGINT COMMENT 'Reinsurance layer number if the treaty has multiple layers.',
-    `net_loss_amount` DECIMAL(18,2) COMMENT 'Net loss amount retained by the cedant after reinsurance cession.',
-    `paid_recoverable_amount` DECIMAL(18,2) COMMENT 'Amount already recovered from the reinsurer for this transaction.',
-    `peril_code` STRING COMMENT 'Code identifying the peril or cause of loss.',
-    `prior_reserve_amount` DECIMAL(18,2) COMMENT 'Previous ceded reserve amount before this transaction.',
-    `recoverable_balance` DECIMAL(18,2) COMMENT 'Outstanding balance recoverable from the reinsurer for this transaction.',
-    `reinsurer_confirmation_date` DATE COMMENT 'Date when the reinsurer confirmed receipt and acceptance of this ceded loss transaction.',
-    `report_date` DATE COMMENT 'Date when the loss was first reported to the insurer.',
-    `reporting_period` STRING COMMENT 'Financial reporting period for this ceded loss transaction, typically YYYY-MM format.',
-    `reserve_change_amount` DECIMAL(18,2) COMMENT 'Net change in ceded reserve amount from this transaction.',
-    `reserve_movement_type` STRING COMMENT 'Type of reserve movement: initial establishment, increase, decrease, closure, or reopening.. Valid values are `initial|increase|decrease|closure|reopening`',
-    `retention_amount` DECIMAL(18,2) COMMENT 'Cedant retention amount applied before reinsurance recovery.',
-    `transaction_date` DATE COMMENT 'Date when the ceded loss transaction was recorded in the system.',
-    `transaction_number` STRING COMMENT 'Business identifier for the ceded loss transaction, used in bordereaux reporting.',
-    `transaction_status` STRING COMMENT 'Current status of the ceded loss transaction in the reinsurance workflow.. Valid values are `pending|reported|confirmed|disputed|settled|reversed`',
-    `transaction_type` STRING COMMENT 'Type of ceded loss transaction: paid loss, case reserve, IBNR, IBNER, LAE paid, LAE reserve, salvage, or subrogation. [ENUM-REF-CANDIDATE: paid_loss|case_reserve|ibnr|ibner|lae_paid|lae_reserve|salvage|subrogation — 8 candidates stripped; promote to',
-    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp when this ceded loss transaction record was last updated.',
-    CONSTRAINT pk_ceded_loss_transaction PRIMARY KEY(`ceded_loss_transaction_id`)
-) COMMENT 'Ledger of each ceded loss, LAE, and reserve movement (paid, case/OCR, IBNR, IBNER) reported to a reinsurer under a treaty or FAC. Single owner of ceded reserve balances after ri_loss_reserve merge.';
-
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` (
-    `ri_recoverable_id` BIGINT COMMENT 'Unique identifier for the reinsurance recoverable record.',
-    `bordereaux_id` BIGINT COMMENT 'Foreign key linking to reinsurance.bordereaux. Business justification: Recoverables are reported via bordereaux. Currently has bordereaux_reference (string), should have proper FK for referential integrity.',
-    `claim_id` BIGINT COMMENT 'Reference to the underlying claim for which reinsurance recovery is being tracked.',
-    `currency_id` BIGINT COMMENT 'ISO 4217 three-letter currency code for all monetary amounts in this recoverable record.',
-    `fac_certificate_id` BIGINT COMMENT 'Reference to the facultative certificate under which this recoverable is ceded, if applicable.',
-    `insured_location_id` BIGINT COMMENT 'Foreign key linking to riskexposure.insured_location. Business justification: Reinsurance recoverables for property losses track the specific loss location to validate treaty coverage, determine attachment, and support recovery billing.',
-    `lob_code_id` BIGINT COMMENT 'Line of business code for the underlying policy and loss exposure.',
-    `coverage_policy_coverage_id` BIGINT COMMENT 'Foreign key linking to coverage.coverage_policy_coverage. Business justification: Recoverables are tracked at coverage level for reserve adequacy testing and credit risk management.',
-    `policy_id` BIGINT COMMENT 'Reference to the policy under which the loss occurred and reinsurance applies.',
-    `reinsurance_cession_id` BIGINT COMMENT 'Foreign key linking to reinsurance.cession. Business justification: Recoverables arise from cessions. Missing the cession FK that links recoverable balances back to the originating cession.',
-    `reinsurer_id` BIGINT COMMENT 'Reference to the reinsurer party from whom recovery is expected.',
-    `ri_treaty_id` BIGINT COMMENT 'Reference to the treaty agreement under which this recoverable is ceded, if applicable.',
-    `accounting_period` STRING COMMENT 'Accounting period in YYYY-MM format during which this recoverable was recognized for financial reporting.. Valid values are `^[0-9]{4}-[0-9]{2}$`',
-    `authorized_reinsurer_flag` BOOLEAN COMMENT 'Indicates whether the reinsurer is authorized or accredited in the cedants domiciliary state, affecting statutory credit eligibility.',
-    `billed_date` DATE COMMENT 'Date on which the recoverable was formally billed to the reinsurer via bordereaux or claim notice.',
-    `cat_event_code` STRING COMMENT 'Industry standard catastrophe event code if this recoverable is associated with a named catastrophe.',
-    `cat_event_flag` BOOLEAN COMMENT 'Indicates whether this recoverable arises from a catastrophe event loss, subject to special treaty terms.',
-    `ceded_alae_amount` DECIMAL(18,2) COMMENT 'Portion of Allocated Loss Adjustment Expense ceded to reinsurers, recoverable under the reinsurance agreement.',
-    `ceded_loss_amount` DECIMAL(18,2) COMMENT 'Portion of the gross loss amount ceded to reinsurers under treaty or facultative agreements.',
-    `cession_date` DATE COMMENT 'Date on which the loss was ceded to reinsurers and the recoverable was established.',
-    `collateral_held_amount` DECIMAL(18,2) COMMENT 'Amount of collateral held by the cedant to secure this recoverable, reducing credit risk exposure.',
-    `collected_amount` DECIMAL(18,2) COMMENT 'Total amount collected from the reinsurer to date against this recoverable.',
-    `collected_date` DATE COMMENT 'Date on which payment was received from the reinsurer, fully or partially settling the recoverable.',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this recoverable record was first created in the system.',
-    `credit_allowed_flag` BOOLEAN COMMENT 'Indicates whether statutory credit is allowed for this recoverable under state insurance regulations.',
-    `dispute_date` DATE COMMENT 'Date on which the reinsurer formally disputed the recoverable, triggering dispute resolution procedures.',
-    `disputed_amount` DECIMAL(18,2) COMMENT 'Portion of the recoverable balance currently under dispute with the reinsurer.',
-    `due_date` DATE COMMENT 'Date by which payment is due from the reinsurer per the reinsurance agreement payment terms.',
-    `gross_loss_amount` DECIMAL(18,2) COMMENT 'Total gross loss amount incurred by the cedant before any reinsurance recovery.',
-    `loss_date` DATE COMMENT 'Date on which the underlying loss event occurred, determining treaty year and coverage applicability.',
-    `loss_type` STRING COMMENT 'Type of loss component for which reinsurance recovery is being tracked.. Valid values are `indemnity|alae|ulae|salvage|subrogation`',
-    `notes` STRING COMMENT 'Free-text notes capturing additional context, dispute details, or collection status updates for this recoverable.',
-    `overdue_flag` BOOLEAN COMMENT 'Indicates whether the recoverable balance is overdue per the reinsurance agreement payment terms.',
-    `recoverable_balance` DECIMAL(18,2) COMMENT 'Outstanding reinsurance recoverable balance owed by the reinsurer, net of any collections or adjustments.',
-    `recoverable_number` STRING COMMENT 'Business identifier for the recoverable record, used for external reporting and bordereaux submission.',
-    `recoverable_status` STRING COMMENT 'Current lifecycle status of the recoverable balance in the collection workflow.. Valid values are `pending|billed|acknowledged|disputed|collected|written_off`',
-    `recoverable_type` STRING COMMENT 'Classification of the reinsurance arrangement type under which recovery is claimed.. Valid values are `treaty|facultative|pool|retrocession`',
-    `reported_date` DATE COMMENT 'Date on which the loss was first reported to the cedant, used for IBNR and reserving calculations.',
-    `reserve_category` STRING COMMENT 'Category of reserve or payment for which the recoverable is established: case reserve, Incurred But Not Reported (IBNR), Incurred But Not Enough Reported (IBNER), or paid loss.. Valid values are `case|ibnr|ibner|paid`',
-    `treaty_year` BIGINT COMMENT 'Calendar or underwriting year of the reinsurance treaty under which this recoverable is ceded.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp when this recoverable record was last modified, tracking the most recent change to balance or status.',
-    `written_off_amount` DECIMAL(18,2) COMMENT 'Portion of the recoverable balance written off as uncollectible due to reinsurer insolvency or dispute resolution.',
-    `written_off_date` DATE COMMENT 'Date on which the recoverable balance was written off as uncollectible.',
-    CONSTRAINT pk_ri_recoverable PRIMARY KEY(`ri_recoverable_id`)
-) COMMENT 'Tracks outstanding reinsurance recoverable balances and ceded loss reserves (OCR, IBNR, IBNER) owed by reinsurers for paid and reserved losses under treaty and FAC agreements.';
-
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` (
-    `ri_settlement_id` BIGINT COMMENT 'Unique identifier for the reinsurance settlement record.',
-    `bordereaux_id` BIGINT COMMENT 'Foreign key linking to reinsurance.bordereaux. Business justification: Settlements are based on bordereaux submissions. Currently has bordereaux_reference (string), should have proper FK for referential integrity.',
-    `currency_id` BIGINT COMMENT 'Three-letter ISO 4217 currency code for all monetary amounts in this settlement.',
-    `fac_certificate_id` BIGINT COMMENT 'Reference to the facultative certificate if this settlement is for facultative reinsurance; null for treaty settlements.',
-    `lob_code_id` BIGINT COMMENT 'Line of business code for the risks covered by this settlement, aligned with NAIC annual statement lines.',
-    `reinsurer_id` BIGINT COMMENT 'Reference to the reinsurer party with whom this settlement is conducted.',
-    `ri_treaty_id` BIGINT COMMENT 'Reference to the reinsurance treaty under which this settlement is processed.',
-    `adjustment_amount` DECIMAL(18,2) COMMENT 'Net adjustment amount for corrections, prior period adjustments, or reconciliation items.',
-    `approval_date` DATE COMMENT 'Date the settlement was approved by the cedant or reinsurer for payment processing.',
-    `approved_by` STRING COMMENT 'Name or identifier of the individual who approved the settlement for payment.',
-    `authorized_reinsurer_flag` BOOLEAN COMMENT 'Indicates whether the reinsurer is authorized or admitted in the cedants domiciliary jurisdiction for statutory credit purposes.',
-    `balance_direction` STRING COMMENT 'Indicates whether the net balance is due from the reinsurer, due to the reinsurer, or zero.. Valid values are `due_from_reinsurer|due_to_reinsurer|zero`',
-    `broker_commission_amount` DECIMAL(18,2) COMMENT 'Commission paid to the reinsurance broker for placement and servicing of the treaty or certificate.',
-    `broker_name` STRING COMMENT 'Name of the reinsurance broker or intermediary facilitating the settlement, if applicable.',
-    `ceded_alae_amount` DECIMAL(18,2) COMMENT 'Allocated loss adjustment expenses ceded to the reinsurer for the settlement period.',
-    `ceded_loss_amount` DECIMAL(18,2) COMMENT 'Total losses ceded to the reinsurer for the settlement period, including paid and reserved amounts.',
-    `ceded_premium_amount` DECIMAL(18,2) COMMENT 'Total premium ceded to the reinsurer for the settlement period.',
-    `ceded_ulae_amount` DECIMAL(18,2) COMMENT 'Unallocated loss adjustment expenses ceded to the reinsurer for the settlement period.',
-    `ceding_commission_amount` DECIMAL(18,2) COMMENT 'Commission paid by the reinsurer to the cedant for acquisition and administrative costs.',
-    `collateral_held_amount` DECIMAL(18,2) COMMENT 'Amount of collateral held by the cedant from the reinsurer to secure the recoverable balance.',
-    `collateral_type` STRING COMMENT 'Type of collateral securing the reinsurance recoverable: letter of credit, trust account, funds withheld, or none.. Valid values are `letter_of_credit|trust_account|funds_withheld|none`',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when the settlement record was first created in the system.',
-    `dispute_flag` BOOLEAN COMMENT 'Indicates whether this settlement is under dispute between the cedant and reinsurer.',
-    `dispute_reason` STRING COMMENT 'Description of the reason for dispute if the settlement is contested.',
-    `due_date` DATE COMMENT 'Date by which the net settlement balance is due for payment.',
-    `net_balance_amount` DECIMAL(18,2) COMMENT 'Net settlement balance due to or from the reinsurer after all debits and credits; positive indicates amount due from reinsurer.',
-    `notes` STRING COMMENT 'Free-text notes or comments regarding the settlement, including special instructions or clarifications.',
-    `payment_date` DATE COMMENT 'Actual date the settlement payment was made or received.',
-    `payment_method` STRING COMMENT 'Method by which the settlement payment was or will be made: wire transfer, check, ACH, offset, or letter of credit.. Valid values are `wire_transfer|check|ach|offset|letter_of_credit`',
-    `payment_reference_number` STRING COMMENT 'External reference number for the payment transaction, such as wire confirmation or check number.',
-    `period_end_date` DATE COMMENT 'End date of the accounting period covered by this settlement.',
-    `period_start_date` DATE COMMENT 'Start date of the accounting period covered by this settlement.',
-    `profit_commission_amount` DECIMAL(18,2) COMMENT 'Additional commission paid to the cedant based on favorable loss experience under the treaty.',
-    `recoverable_amount` DECIMAL(18,2) COMMENT 'Total amount recoverable from the reinsurer, including losses and expenses.',
-    `reinstatement_premium_amount` DECIMAL(18,2) COMMENT 'Additional premium due for reinstatement of coverage limits after a loss event under excess of loss treaties.',
-    `settlement_number` STRING COMMENT 'Business identifier for the settlement statement, typically assigned by the cedant or reinsurer.',
-    `settlement_status` STRING COMMENT 'Current lifecycle status of the settlement: draft, pending, approved, paid, disputed, or cancelled.. Valid values are `draft|pending|approved|paid|disputed|cancelled`',
-    `statement_date` DATE COMMENT 'Date the settlement statement was issued or prepared.',
-    `statement_type` STRING COMMENT 'Type of settlement statement: account current, cash call, interim, final, or adjustment.. Valid values are `account_current|cash_call|interim|final|adjustment`',
-    `treaty_year` BIGINT COMMENT 'Calendar or underwriting year of the treaty to which this settlement applies.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp when the settlement record was last modified in the system.',
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` (
+    `ri_settlement_id` BIGINT COMMENT 'Unique surrogate primary key for each reinsurance net cash settlement record between cedant and reinsurer per period.',
+    `claimfinancials_accounting_period_id` BIGINT COMMENT 'Reference to the accounting period (calendar quarter or month) to which this settlement belongs for statutory and GAAP reporting.',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Settlement reconciliation by line requires LOB master for consistent line classification across cedant and reinsurer accounting, treaty allocation rules, and regulatory reporting',
+    `reinsurer_party_id` BIGINT COMMENT 'Reference to the party record identifying the reinsurer counterparty for this settlement.',
+    `ri_agreement_id` BIGINT COMMENT 'Reference to the reinsurance agreement (treaty or facultative) under which this settlement is calculated.',
+    `treaty_id` BIGINT COMMENT 'Foreign key linking to reinsurance.treaty. Business justification: Settlements can be at treaty level in addition to agreement level. Currently only has reinsurance_agreement_id. Adding optional treaty_id for treaty-specific settlements.',
+    `treaty_layer_id` BIGINT COMMENT 'Foreign key linking to reinsurance.treaty_layer. Business justification: Settlements can be at layer level for XOL/CAT XL treaties. Adding optional treaty_layer_id for layer-specific settlements. Populated when settlement is at specific layer level.',
+    `adjustment_premium_amount` DECIMAL(18,2) COMMENT 'Premium adjustment amount resulting from audit or retrospective rating, representing the difference between deposit and final premium.',
+    `agreement_type` STRING COMMENT 'Indicates whether the settlement relates to a treaty or facultative reinsurance agreement.. Valid values are `treaty|facultative`',
+    `approval_timestamp` TIMESTAMP COMMENT 'Timestamp when the settlement was formally approved by the authorized approver in the reinsurance management system.',
+    `approved_by` STRING COMMENT 'Name or user identifier of the individual who approved this settlement, supporting SOX segregation of duties and audit trail.',
+    `authorized_reinsurer_flag` BOOLEAN COMMENT 'Indicates whether the reinsurer is authorized/accredited in the cedants state of domicile, affecting Schedule F credit for reinsurance.',
+    `bordereaux_reference_number` STRING COMMENT 'Reference number of the bordereaux submission to the reinsurer that supports the cession and loss data underlying this settlement.',
+    `ceded_premium_earned_amount` DECIMAL(18,2) COMMENT 'Portion of ceded written premium earned during the settlement period, used for loss ratio and profit commission calculations.',
+    `ceded_premium_written_amount` DECIMAL(18,2) COMMENT 'Gross written premium ceded to the reinsurer for the settlement period, representing the cedants premium payable obligation.',
+    `ceded_unearned_premium_amount` DECIMAL(18,2) COMMENT 'Unearned portion of ceded written premium as of the settlement period end, representing the reinsurers liability for unexpired risk.',
+    `ceding_commission_amount` DECIMAL(18,2) COMMENT 'Commission paid by the reinsurer to the cedant as a percentage of ceded premium, offsetting the cedants acquisition and overhead costs.',
+    `cession_share_percent` DECIMAL(7,4) COMMENT 'Percentage of risk ceded to this reinsurer under a quota share or surplus share treaty, expressed as a decimal (e.g., 0.3000 = 30%).',
+    `collateral_held_amount` DECIMAL(18,2) COMMENT 'Amount of collateral (letters of credit, trust funds) held by the cedant from an unauthorized reinsurer to support Schedule F credit.',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this settlement record was first created in the reinsurance management system.',
+    `currency_code` STRING COMMENT 'ISO 4217 three-letter currency code for all monetary amounts on this settlement record (e.g., USD, GBP, EUR).. Valid values are `^[A-Z]{3}$`',
+    `deposit_premium_amount` DECIMAL(18,2) COMMENT 'Provisional deposit premium paid to the reinsurer at inception, subject to adjustment at final audit based on actual subject premium.',
+    `dispute_reason` STRING COMMENT 'Free-text description of the reason for a disputed settlement, capturing the nature of the disagreement between cedant and reinsurer.',
+    `dispute_resolution_date` DATE COMMENT 'Date on which a disputed settlement was formally resolved and agreed between the cedant and reinsurer.',
+    `due_date` DATE COMMENT 'Contractual date by which the net settlement payment must be remitted per the reinsurance agreement terms.',
+    `funds_withheld_amount` DECIMAL(18,2) COMMENT 'Amount of ceded premium withheld by the cedant as collateral under a funds-withheld reinsurance arrangement, reducing the cash settlement.',
+    `gl_account_code` STRING COMMENT 'General ledger account code to which the net settlement amount is posted in the statutory and GAAP accounting systems.',
+    `interest_on_funds_withheld_amount` DECIMAL(18,2) COMMENT 'Interest credited to the reinsurer on funds withheld by the cedant, per the contractual interest rate in the reinsurance agreement.',
+    `lae_recoverable_amount` DECIMAL(18,2) COMMENT 'Allocated and unallocated loss adjustment expenses (ALAE/ULAE) recoverable from the reinsurer under the agreement terms.',
+    `loss_recoverable_amount` DECIMAL(18,2) COMMENT 'Total loss amounts recoverable from the reinsurer for paid and outstanding claims within the settlement period.',
+    `net_settlement_amount` DECIMAL(18,2) COMMENT 'Net cash amount due after offsetting ceded premium payable against loss recoverable, commissions, and profit commission. Positive = cedant owes reinsurer.',
+    `paid_date` DATE COMMENT 'Actual date on which the net settlement cash was remitted or received, used for cash flow and overdue tracking.',
+    `profit_commission_amount` DECIMAL(18,2) COMMENT 'Profit commission payable to the cedant based on the reinsurers profitability on the ceded book, per sliding-scale or fixed formula.',
+    `profit_commission_loss_ratio` DECIMAL(7,4) COMMENT 'Ceded loss ratio used as the input to the profit commission sliding-scale formula, expressed as a decimal (e.g., 0.5500 = 55%).',
+    `profit_commission_rate` DECIMAL(7,4) COMMENT 'Sliding-scale or fixed commission rate applied to the reinsurers profit to derive the profit commission amount, expressed as a decimal.',
+    `rate_on_line` DECIMAL(7,4) COMMENT 'Rate on Line expressed as a decimal, representing the reinsurance premium as a proportion of the reinsurance limit, used for XOL pricing analysis.',
+    `reinstatement_premium_amount` DECIMAL(18,2) COMMENT 'Additional premium charged to reinstate exhausted reinsurance limits after a loss occurrence, per XOL or CAT XL agreement terms.',
+    `reinsurer_domicile_country` STRING COMMENT 'ISO 3166-1 alpha-3 country code of the reinsurers domicile, used for Schedule F alien reinsurer classification and collateral requirements.. Valid values are `^[A-Z]{3}$`',
+    `reinsurer_naic_code` STRING COMMENT 'Five-digit NAIC company code for the reinsurer, required for Schedule F statutory reporting and regulatory identification.. Valid values are `^[0-9]{5}$`',
+    `settlement_date` DATE COMMENT 'The principal business event date on which the net cash settlement was agreed and funds were due between cedant and reinsurer.',
+    `settlement_direction` STRING COMMENT 'Indicates whether the net settlement amount is payable by the cedant to the reinsurer or receivable by the cedant from the reinsurer.. Valid values are `payable_to_reinsurer|receivable_from_reinsurer`',
+    `settlement_notes` STRING COMMENT 'Free-text notes capturing any special terms, adjustments, or commentary relevant to this settlement for operational and audit purposes.',
+    `settlement_number` STRING COMMENT 'Externally-known business identifier for this settlement, used in bordereaux reporting and reinsurer correspondence.. Valid values are `^RI-SETL-[0-9]{4}-[0-9]{6}$`',
+    `settlement_period_end_date` DATE COMMENT 'Last day of the period covered by this settlement, defining the close of the bordereaux reporting window.',
+    `settlement_period_start_date` DATE COMMENT 'First day of the period covered by this settlement, used to align ceded premium and loss recoverable to the correct bordereaux period.',
+    `settlement_status` STRING COMMENT 'Current lifecycle state of the settlement record from draft through final settlement or dispute resolution.. Valid values are `draft|pending_approval|approved|settled|disputed|voided`',
+    `settlement_type` STRING COMMENT 'Classifies the settlement as periodic cash call, final close-out, commutation, profit commission, or reinstatement premium settlement.. Valid values are `periodic|final|commutation|profit_commission|reinstatement_premium`',
+    `subject_premium_amount` DECIMAL(18,2) COMMENT 'Gross net written premium of the cedants book subject to the reinsurance agreement, used as the base for ceded premium and ROL calculations.',
+    `treaty_type` STRING COMMENT 'Type of reinsurance treaty structure: Quota Share (QS), Excess of Loss (XOL), Stop Loss (SL), Catastrophe XL (CAT XL), or Surplus Share.. Valid values are `quota_share|excess_of_loss|stop_loss|cat_xl|surplus_share`',
+    `ultimate_net_loss_amount` DECIMAL(18,2) COMMENT 'Ultimate Net Loss as defined in the reinsurance agreement, representing the cedants retained loss after all recoveries, used for XOL trigger evaluation.',
+    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp of the most recent modification to this settlement record, supporting audit trail requirements.',
     CONSTRAINT pk_ri_settlement PRIMARY KEY(`ri_settlement_id`)
-) COMMENT 'Records each account-current statement and cash settlement of net balances between Pc_Insurance and a reinsurer for a treaty period.';
+) COMMENT 'Net cash settlement between cedant and reinsurer, per reinsurer per period, netting ceded premium payable against loss recoverable. Includes profit commission (loss ratio, sliding-scale rate, commission amount) as a settlement component.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` (
-    `claim_ri_recovery_id` BIGINT COMMENT 'Unique identifier for the claim reinsurance recovery junction record.',
-    `bordereaux_id` BIGINT COMMENT 'Foreign key reference to the bordereaux submission in which this recovery was reported to the reinsurer.',
-    `claim_id` BIGINT COMMENT 'Foreign key reference to the claim for which reinsurance recovery is being recorded.',
-    `currency_id` BIGINT COMMENT 'Three-letter ISO 4217 currency code in which recovery amounts are denominated.',
-    `fac_certificate_id` BIGINT COMMENT 'Foreign key reference to the facultative certificate under which recovery is claimed. Null if recovery is under treaty.',
-    `insured_location_id` BIGINT COMMENT 'Foreign key linking to riskexposure.insured_location. Business justification: Claim recovery calculations for property losses require location data to determine which treaties respond, apply retention and limits, and calculate cession percentages.',
-    `lob_code_id` BIGINT COMMENT 'Line of business code for the underlying claim, used for treaty layer matching and bordereaux reporting.',
-    `coverage_policy_coverage_id` BIGINT COMMENT 'Foreign key linking to coverage.coverage_policy_coverage. Business justification: Recovery calculations depend on coverage-specific limits, deductibles, SIR amounts, and coinsurance percentages. Claims adjusters need coverage terms to determine gross vs.',
-    `reinsurance_cession_id` BIGINT COMMENT 'Foreign key linking to reinsurance.cession. Business justification: Recoveries are based on cessions. Missing the cession FK that links claim recoveries back to the cession that generated the recovery right.',
-    `reinsurer_id` BIGINT COMMENT 'Foreign key reference to the reinsurer from whom recovery is being claimed.',
-    `ri_treaty_id` BIGINT COMMENT 'Foreign key reference to the reinsurance treaty under which recovery is claimed. Null if recovery is under facultative certificate.',
-    `accounting_period` STRING COMMENT 'Accounting period in which this recovery is recognized for statutory and GAAP reporting, format YYYY-MM.. Valid values are `^[0-9]{4}-(0[1-9]|1[0-2])$`',
-    `acknowledgement_date` DATE COMMENT 'Date on which reinsurer acknowledged receipt and validity of the recovery claim.',
-    `approval_date` DATE COMMENT 'Date on which reinsurer approved the recovery claim for payment.',
-    `authorized_reinsurer_flag` BOOLEAN COMMENT 'Indicates whether reinsurer is authorized or accredited in the cedants domiciliary state, affecting credit for reinsurance treatment.',
-    `cat_event_code` STRING COMMENT 'Industry catastrophe event code if this recovery relates to a declared catastrophe event.',
-    `cat_exposed_flag` BOOLEAN COMMENT 'Indicates whether this recovery is related to a catastrophe event, triggering CAT XL treaty layers.',
-    `ceded_alae_amount` DECIMAL(18,2) COMMENT 'Amount of allocated loss adjustment expense ceded to reinsurer under this recovery.',
-    `ceded_loss_amount` DECIMAL(18,2) COMMENT 'Amount of loss ceded to reinsurer under this recovery, net of retention and subject to treaty limits.',
-    `cession_percentage` DECIMAL(5,2) COMMENT 'Percentage of loss ceded to reinsurer under quota share or surplus arrangements.',
-    `collateral_amount` DECIMAL(18,2) COMMENT 'Amount of collateral posted by reinsurer to secure this recovery, if applicable.',
-    `collateral_required_flag` BOOLEAN COMMENT 'Indicates whether collateral is required from reinsurer to receive statutory credit for this recovery.',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this claim reinsurance recovery record was first created in the system.',
-    `dispute_flag` BOOLEAN COMMENT 'Indicates whether this recovery is currently under dispute with the reinsurer.',
-    `dispute_reason` STRING COMMENT 'Description of the reason for dispute if recovery is contested by reinsurer.',
-    `dispute_resolution_date` DATE COMMENT 'Date on which dispute was resolved, either through negotiation, arbitration, or litigation.',
-    `gross_alae_amount` DECIMAL(18,2) COMMENT 'Total allocated loss adjustment expense on the underlying claim before reinsurance recovery.',
-    `gross_loss_amount` DECIMAL(18,2) COMMENT 'Total gross loss amount on the underlying claim before reinsurance recovery, used as basis for cession calculation.',
-    `layer_attachment_point` DECIMAL(18,2) COMMENT 'Attachment point for excess of loss layer, loss must exceed this amount before reinsurer participates.',
-    `layer_limit_amount` DECIMAL(18,2) COMMENT 'Maximum limit of the reinsurance layer applicable to this recovery.',
-    `outstanding_recoverable_amount` DECIMAL(18,2) COMMENT 'Amount still outstanding from reinsurer, calculated as recoverable minus recovered.',
-    `payment_date` DATE COMMENT 'Date on which reinsurer paid the recovery amount to the cedant.',
-    `payment_reference_number` STRING COMMENT 'Reference number of the reinsurer payment transaction that settled this recovery, linking to cash receipt.',
-    `recoverable_amount` DECIMAL(18,2) COMMENT 'Total amount recoverable from reinsurer, sum of ceded loss and ceded ALAE, subject to treaty terms and reinsurer credit quality.',
-    `recovered_amount` DECIMAL(18,2) COMMENT 'Actual amount recovered from reinsurer to date, may differ from recoverable due to disputes or partial payments.',
-    `recovery_basis` STRING COMMENT 'Basis on which recovery amount is calculated, defining whether loss adjustment expenses are included.. Valid values are `loss_only|loss_and_alae|loss_and_ulae|pro_rata`',
-    `recovery_number` STRING COMMENT 'Business identifier for this specific recovery transaction, often used in bordereaux and settlement reporting.',
-    `recovery_status` STRING COMMENT 'Current lifecycle status of the reinsurance recovery claim. [ENUM-REF-CANDIDATE: pending|submitted|acknowledged|approved|paid|disputed|denied|reversed — 8 candidates stripped; promote to reference product]',
-    `recovery_type` STRING COMMENT 'Type of reinsurance arrangement under which recovery is being claimed.. Valid values are `treaty|facultative|cat_xl|xol|quota_share|surplus`',
-    `reinstatement_number` BIGINT COMMENT 'Reinstatement number if this recovery exhausted the original treaty limit and triggered a reinstatement provision.',
-    `reinstatement_premium_amount` DECIMAL(18,2) COMMENT 'Additional premium owed to reinsurer for reinstating treaty limit after this recovery.',
-    `reinsurer_share_pct` DECIMAL(5,2) COMMENT 'Percentage share of this specific reinsurer in a co-reinsured treaty or facultative placement.',
-    `retention_amount` DECIMAL(18,2) COMMENT 'Cedant retention amount applied before calculating ceded loss, may be per-occurrence or aggregate depending on treaty terms.',
-    `submission_date` DATE COMMENT 'Date on which this recovery claim was submitted to the reinsurer for acknowledgement and payment.',
-    `treaty_year` BIGINT COMMENT 'Treaty year under which this recovery is claimed, relevant for multi-year treaties and reinstatement tracking.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp when this claim reinsurance recovery record was last modified.',
-    CONSTRAINT pk_claim_ri_recovery PRIMARY KEY(`claim_ri_recovery_id`)
-) COMMENT 'Junction table resolving the many-to-many relationship between claims and reinsurance recoveries. Links a specific claim to one or more treaty/FAC recoveries, capturing recovered amount, recovery basis, and payment reference per claim-recovery pairing.';
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` (
+    `ri_collateral_id` BIGINT COMMENT 'Unique surrogate identifier for each collateral instrument record posted by an unauthorized reinsurer. Primary key; one row per collateral instrument.',
+    `claimfinancials_accounting_period_id` BIGINT COMMENT 'Reference to the statutory accounting period in which this collateral record was valued or reported. Supports Schedule F period-end snapshot reporting.',
+    `fac_agreement_id` BIGINT COMMENT 'Foreign key linking to reinsurance.fac_agreement. Business justification: Collateral can be posted for facultative placements. Adding optional fac_agreement_id for FAC-specific collateral. Populated when collateral is posted for a FAC agreement.',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Collateral adequacy calculations are line-specific per state regulations; LOB master provides Schedule F categories and certified reinsurer reduced collateral percentages by line for',
+    `reinsurer_id` BIGINT COMMENT 'Foreign key linking to reinsurance.reinsurer. Business justification: ri_collateral tracks collateral posted by reinsurers but currently has denormalized reinsurer attributes (reinsurer_name, reinsurer_naic_code, reinsurer_domicile_country).',
+    `ri_agreement_id` BIGINT COMMENT 'Reference to the reinsurance agreement this collateral secures. Links collateral to the treaty or facultative agreement requiring security.',
+    `treaty_id` BIGINT COMMENT 'Foreign key linking to reinsurance.treaty. Business justification: Collateral can be posted for specific treaties in addition to agreement level. Adding optional treaty_id for treaty-specific collateral.',
+    `adequacy_status` STRING COMMENT 'Assessment of whether the available collateral amount meets or exceeds the required amount. Drives regulatory credit-for-reinsurance eligibility and remediation actions.. Valid values are `adequate|deficient|excess|under_review`',
+    `available_amt` DECIMAL(18,2) COMMENT 'Current drawable or available balance of the collateral instrument, net of any prior draws or reductions. Used for credit-for-reinsurance calculations.',
+    `broker_name` STRING COMMENT 'Name of the reinsurance intermediary broker who arranged the collateral instrument on behalf of the reinsurer. Used for broker reconciliation and commission tracking.',
+    `cedant_legal_entity` STRING COMMENT 'Legal name of the ceding insurance company (Pc_Insurance entity) that is the beneficiary of the collateral instrument for Schedule F and regulatory reporting.',
+    `cedant_naic_code` STRING COMMENT 'Five-digit NAIC company code of the ceding entity. Required for statutory Schedule F filing and regulatory identification.. Valid values are `^[0-9]{5}$`',
+    `certified_reinsurer_rating` STRING COMMENT 'NAIC certified reinsurer rating tier (CR-1 through CR-6) that determines the reduced collateral percentage required. Applicable only when reinsurer_certified_flag is true.. Valid values are `CR-1|CR-2|CR-3|CR-4|CR-5|CR-6`',
+    `collateral_notes` STRING COMMENT 'Free-text notes capturing special conditions, amendment history, or operational remarks about the collateral instrument not captured in structured fields.',
+    `collateral_number` STRING COMMENT 'Externally assigned reference number for the collateral instrument (e.g., letter of credit number, trust account number) as issued by the financial institution.',
+    `collateral_purpose` STRING COMMENT 'Business purpose for which the collateral is held. Determines how the available amount is applied against ceded liabilities for credit-for-reinsurance calculations.. Valid values are `ceded_reserves|unearned_premium|loss_reserves|lae_reserves|combined`',
+    `collateral_status` STRING COMMENT 'Current lifecycle state of the collateral instrument. Active = in force and available; Drawn = cedant has drawn on the instrument; Released = returned to reinsurer.. Valid values are `active|expired|drawn|cancelled|pending|released`',
+    `collateral_type` STRING COMMENT 'Classification of the collateral instrument. Drives regulatory treatment and Schedule F reporting. [ENUM-REF-CANDIDATE: letter_of_credit|trust_fund|funds_withheld|cash_deposit|surety_bond|other — promote to reference product]. Valid values are `letter_of_credit|trust_fund|funds_withheld|cash_deposit|surety_bond|other`',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this collateral record was first created in the reinsurance management system. Supports audit trail and data lineage requirements.',
+    `currency_code` STRING COMMENT 'ISO 4217 three-letter currency code in which the collateral instrument is denominated (e.g., USD, GBP, EUR).. Valid values are `^[A-Z]{3}$`',
+    `deficiency_amt` DECIMAL(18,2) COMMENT 'Shortfall between the required collateral amount and the available amount. Positive value indicates a deficiency requiring remediation or reduction of reinsurance credit.',
+    `draw_deadline_date` DATE COMMENT 'Last date by which the cedant must submit a draw request before the instrument expires. Critical for operational risk management and treasury planning.',
+    `drawn_amt` DECIMAL(18,2) COMMENT 'Cumulative amount drawn by the cedant against this collateral instrument to date. Reduces the available amount and triggers reinsurer replenishment obligations.',
+    `effective_date` DATE COMMENT 'Date on which the collateral instrument becomes effective and the cedant may draw upon it. Aligns with the reinsurance agreement inception or renewal date.',
+    `evergreen_flag` BOOLEAN COMMENT 'Indicates whether the collateral instrument contains an evergreen clause that automatically renews unless the issuer provides advance notice of non-renewal to the cedant.',
+    `expiry_date` DATE COMMENT 'Date on which the collateral instrument expires and is no longer drawable unless renewed. Regulatory evergreen provisions may require automatic renewal notice.',
+    `external_reference_number` STRING COMMENT 'Reference number assigned by the reinsurer or broker to this collateral arrangement. Facilitates reconciliation with counterparty records and bordereaux reporting.',
+    `face_amt` DECIMAL(18,2) COMMENT 'Gross face value of the collateral instrument as stated in the instrument document. Represents the maximum drawable or available amount before any reductions.',
+    `governing_law` STRING COMMENT 'Jurisdiction whose laws govern the collateral instrument agreement (e.g., New York law, English law). Determines enforceability and dispute resolution framework.',
+    `issuing_institution_country` STRING COMMENT 'ISO 3166-1 alpha-3 country code of the issuing financial institution. Regulators may require the issuer to be domiciled in an approved jurisdiction.. Valid values are `^[A-Z]{3}$`',
+    `issuing_institution_name` STRING COMMENT 'Name of the bank, trust company, or financial institution that issued or holds the collateral instrument (e.g., the bank issuing the letter of credit).',
+    `last_valuation_date` DATE COMMENT 'Date on which the collateral instrument was most recently valued or reconciled against ceded reserve liabilities. Supports quarterly and annual adequacy reviews.',
+    `lc_issuing_bank_swift` STRING COMMENT 'SWIFT/BIC code of the bank issuing the letter of credit. Populated only when collateral_type = letter_of_credit. Used for bank identity verification.. Valid values are `^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$`',
+    `next_review_date` DATE COMMENT 'Scheduled date for the next adequacy review or renewal assessment of the collateral instrument. Supports proactive monitoring and regulatory compliance.',
+    `non_renewal_notice_days` BIGINT COMMENT 'Number of calendar days advance notice the issuing institution must provide before non-renewal of an evergreen collateral instrument, as specified in the instrument.',
+    `reduced_collateral_pct` DECIMAL(5,4) COMMENT 'Percentage of ceded liabilities that must be collateralized for certified reinsurers (e.g., 0.10 for CR-1 = 10%). Null for non-certified unauthorized reinsurers requiring 100%.',
+    `regulatory_jurisdiction` STRING COMMENT 'US state or jurisdiction whose Department of Insurance (DOI) regulations govern the collateral requirement (e.g., NY, CA, TX). Drives state-specific credit-for-reinsurance rules.',
+    `reinsurer_certified_flag` BOOLEAN COMMENT 'Indicates whether the reinsurer holds certified reinsurer status under the NAIC Credit for Reinsurance Model Law, which may reduce collateral requirements.',
+    `release_date` DATE COMMENT 'Date on which the collateral instrument was released back to the reinsurer upon satisfaction of all ceded obligations. Null if not yet released.',
+    `renewal_date` DATE COMMENT 'Date on which the collateral instrument was most recently renewed or extended. Tracks the renewal history for evergreen and term instruments.',
+    `required_amt` DECIMAL(18,2) COMMENT 'Minimum collateral amount required by the cedant or regulator to support ceded reserves and obtain credit for reinsurance. Drives adequacy monitoring.',
+    `schedule_f_category` STRING COMMENT 'NAIC Schedule F classification of the reinsurer for statutory reporting. Determines whether the cedant receives full or partial credit for reinsurance on the balance sheet.. Valid values are `authorized|unauthorized_with_collateral|unauthorized_without_collateral|certified`',
+    `source_system_code` STRING COMMENT 'Code identifying the operational system of record from which this collateral record was sourced (e.g., SICS, Sapiens ReinsurancePro, or manual entry).. Valid values are `SICS|SAPIENS_RI|MANUAL|OTHER`',
+    `trust_account_number` STRING COMMENT 'Account number of the trust fund if the collateral type is a trust fund arrangement. Populated only when collateral_type = trust_fund; null otherwise.',
+    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp when this collateral record was most recently modified. Supports change tracking, audit compliance, and incremental data pipeline processing.',
+    CONSTRAINT pk_ri_collateral PRIMARY KEY(`ri_collateral_id`)
+) COMMENT 'Tracks collateral (letters of credit, trust funds, funds withheld) posted by unauthorized reinsurers to support ceded reserves. One row per collateral instrument. Stores type, amount, expiry, and regulatory jurisdiction.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` (
-    `cat_bond_id` BIGINT COMMENT 'Unique identifier for the catastrophe bond instrument record.',
-    `currency_id` BIGINT COMMENT 'Three-letter ISO 4217 currency code for all monetary amounts in the catastrophe bond.',
-    `lob_code_id` BIGINT COMMENT 'Insurance line of business code indicating the type of risk covered, such as property, casualty, multi-peril.',
-    `org_unit_id` BIGINT COMMENT 'Identifier of the ceding insurer or reinsurer transferring risk through the catastrophe bond.',
-    `ri_treaty_id` BIGINT COMMENT 'Foreign key linking to reinsurance.ri_treaty. Business justification: CAT bonds are often structured alongside or as part of CAT XL treaty programs. This links the bond to its associated treaty structure, enabling integrated CAT risk management analysis.',
-    `aggregate_limit_flag` BOOLEAN COMMENT 'Indicates whether the catastrophe bond has an aggregate loss limit across multiple events.',
-    `attachment_point` DECIMAL(18,2) COMMENT 'Loss threshold amount at which the catastrophe bond begins to provide coverage and principal may be at risk.',
-    `basis_risk_description` STRING COMMENT 'Description of potential basis risk where the trigger mechanism may not perfectly correlate with actual losses incurred by the sponsor.',
-    `bond_name` STRING COMMENT 'Marketing or legal name of the catastrophe bond issuance.',
-    `bond_number` STRING COMMENT 'Externally-known unique identifier or CUSIP for the catastrophe bond instrument.',
-    `bond_rating` STRING COMMENT 'Credit rating assigned to the catastrophe bond by the rating agency.',
-    `bond_status` STRING COMMENT 'Current lifecycle status of the catastrophe bond instrument.. Valid values are `active|matured|triggered|cancelled|suspended|pending`',
-    `cat_event_definition` STRING COMMENT 'Detailed definition of what constitutes a triggering catastrophe event including magnitude, location, and measurement criteria.',
-    `collateral_amount` DECIMAL(18,2) COMMENT 'Total value of collateral held in trust to secure the catastrophe bond.',
-    `collateral_type` STRING COMMENT 'Type of collateral held in trust to secure the catastrophe bond obligations.. Valid values are `cash|treasury|money_market|investment_grade|mixed`',
-    `coupon_frequency` STRING COMMENT 'Frequency at which coupon interest payments are made to catastrophe bond investors.. Valid values are `monthly|quarterly|semi_annual|annual`',
-    `coupon_rate_pct` DECIMAL(5,4) COMMENT 'Annual interest rate paid to catastrophe bond investors, expressed as a decimal percentage.',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this catastrophe bond record was first created in the system.',
-    `exhaustion_point` DECIMAL(18,2) COMMENT 'Loss amount at which the catastrophe bond coverage is fully exhausted and maximum principal loss occurs.',
-    `expected_loss_pct` DECIMAL(5,4) COMMENT 'Modeled expected annual loss as a percentage of the notional amount, representing the probability-weighted average loss.',
-    `issuance_date` DATE COMMENT 'Date when the catastrophe bond was issued and became effective.',
-    `maturity_date` DATE COMMENT 'Date when the catastrophe bond principal is scheduled to be repaid if no trigger event occurs.',
-    `modeling_firm` STRING COMMENT 'Name of the catastrophe risk modeling firm used to assess and price the bond, such as RMS, AIR Worldwide, CoreLogic.',
-    `modified_timestamp` TIMESTAMP COMMENT 'Timestamp when this catastrophe bond record was last modified in the system.',
-    `multi_event_flag` BOOLEAN COMMENT 'Indicates whether the catastrophe bond can be triggered by multiple separate catastrophe events during its term.',
-    `notional_amount` DECIMAL(18,2) COMMENT 'Original principal amount of the catastrophe bond at issuance.',
-    `outstanding_notional` DECIMAL(18,2) COMMENT 'Current outstanding principal amount of the catastrophe bond after any trigger events or partial redemptions.',
-    `perils_covered` STRING COMMENT 'Comma-separated list of catastrophic perils covered by the bond such as hurricane, earthquake, windstorm, flood, wildfire.',
-    `placement_broker` STRING COMMENT 'Name of the broker or investment bank that placed the catastrophe bond with investors.',
-    `pml_amount` DECIMAL(18,2) COMMENT 'Estimated probable maximum loss exposure that the catastrophe bond is designed to cover.',
-    `principal_reduction_amount` DECIMAL(18,2) COMMENT 'Amount of principal reduced or forgiven due to a trigger event occurring.',
-    `rating_agency` STRING COMMENT 'Name of the credit rating agency that rated the catastrophe bond, such as A.M. Best, S&P, Moodys, Fitch.',
-    `reinstatement_provision_flag` BOOLEAN COMMENT 'Indicates whether the catastrophe bond includes provisions for reinstatement of coverage after a trigger event.',
-    `sponsor_name` STRING COMMENT 'Name of the insurance or reinsurance company sponsoring the catastrophe bond issuance.',
-    `spv_domicile` STRING COMMENT 'Three-letter country code of the jurisdiction where the special purpose vehicle is domiciled.. Valid values are `^[A-Z]{3}$`',
-    `spv_name` STRING COMMENT 'Legal name of the special purpose vehicle entity that issued the catastrophe bond.',
-    `spv_registration_number` STRING COMMENT 'Official registration or incorporation number of the special purpose vehicle with its domicile authority.',
-    `territory_scope` STRING COMMENT 'Geographic regions or territories covered by the catastrophe bond, such as US Gulf Coast, Japan, Europe.',
-    `trigger_event_code` STRING COMMENT 'Industry-standard code identifying the specific catastrophe event that triggered the bond.',
-    `trigger_event_date` DATE COMMENT 'Date when a catastrophe event occurred that met the trigger criteria for the bond.',
-    `trigger_type` STRING COMMENT 'Mechanism that determines when the catastrophe bond is activated: indemnity-based, parametric, index-based, modeled loss, hybrid, or industry loss index.. Valid values are `indemnity|parametric|index|modeled_loss|hybrid|industry_loss`',
-    `trustee_name` STRING COMMENT 'Name of the trustee institution responsible for holding collateral and administering the catastrophe bond.',
-    CONSTRAINT pk_cat_bond PRIMARY KEY(`cat_bond_id`)
-) COMMENT 'Master record for each catastrophe bond (CAT Bond) instrument issued or held by Pc_Insurance. Tracks trigger type (indemnity, parametric, index), attachment, exhaustion, coupon, maturity date, SPV details, and outstanding notional.';
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` (
+    `schedule_f_entry_id` BIGINT COMMENT 'Unique surrogate identifier for each Schedule F statutory reporting entry. One row per reinsurer per reporting year per cedant legal entity.',
+    `line_of_business_id` BIGINT COMMENT 'Foreign key linking to shared.line_of_business. Business justification: Schedule F statutory filing requires line-level detail with NAIC line codes; LOB master is authoritative source for regulatory line mappings and ensures filing consistency across',
+    `reinsurer_id` BIGINT COMMENT 'Foreign key linking to reinsurance.reinsurer. Business justification: Schedule F entries are per reinsurer but currently have denormalized reinsurer attributes.',
+    `ri_agreement_id` BIGINT COMMENT 'Reference to the reinsurance agreement that generated cessions summarized in this Schedule F entry.',
+    `treaty_id` BIGINT COMMENT 'Foreign key linking to reinsurance.treaty. Business justification: Schedule F reporting can be at treaty level in addition to agreement level. Adding optional treaty_id for treaty-specific Schedule F entries. Populated when reporting is at treaty level.',
+    `agreement_type` STRING COMMENT 'Classification of the reinsurance arrangement as treaty, facultative, or facultative-obligatory, per Schedule F reporting categorization.. Valid values are `treaty|facultative|facultative_obligatory`',
+    `amendment_date` DATE COMMENT 'Date of the most recent amendment to this Schedule F entry, if the original filing was corrected or restated after initial submission.',
+    `assumed_premium_written_amt` DECIMAL(18,2) COMMENT 'Total written premium assumed from other cedants by this entity under retrocession or assumed reinsurance arrangements, reported on Schedule F.',
+    `authorized_status` STRING COMMENT 'Regulatory authorization status of the reinsurer in the cedants domicile state. Drives collateral requirements and Schedule F credit treatment.. Valid values are `authorized|unauthorized|certified|accredited|reciprocal_jurisdiction`',
+    `cedant_legal_entity` STRING COMMENT 'Full legal name of the ceding insurance company filing this Schedule F entry with the NAIC.',
+    `cedant_naic_code` STRING COMMENT 'Five-digit NAIC company code assigned to the ceding insurer, used as the primary statutory identifier on Schedule F filings.. Valid values are `^[0-9]{5}$`',
+    `ceded_contingent_commission_amt` DECIMAL(18,2) COMMENT 'Profit or contingent commission receivable from the reinsurer based on favorable loss experience, per treaty terms. Reported on Schedule F.',
+    `ceded_ibnr_amt` DECIMAL(18,2) COMMENT 'Actuarial IBNR reserve attributable to ceded business with this reinsurer as of year-end, per Schedule F Part 3 reporting requirements.',
+    `ceded_lae_reserve_amt` DECIMAL(18,2) COMMENT 'Reserve for ceded loss adjustment expenses (ALAE and ULAE) attributable to this reinsurer as of the reporting year-end.',
+    `ceded_losses_outstanding_amt` DECIMAL(18,2) COMMENT 'Case reserves for ceded losses outstanding as of year-end, representing amounts owed by the reinsurer on reported but unsettled claims.',
+    `ceded_losses_paid_amt` DECIMAL(18,2) COMMENT 'Actual loss payments recovered from this reinsurer during the reporting year on ceded claims, per Schedule F Part 3.',
+    `ceded_premium_earned_amt` DECIMAL(18,2) COMMENT 'Portion of ceded written premium earned during the reporting year, used in loss ratio and Schedule F collectibility analysis.',
+    `ceded_premium_written_amt` DECIMAL(18,2) COMMENT 'Total gross written premium ceded to this reinsurer during the reporting year, as reported on Schedule F Part 3. Basis for NWP calculation.',
+    `ceded_unearned_premium_amt` DECIMAL(18,2) COMMENT 'Unearned portion of ceded premium as of the reporting year-end, representing the reinsurers liability for unexpired risk.',
+    `ceding_commission_received_amt` DECIMAL(18,2) COMMENT 'Ceding commission received from the reinsurer during the reporting year, offsetting the cedants acquisition costs on ceded business.',
+    `collateral_held_amt` DECIMAL(18,2) COMMENT 'Total collateral held by the cedant (letters of credit, trust funds, funds withheld) to secure unauthorized reinsurer obligations per Schedule F.',
+    `collateral_type` STRING COMMENT 'Type of collateral posted by the reinsurer to secure its obligations. Determines Schedule F credit treatment for unauthorized reinsurers.. Valid values are `letter_of_credit|trust_fund|funds_withheld|cash_deposit|none`',
+    `collectibility_status` STRING COMMENT 'Assessment of the reinsurers ability and willingness to pay. Drives Schedule F provision for reinsurance recoverables and surplus impact.. Valid values are `collectible|overdue_90|overdue_180|dispute|uncollectible|partial`',
+    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this Schedule F entry record was first created in the reinsurance reporting repository.',
+    `currency_code` STRING COMMENT 'ISO 4217 three-letter currency code in which all monetary amounts on this Schedule F entry are denominated (e.g., USD).. Valid values are `^[A-Z]{3}$`',
+    `dispute_amt` DECIMAL(18,2) COMMENT 'Dollar amount of reinsurance recoverables currently in formal dispute or arbitration with this reinsurer as of the reporting year-end.',
+    `dispute_flag` BOOLEAN COMMENT 'Indicates whether any portion of the reinsurance recoverable from this reinsurer is subject to a formal dispute or arbitration proceeding.',
+    `entry_status` STRING COMMENT 'Current lifecycle status of this Schedule F entry within the statutory filing workflow.. Valid values are `draft|submitted|filed|amended|superseded`',
+    `exchange_rate` DECIMAL(12,6) COMMENT 'Exchange rate used to convert foreign-currency reinsurance balances to USD for statutory reporting purposes on Schedule F.',
+    `filing_date` DATE COMMENT 'Date this Schedule F entry was submitted to the state Department of Insurance as part of the NAIC Annual Statement filing.',
+    `funds_withheld_amt` DECIMAL(18,2) COMMENT 'Amount of reinsurance premium withheld by the cedant under a funds-withheld arrangement, serving as collateral for reinsurer obligations.',
+    `net_balance_due_amt` DECIMAL(18,2) COMMENT 'Net amount due from (positive) or to (negative) the reinsurer as of year-end, representing the net settlement position on Schedule F.',
+    `overdue_balance_amt` DECIMAL(18,2) COMMENT 'Portion of the net balance due that is overdue per contractual payment terms, triggering collectibility review and potential Schedule F provision.',
+    `overdue_days` BIGINT COMMENT 'Number of days the oldest unpaid balance has been outstanding beyond contractual due date. Drives Schedule F collectibility aging buckets.',
+    `provision_for_reinsurance_amt` DECIMAL(18,2) COMMENT 'Statutory provision charged to surplus for potentially uncollectible reinsurance recoverables from this reinsurer, per Schedule F Part 4 calculation.',
+    `rating_agency` STRING COMMENT 'Name of the credit rating agency that issued the reinsurers financial strength rating used in Schedule F collectibility evaluation.. Valid values are `AM_Best|SP|Moodys|Fitch|Kroll`',
+    `rbc_action_level` STRING COMMENT 'NAIC Risk-Based Capital action level of the reinsurer, indicating financial solvency standing. Informs collectibility and Schedule F provision decisions.. Valid values are `no_action|company_action|regulatory_action|authorized_control|mandatory_control`',
+    `reinsurer_rating` STRING COMMENT 'Financial strength rating of the reinsurer from a recognized rating agency (e.g., A.M. Best, S&P) as of the reporting year-end. Used in collectibility assessment.',
+    `reporting_year` BIGINT COMMENT 'Calendar year for which this Schedule F entry is filed, corresponding to the NAIC Annual Statement reporting period (e.g., 2024).',
+    `schedule_f_part` STRING COMMENT 'Identifies which part of NAIC Schedule F this entry populates (e.g., Part 3 = Ceded Reinsurance, Part 4 = Provision for Reinsurance).. Valid values are `part1|part2|part3|part4|part5|part6`',
+    `treaty_type` STRING COMMENT 'Specific treaty structure: Quota Share (QS), Excess of Loss (XOL), Stop Loss (SL), or Catastrophe Excess of Loss (CAT XL). Drives cession mechanics.. Valid values are `quota_share|excess_of_loss|stop_loss|cat_xl`',
+    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp of the most recent modification to this Schedule F entry, supporting audit trail and amendment tracking requirements.',
+    CONSTRAINT pk_schedule_f_entry PRIMARY KEY(`schedule_f_entry_id`)
+) COMMENT 'Statutory Schedule F reporting entry per reinsurer per reporting year. One row per reinsurer per year. Captures assumed and ceded premium, losses, reserves, and collectibility status for NAIC Annual Statement filing.';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` (
-    `profit_commission_id` BIGINT COMMENT 'Unique identifier for the profit commission record.',
-    `currency_id` BIGINT COMMENT 'ISO 4217 three-letter currency code in which profit commission amounts are denominated.',
-    `fac_certificate_id` BIGINT COMMENT 'Foreign key linking to reinsurance.fac_certificate. Business justification: Profit commissions can be calculated on FAC certificates with profit-sharing provisions, not just QS treaties. Missing FK that enables FAC profit commission tracking.',
-    `lob_code_id` BIGINT COMMENT 'Line of business code for which this profit commission is calculated, aligning with treaty coverage scope.',
-    `reinsurer_id` BIGINT COMMENT 'Foreign key to the reinsurer party to whom profit commission is owed or from whom it is received.',
-    `ri_treaty_id` BIGINT COMMENT 'Foreign key to the reinsurance treaty under which this profit commission is calculated.',
-    `accounting_period` STRING COMMENT 'The accounting period identifier for which this profit commission is calculated, typically YYYY-MM or YYYY-QQ format.',
-    `accrued_commission_amount` DECIMAL(18,2) COMMENT 'Accrued profit commission amount recognized in the financial statements for the period, may differ from calculated amount due to timing.',
-    `adjustment_amount` DECIMAL(18,2) COMMENT 'Net adjustment amount applied to the profit commission calculation, positive for increases and negative for decreases.',
-    `adjustment_reason` STRING COMMENT 'Reason for any adjustment to the profit commission calculation, such as bordereaux correction, audit finding, or treaty amendment.',
-    `amount` DECIMAL(18,2) COMMENT 'Total profit commission amount calculated for the treaty and period, computed by applying the commission rate to the net ceded premium.',
-    `approval_date` DATE COMMENT 'The date on which the profit commission calculation was approved by authorized personnel.',
-    `authorized_reinsurer_flag` BOOLEAN COMMENT 'Indicates whether the reinsurer is authorized or admitted in the cedants domiciliary jurisdiction, affecting statutory credit treatment.',
-    `calculated_commission_rate_pct` DECIMAL(5,2) COMMENT 'Calculated profit commission rate percentage based on the treaty formula and actual loss ratio for the period.',
-    `calculated_loss_ratio_pct` DECIMAL(5,2) COMMENT 'Calculated loss ratio percentage for the treaty and period, computed as total ceded loss and LAE divided by net ceded premium.',
-    `calculation_date` DATE COMMENT 'The date on which the profit commission calculation was performed.',
-    `calculation_method` STRING COMMENT 'Method used to determine the experience period for profit commission calculation, such as treaty year, accident year, or calendar year basis.. Valid values are `treaty_year|accident_year|underwriting_year|calendar_year`',
-    `calculation_notes` STRING COMMENT 'Free-text notes documenting assumptions, adjustments, or special considerations applied in the profit commission calculation.',
-    `calculation_number` STRING COMMENT 'Business identifier for the profit commission calculation, typically assigned by the reinsurance system.',
-    `calculation_status` STRING COMMENT 'Current lifecycle status of the profit commission calculation. [ENUM-REF-CANDIDATE: draft|calculated|approved|accrued|paid|disputed|cancelled — 7 candidates stripped; promote to reference product]',
-    `ceded_alae_amount` DECIMAL(18,2) COMMENT 'Total ceded allocated loss adjustment expense for the treaty and period.',
-    `ceded_loss_amount` DECIMAL(18,2) COMMENT 'Total ceded loss amount including paid and reserved losses for the treaty and period.',
-    `ceded_premium_amount` DECIMAL(18,2) COMMENT 'Total ceded premium amount for the treaty and period used as the basis for profit commission calculation.',
-    `ceded_ulae_amount` DECIMAL(18,2) COMMENT 'Total ceded unallocated loss adjustment expense for the treaty and period.',
-    `ceding_commission_amount` DECIMAL(18,2) COMMENT 'Total ceding commission received from the reinsurer for the treaty and period, deducted from ceded premium.',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when this profit commission record was first created in the system.',
-    `effective_date` DATE COMMENT 'The date from which the profit commission calculation is effective, typically aligned with treaty or accounting period start.',
-    `expiry_date` DATE COMMENT 'The date through which the profit commission calculation applies, typically aligned with treaty or accounting period end.',
-    `formula` STRING COMMENT 'Type of profit commission formula specified in the treaty: fixed rate, sliding scale, step function, or custom calculation.. Valid values are `fixed_rate|sliding_scale|step_function|custom`',
-    `loss_ratio_threshold_pct` DECIMAL(5,2) COMMENT 'Loss ratio threshold percentage specified in the treaty profit commission clause, below which profit commission is earned.',
-    `net_ceded_premium` DECIMAL(18,2) COMMENT 'Net ceded premium after deducting ceding commission, used as the denominator in loss ratio calculation.',
-    `outstanding_balance` DECIMAL(18,2) COMMENT 'Outstanding profit commission balance remaining to be paid, calculated as accrued amount minus paid amount.',
-    `paid_commission_amount` DECIMAL(18,2) COMMENT 'Total profit commission amount paid to date for this calculation, tracking settlement progress.',
-    `payment_due_date` DATE COMMENT 'The date by which the profit commission payment is due per treaty terms.',
-    `prior_calculation_amount` DECIMAL(18,2) COMMENT 'Profit commission amount from the prior calculation for the same treaty and period, used to track adjustments and movements.',
-    `provisional_flag` BOOLEAN COMMENT 'Indicates whether this profit commission calculation is provisional and subject to adjustment upon final bordereaux or audit.',
-    `sliding_scale_max_pct` DECIMAL(5,2) COMMENT 'Maximum profit commission percentage in a sliding scale formula, applicable when loss ratio is at or below the lower threshold.',
-    `sliding_scale_min_pct` DECIMAL(5,2) COMMENT 'Minimum profit commission percentage in a sliding scale formula, applicable when loss ratio is at or above the upper threshold.',
-    `total_ceded_loss_lae` DECIMAL(18,2) COMMENT 'Sum of ceded loss, ALAE, and ULAE amounts, used as the numerator in loss ratio calculation.',
-    `treaty_type` STRING COMMENT 'Type of reinsurance treaty under which profit commission is calculated, typically quota share treaties with profit commission clauses.. Valid values are `quota_share|surplus|excess_of_loss|stop_loss|aggregate_xol`',
-    `treaty_year` BIGINT COMMENT 'The treaty year or underwriting year for which this profit commission is calculated.',
-    `updated_by` STRING COMMENT 'User identifier of the person or system that last updated this profit commission record.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Timestamp when this profit commission record was last updated in the system.',
-    `created_by` STRING COMMENT 'User identifier of the person or system that created this profit commission record.',
-    CONSTRAINT pk_profit_commission PRIMARY KEY(`profit_commission_id`)
-) COMMENT 'Tracks profit commission calculations and accruals owed to Pc_Insurance under QS treaties with profit commission clauses. Stores loss ratio threshold, sliding scale parameters, calculated commission rate, and accrued commission amount.';
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer_peril_term` (
+    `treaty_layer_peril_term_id` BIGINT COMMENT 'Unique surrogate identifier for this treaty layer peril term record. Primary key.',
+    `catastrophegeography_peril_id` BIGINT COMMENT 'Foreign key linking to the specific peril for which these treaty layer terms are defined.',
+    `treaty_layer_id` BIGINT COMMENT 'Foreign key linking to the parent treaty layer under which these peril-specific terms apply.',
+    `effective_date` DATE COMMENT 'Date on which these peril-specific terms become effective within the treaty layer. May differ from layer effective date for mid-term peril amendments.',
+    `expiration_date` DATE COMMENT 'Date on which these peril-specific terms expire. Nullable for terms that remain in force through the layer expiration.',
+    `notes` STRING COMMENT 'Free-text notes capturing peril-specific treaty language, exclusions, conditions, or underwriting guidance relevant to this peril within this layer.',
+    `peril_attachment_point` DECIMAL(18,2) COMMENT 'Dollar amount of loss per occurrence for this specific peril at which the reinsurance layer begins to respond. May differ from the layer-wide attachment point.',
+    `peril_cession_pct` DECIMAL(7,4) COMMENT 'Percentage of loss within this layer ceded to reinsurers for this specific peril. May differ from the layer-wide cession percentage to reflect peril-specific risk appetite.',
+    `peril_inclusion_flag` BOOLEAN COMMENT 'Indicates whether this peril is explicitly included in the treaty layer coverage. False indicates exclusion or sublimit application.',
+    `peril_limit` DECIMAL(18,2) COMMENT 'Maximum dollar amount recoverable from reinsurers under this layer for a single occurrence of this specific peril. May differ from the layer-wide limit.',
+    `peril_retention` DECIMAL(18,2) COMMENT 'Dollar amount of loss for this specific peril that the cedant retains before the reinsurance layer responds. May differ from the layer-wide retention.',
+    `peril_rol_pct` DECIMAL(7,4) COMMENT 'Rate on Line expressed as a decimal for this specific peril; the reinsurance premium for this peril divided by the peril-specific limit. Reflects peril-specific pricing.',
+    `peril_sublimit_flag` BOOLEAN COMMENT 'Indicates whether this peril is subject to a sublimit within the treaty layer, requiring separate tracking of aggregate exposure and exhaustion.',
+    CONSTRAINT pk_treaty_layer_peril_term PRIMARY KEY(`treaty_layer_peril_term_id`)
+) COMMENT 'Captures peril-specific reinsurance terms within a treaty layer. Each record links one treaty layer to one peril with attachment points, limits, retention, cession percentages, and rates that vary by peril..';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` (
-    `reinstatement_id` BIGINT COMMENT 'Unique identifier for the reinstatement data product (auto-inserted during validation).',
-    `bordereaux_id` BIGINT COMMENT 'Foreign key reference to the bordereaux submission batch in which this reinstatement transaction was reported to the reinsurer.',
-    `currency_id` BIGINT COMMENT 'Three-letter ISO 4217 currency code for all monetary amounts in this reinstatement record.',
-    `fac_certificate_id` BIGINT COMMENT 'Foreign key linking to reinsurance.fac_certificate. Business justification: Reinstatements can occur on FAC certificates with reinstatement provisions, not just treaties. Currently only has ri_treaty_id. Missing FK for FAC reinstatements.',
-    `lob_code_id` BIGINT COMMENT 'Insurance line of business code covered by the reinstated treaty layer, such as property, casualty, or specialty lines.',
-    `occurrence_loss_id` BIGINT COMMENT 'Foreign key linking to reinsurance.occurrence_loss. Business justification: Reinstatements are triggered by specific occurrence losses. Currently has occurrence_reference (string), should have proper FK to occurrence_loss for referential integrity and',
-    `ri_treaty_id` BIGINT COMMENT 'Foreign key reference to the reinsurance treaty under which this reinstatement applies.',
-    `treaty_layer_id` BIGINT COMMENT 'Foreign key linking to reinsurance.treaty_layer. Business justification: Reinstatements restore specific treaty layers. Currently has layer_number (INT), should have proper FK to treaty_layer for full layer definition.',
-    `accounting_period` STRING COMMENT 'The accounting period in YYYY-MM format to which this reinstatement transaction is assigned for financial reporting purposes.. Valid values are `^d{4}-(0[1-9]|1[0-2])$`',
-    `attachment_point` DECIMAL(18,2) COMMENT 'The retention or attachment point amount for the treaty layer being reinstated, defining where reinsurer coverage begins.',
-    `automatic_reinstatement_flag` BOOLEAN COMMENT 'Indicates whether the treaty limit is automatically reinstated upon payment of premium, without requiring reinsurer approval.',
-    `basis` STRING COMMENT 'The contractual basis on which the reinstatement is triggered and calculated, such as per-occurrence or aggregate loss basis.. Valid values are `occurrence|aggregate|loss_ratio|sliding_scale`',
-    `broker_name` STRING COMMENT 'Name of the reinsurance broker or intermediary facilitating the reinstatement transaction and premium settlement.',
-    `calculation_date` DATE COMMENT 'Date on which the reinstatement premium and terms were calculated based on treaty provisions and loss experience.',
-    `cat_event_code` STRING COMMENT 'Industry standard code identifying the catastrophe event that exhausted treaty capacity, such as PCS or ISO CAT codes.',
-    `created_timestamp` TIMESTAMP COMMENT 'System timestamp recording when this reinstatement record was first created in the reinsurance management system.',
-    `effective_date` DATE COMMENT 'Date on which the reinstated treaty limit becomes effective and available for subsequent losses.',
-    `exhaustion_point` DECIMAL(18,2) COMMENT 'The upper limit or exhaustion point of the treaty layer being reinstated, defining where reinsurer coverage ends.',
-    `free_reinstatement_flag` BOOLEAN COMMENT 'Indicates whether this reinstatement is provided at no additional premium cost per treaty terms, typically for first reinstatement.',
-    `invoice_date` DATE COMMENT 'Date on which the reinstatement premium invoice was issued to the cedant by the reinsurer.',
-    `lead_reinsurer_name` STRING COMMENT 'Name of the lead reinsurer responsible for coordinating the reinstatement process and premium collection across the syndicate.',
-    `loss_amount_triggering` DECIMAL(18,2) COMMENT 'Total ceded loss amount from the occurrence that exhausted the treaty layer and triggered the need for reinstatement.',
-    `notes` STRING COMMENT 'Free-form text field for additional comments, special conditions, or explanatory notes regarding the reinstatement transaction.',
-    `number` BIGINT COMMENT 'Sequential number of the reinstatement within the treaty layer, typically 1, 2, or 3 for multiple reinstatements.',
-    `payment_date` DATE COMMENT 'Actual date on which the reinstatement premium was paid by the cedant to the reinsurer.',
-    `payment_due_date` DATE COMMENT 'Date by which the reinstatement premium payment is contractually due from the cedant to the reinsurer.',
-    `premium_amount` DECIMAL(18,2) COMMENT 'Total premium amount due for reinstating the treaty limit, calculated as a percentage of the original treaty premium.',
-    `premium_pct` DECIMAL(5,2) COMMENT 'Percentage rate applied to the original premium to calculate the reinstatement premium, as specified in the treaty terms.',
-    `prorata_factor` DECIMAL(8,6) COMMENT 'Pro-rata adjustment factor applied when the reinstatement occurs partway through the treaty period, reducing the premium proportionally.',
-    `prorata_premium_amount` DECIMAL(18,2) COMMENT 'Reinstatement premium adjusted for the pro-rata factor based on remaining treaty period at the time of reinstatement.',
-    `reinstated_limit_amount` DECIMAL(18,2) COMMENT 'The treaty limit amount being reinstated and made available for subsequent losses after the triggering occurrence.',
-    `reinstatement_status` STRING COMMENT 'Current lifecycle status of the reinstatement transaction, tracking from initial calculation through payment settlement.. Valid values are `pending|confirmed|invoiced|paid|disputed|cancelled`',
-    `reinsurer_approval_date` DATE COMMENT 'Date on which the reinsurer formally approved the reinstatement of the treaty limit, if approval was required.',
-    `reinsurer_approval_required_flag` BOOLEAN COMMENT 'Indicates whether explicit reinsurer approval is required before the treaty limit can be reinstated for subsequent losses.',
-    `territory_scope` STRING COMMENT 'Geographic territory or region covered by the reinstated treaty layer, defining the scope of reinstated coverage.',
-    `treaty_type` STRING COMMENT 'Type of reinsurance treaty structure under which this reinstatement applies, such as Excess of Loss or Catastrophe Excess of Loss.. Valid values are `XOL|CAT_XL|QS|SURPLUS|STOP_LOSS|AGGREGATE`',
-    `treaty_year` BIGINT COMMENT 'The treaty underwriting year or policy year to which this reinstatement applies, important for multi-year treaty accounting.',
-    `updated_by` STRING COMMENT 'User identifier or system account that last modified this reinstatement record, supporting accountability and audit requirements.',
-    `updated_timestamp` TIMESTAMP COMMENT 'System timestamp recording when this reinstatement record was last modified, supporting audit trail and change tracking.',
-    `created_by` STRING COMMENT 'User identifier or system account that created this reinstatement record, supporting accountability and audit requirements.',
-    CONSTRAINT pk_reinstatement PRIMARY KEY(`reinstatement_id`)
-) COMMENT 'Records reinstatement of treaty limit following a loss occurrence under XOL or CAT XL treaties. Captures reinstatement premium, reinstated limit, occurrence reference, reinstatement number, and effective date per treaty layer.';
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`agreement_peril_coverage` (
+    `agreement_peril_coverage_id` BIGINT COMMENT 'Unique surrogate identifier for the agreement peril coverage record. Primary key.',
+    `catastrophegeography_peril_id` BIGINT COMMENT 'Foreign key linking to the peril catalog record.',
+    `ri_agreement_id` BIGINT COMMENT 'Foreign key linking to the reinsurance agreement record.',
+    `effective_date` DATE COMMENT 'Date on which this peril coverage or exclusion becomes effective within the agreement.',
+    `expiry_date` DATE COMMENT 'Date on which this peril coverage or exclusion expires within the agreement.',
+    `notes` STRING COMMENT 'Free-text notes capturing additional peril-specific terms, conditions, or underwriting guidance.',
+    `peril_attachment_point_amt` DECIMAL(18,2) COMMENT 'Loss threshold at which reinsurance coverage attaches for this specific peril, if different from agreement-level attachment.',
+    `peril_coverage_basis` STRING COMMENT 'Coverage trigger basis specific to this peril: Losses Occurring, Claims Made, or Risk Attaching.',
+    `peril_exclusion_clause` STRING COMMENT 'Text of the exclusion clause or endorsement reference if the peril is excluded from coverage under this agreement.',
+    `peril_inclusion_flag` BOOLEAN COMMENT 'Indicates whether the peril is explicitly included in the reinsurance agreement coverage scope.',
+    `peril_reinstatement_provision` STRING COMMENT 'Special reinstatement terms applicable to this peril, such as limited reinstatements for CAT perils.',
+    `peril_specific_retention_amt` DECIMAL(18,2) COMMENT 'Cedant retention amount specific to this peril, if different from the agreement-level retention.',
+    `peril_sublimit_amt` DECIMAL(18,2) COMMENT 'Maximum reinsurance recovery amount specific to this peril within the agreement, if different from the overall limit.',
+    `peril_territory_restriction` STRING COMMENT 'Geographic scope restriction specific to this peril within the agreement, if narrower than the overall territory scope.',
+    CONSTRAINT pk_agreement_peril_coverage PRIMARY KEY(`agreement_peril_coverage_id`)
+) COMMENT 'Captures which perils are covered, excluded, or subject to special terms within each reinsurance agreement. One row per agreement per peril. Tracks inclusion/exclusion flags, peril-specific sublimits, retentions, and clauses..';
 
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` (
-    `ri_broker_id` BIGINT COMMENT 'Unique identifier for the reinsurance broker record.',
-    `address_line1` STRING COMMENT 'First line of the brokers primary business address.',
-    `address_line2` STRING COMMENT 'Second line of the brokers business address for suite or floor information.',
-    `appointment_date` DATE COMMENT 'Date when the broker was formally appointed to represent the cedant in reinsurance placements.',
-    `authorized_markets` STRING COMMENT 'Comma-separated list of reinsurance markets where the broker is authorized to place business.',
-    `broker_code` STRING COMMENT 'Unique business identifier code assigned to the reinsurance broker for operational reference.. Valid values are `^[A-Z0-9]{3,10}$`',
-    `broker_status` STRING COMMENT 'Current operational status of the broker relationship.. Valid values are `active|inactive|suspended|terminated|pending_approval`',
-    `broker_type` STRING COMMENT 'Classification of the reinsurance broker by operational focus and market segment.. Valid values are `wholesale|retail|lloyds|specialty|cat_broker|fac_specialist`',
-    `brokerage_rate_pct` DECIMAL(5,3) COMMENT 'Standard brokerage commission rate percentage charged by the broker on placed reinsurance premium.',
-    `cat_placement_flag` BOOLEAN COMMENT 'Indicates whether the broker is authorized and experienced in placing catastrophe reinsurance.',
-    `city` STRING COMMENT 'City name of the brokers primary business location.',
-    `compliance_status` STRING COMMENT 'Current compliance status of the broker with regulatory and contractual requirements.. Valid values are `compliant|non_compliant|under_review|remediation`',
-    `country_code` STRING COMMENT 'Three-letter ISO country code of the brokers domicile.. Valid values are `^[A-Z]{3}$`',
-    `created_timestamp` TIMESTAMP COMMENT 'Date and time when the broker record was first created in the system.',
-    `credit_rating` STRING COMMENT 'Financial strength or credit rating assigned to the broker by a recognized rating agency.',
-    `dba_name` STRING COMMENT 'Trade name or doing business as name used by the broker in the market.',
-    `eo_coverage_amount` DECIMAL(18,2) COMMENT 'Limit of errors and omissions insurance coverage carried by the broker.',
-    `eo_expiry_date` DATE COMMENT 'Expiration date of the brokers current errors and omissions insurance policy.',
-    `fac_placement_flag` BOOLEAN COMMENT 'Indicates whether the broker handles facultative certificate placements.',
-    `fein` STRING COMMENT 'Federal tax identification number assigned to the brokerage entity.. Valid values are `^[0-9]{2}-[0-9]{7}$`',
-    `last_audit_date` DATE COMMENT 'Date of the most recent compliance or financial audit conducted on the broker.',
-    `legal_name` STRING COMMENT 'Full legal registered name of the reinsurance brokerage firm.',
-    `lloyds_authorized_flag` BOOLEAN COMMENT 'Indicates whether the broker is authorized to place business at Lloyds of London.',
-    `lloyds_broker_number` STRING COMMENT 'Unique registration number assigned by Lloyds of London for authorized Lloyds brokers.. Valid values are `^[A-Z0-9]{4,8}$`',
-    `naic_code` STRING COMMENT 'Five-digit NAIC company code assigned to the broker if registered as a reinsurance intermediary.. Valid values are `^[0-9]{5}$`',
-    `next_review_date` DATE COMMENT 'Scheduled date for the next periodic review or audit of the broker relationship.',
-    `notes` STRING COMMENT 'Free-form text field for additional comments or special instructions related to the broker.',
-    `parent_company_name` STRING COMMENT 'Legal name of the parent company if the broker is part of a larger corporate group.',
-    `postal_code` STRING COMMENT 'Postal or ZIP code of the brokers primary business address.',
-    `primary_contact_email` STRING COMMENT 'Email address of the primary contact for reinsurance placement communications.. Valid values are `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$`',
-    `primary_contact_name` STRING COMMENT 'Full name of the primary contact person at the brokerage for treaty and facultative placements.',
-    `primary_contact_phone` STRING COMMENT 'Primary telephone number for the broker contact.',
-    `rating_agency` STRING COMMENT 'Name of the rating agency that assigned the credit rating.',
-    `specialty_lob` STRING COMMENT 'Primary lines of business or perils in which the broker specializes for reinsurance placements.',
-    `state_province` STRING COMMENT 'State or province code of the brokers primary business location.',
-    `termination_date` DATE COMMENT 'Date when the broker appointment was terminated or expired.',
-    `treaty_placement_flag` BOOLEAN COMMENT 'Indicates whether the broker handles treaty reinsurance placements.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Date and time when the broker record was last modified.',
-    `website_url` STRING COMMENT 'Official website URL of the reinsurance brokerage firm.',
-    CONSTRAINT pk_ri_broker PRIMARY KEY(`ri_broker_id`)
-) COMMENT 'Master record for each reinsurance intermediary (RI broker) involved in treaty or FAC placement. Captures broker legal name, Lloyds registration, brokerage rate, contact details, and authorized markets for placement management.';
-
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` (
-    `ri_placement_id` BIGINT COMMENT 'Unique identifier for the reinsurance placement record.',
-    `currency_id` BIGINT COMMENT 'Three-letter ISO 4217 currency code for all monetary amounts in this placement.',
-    `fac_certificate_id` BIGINT COMMENT 'Reference to the facultative certificate being placed. Null for treaty placements.',
-    `lead_reinsurer_id` BIGINT COMMENT 'Reference to the lead reinsurer who anchors the placement and typically takes the largest share.',
-    `lob_code_id` BIGINT COMMENT 'Line of business code for the reinsurance placement, aligned with statutory reporting categories.',
-    `placing_agency_id` BIGINT COMMENT 'Foreign key linking to producers.agency. Business justification: Agency-level attribution for reinsurance placements, especially for MGA/wholesale operations that place reinsurance on behalf of retail networks.',
-    `ri_broker_id` BIGINT COMMENT 'Reference to the reinsurance broker or intermediary managing the placement process.',
-    `ri_treaty_id` BIGINT COMMENT 'Reference to the treaty being placed. Null for facultative (FAC) placements.',
-    `treaty_layer_id` BIGINT COMMENT 'Foreign key linking to reinsurance.treaty_layer. Business justification: Placements are for specific treaty layers. Currently has layer_number (INT), should have proper FK to treaty_layer which contains the full layer definition including layer_number',
-    `attachment_point` DECIMAL(18,2) COMMENT 'Loss threshold at which the reinsurance layer attaches and begins to respond. Applicable for excess of loss (XOL) structures.',
-    `binding_date` DATE COMMENT 'Date the placement was bound and the reinsurance contract became effective.',
-    `broker_name` STRING COMMENT 'Name of the reinsurance broker or intermediary managing the placement.',
-    `brokerage_pct` DECIMAL(5,2) COMMENT 'Percentage of premium paid to the reinsurance broker as commission for placement services.',
-    `cancellation_date` DATE COMMENT 'Date the placement was cancelled or terminated prior to natural expiry.',
-    `cat_event_definition` STRING COMMENT 'Definition or criteria used to determine when a catastrophe event triggers coverage under this placement.',
-    `cat_exposed_flag` BOOLEAN COMMENT 'Indicates whether the placement covers catastrophe (CAT) exposures such as hurricanes, earthquakes, or other large-scale events.',
-    `ceding_commission_pct` DECIMAL(5,2) COMMENT 'Percentage of ceded premium returned to the cedant as commission to cover acquisition and administrative costs.',
-    `created_timestamp` TIMESTAMP COMMENT 'Timestamp when the placement record was first created in the system.',
-    `exhaustion_point` DECIMAL(18,2) COMMENT 'Loss level at which the reinsurance layer is fully exhausted. Calculated as attachment point plus limit.',
-    `expiry_date` DATE COMMENT 'Effective end date of the reinsurance coverage under this placement.',
-    `fac_type` STRING COMMENT 'Type of facultative reinsurance structure. Applicable for FAC placements; null for treaty.. Valid values are `fac_proportional|fac_xol|fac_cat`',
-    `inception_date` DATE COMMENT 'Effective start date of the reinsurance coverage under this placement.',
-    `lead_reinsurer_share_pct` DECIMAL(5,2) COMMENT 'Percentage of the total placement capacity taken by the lead reinsurer.',
-    `limit_amount` DECIMAL(18,2) COMMENT 'Maximum reinsurance coverage amount provided by this placement layer.',
-    `markets_approached_count` BIGINT COMMENT 'Number of reinsurance markets or reinsurers approached during the placement process.',
-    `modified_timestamp` TIMESTAMP COMMENT 'Timestamp when the placement record was last modified or updated.',
-    `participating_reinsurers_count` BIGINT COMMENT 'Number of reinsurers who ultimately signed and participated in the bound placement.',
-    `perils_covered` STRING COMMENT 'List or description of perils covered under the reinsurance placement, such as wind, earthquake, flood, or all risks.',
-    `placed_capacity_amount` DECIMAL(18,2) COMMENT 'Total reinsurance capacity amount successfully placed and bound with reinsurers.',
-    `placement_notes` STRING COMMENT 'Free-text notes capturing key details, negotiations, special terms, or other relevant information about the placement.',
-    `placement_number` STRING COMMENT 'Business identifier for the placement workflow, typically assigned by the broker or cedant.',
-    `placement_stage` STRING COMMENT 'High-level phase of the placement process indicating major workflow milestones.. Valid values are `pre_marketing|marketing|negotiation|binding|post_binding`',
-    `placement_status` STRING COMMENT 'Current stage of the placement workflow from initial submission through binding or decline. [ENUM-REF-CANDIDATE: draft|slip_submitted|market_quoted|negotiation|bound|declined|cancelled — 7 candidates stripped; promote to reference product]',
-    `placement_type` STRING COMMENT 'Type of reinsurance placement being executed.. Valid values are `treaty|facultative|cat_bond|sideCar`',
-    `pml_amount` DECIMAL(18,2) COMMENT 'Estimated probable maximum loss amount used for pricing and capacity determination in the placement.',
-    `program_name` STRING COMMENT 'Name of the broader reinsurance program or tower to which this placement belongs.',
-    `quote_due_date` DATE COMMENT 'Date by which reinsurers are expected to provide their quotes or indications.',
-    `quotes_received_count` BIGINT COMMENT 'Number of formal quotes or indications received from reinsurers during the placement process.',
-    `retention_amount` DECIMAL(18,2) COMMENT 'Amount of risk retained by the cedant before reinsurance coverage applies.',
-    `rol_pct` DECIMAL(5,2) COMMENT 'Rate on line expressed as a percentage, calculated as premium divided by limit for excess of loss (XOL) placements.',
-    `slip_submission_date` DATE COMMENT 'Date the reinsurance slip was submitted to the market for underwriting consideration.',
-    `target_capacity_amount` DECIMAL(18,2) COMMENT 'Total reinsurance capacity amount the cedant is seeking to place in the market.',
-    `territory_scope` STRING COMMENT 'Geographic scope of the reinsurance coverage, defining which territories or regions are included.',
-    `total_signed_line_pct` DECIMAL(5,2) COMMENT 'Aggregate percentage of the placement capacity that has been signed by all participating reinsurers.',
-    `treaty_type` STRING COMMENT 'Type of reinsurance treaty structure. Applicable for treaty placements; null for facultative.. Valid values are `quota_share|surplus|xol|cat_xl|aggregate_xol|stop_loss`',
-    `underwriter_name` STRING COMMENT 'Name of the cedant underwriter responsible for managing the placement process and reinsurer relationships.',
-    CONSTRAINT pk_ri_placement PRIMARY KEY(`ri_placement_id`)
-) COMMENT 'Tracks the placement workflow for a treaty or FAC certificate from slip submission through binding. Captures placement stage, market approached, lead reinsurer, signed line percentage, brokerage, and binding date.';
-
-CREATE OR REPLACE TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` (
-    `occurrence_loss_id` BIGINT COMMENT 'Unique identifier for the occurrence loss record. Primary key for occurrence-based loss aggregation used in Excess of Loss (XOL) treaty application.',
-    `bordereaux_id` BIGINT COMMENT 'Identifier of the bordereaux submission in which this occurrence loss was reported to reinsurers.',
-    `cat_event_id` BIGINT COMMENT 'FK to reservespayments.cat_event.cat_event_id — Designates reservespayments.cat_event the single catastrophe master so XOL/CAT XL occurrence aggregation rolls up to the same catastrophe event as claims and reserves.',
-    `currency_id` BIGINT COMMENT 'Three-letter ISO currency code for all monetary amounts in this occurrence loss record.',
-    `fac_certificate_id` BIGINT COMMENT 'Foreign key linking to reinsurance.fac_certificate. Business justification: Occurrence losses can be ceded under FAC certificates, not just treaties. Currently only has ri_treaty_id. This FK enables tracking FAC-based occurrence cessions.',
-    `insured_location_id` BIGINT COMMENT 'Foreign key linking to riskexposure.insured_location. Business justification: Catastrophe occurrence losses must identify affected locations for hours clause validation (168-hour rule), PML comparison, and reinstatement trigger determination.',
-    `lob_code_id` BIGINT COMMENT 'Code identifying the primary line of business affected by the occurrence, used for treaty layer allocation and cession calculation.',
-    `ri_treaty_id` BIGINT COMMENT 'Identifier of the primary reinsurance treaty applied to this occurrence for cession calculation and recovery.',
-    `treaty_layer_id` BIGINT COMMENT 'Foreign key linking to reinsurance.treaty_layer. Business justification: Occurrence losses apply to specific treaty layers. Currently has treaty_layer_number (INT), should have proper FK to treaty_layer for full layer definition access.',
-    `accounting_period` STRING COMMENT 'Accounting period in which this occurrence loss is recognized for statutory and GAAP reporting purposes.',
-    `attachment_point` DECIMAL(18,2) COMMENT 'Treaty layer attachment point amount at which reinsurance coverage begins for this occurrence under XOL treaty terms.',
-    `cat_flag` BOOLEAN COMMENT 'Indicator whether this occurrence qualifies as a catastrophe event under treaty definitions and triggers CAT XOL coverage.',
-    `cession_date` DATE COMMENT 'Date when the occurrence loss was formally ceded to reinsurers under the applicable treaty terms.',
-    `claim_count` BIGINT COMMENT 'Total number of individual claims aggregated into this occurrence loss record for treaty cession purposes.',
-    `country_code` STRING COMMENT 'Three-letter ISO country code identifying the country where the occurrence event occurred.',
-    `created_timestamp` TIMESTAMP COMMENT 'Date and time when this occurrence loss record was first created in the system.',
-    `exhaustion_point` DECIMAL(18,2) COMMENT 'Treaty layer exhaustion point amount at which reinsurance coverage ends for this occurrence, representing the upper limit of the layer.',
-    `finalized_date` DATE COMMENT 'Date when the occurrence loss record was closed and finalized, with no further claim additions or loss development expected.',
-    `geographic_region` STRING COMMENT 'Geographic area or territory where the occurrence event took place, used for treaty territory scope validation.',
-    `hours_clause_compliant_flag` BOOLEAN COMMENT 'Indicator whether all claims aggregated into this occurrence fall within the treaty hours clause time window for valid occurrence treatment.',
-    `hours_clause_duration` BIGINT COMMENT 'Number of hours specified in the treaty hours clause for aggregating related losses into a single occurrence event.',
-    `layer_limit_amount` DECIMAL(18,2) COMMENT 'Maximum reinsurance recovery available from the treaty layer for this occurrence, calculated as exhaustion point minus attachment point.',
-    `net_loss_amount` DECIMAL(18,2) COMMENT 'Net loss amount retained by the cedant after reinsurance cession, calculated as gross loss minus ceded loss.',
-    `notes` STRING COMMENT 'Free-form text notes providing additional context, special handling instructions, or commentary about the occurrence loss.',
-    `occurrence_date` DATE COMMENT 'Date when the loss occurrence event took place. Critical for treaty layer attachment and hours clause determination.',
-    `occurrence_end_timestamp` TIMESTAMP COMMENT 'Date and time when the occurrence event concluded, used to determine the duration window for aggregating related claims under hours clause provisions.',
-    `occurrence_name` STRING COMMENT 'Descriptive name or title assigned to the occurrence event, typically used for catastrophic events or major loss incidents.',
-    `occurrence_number` STRING COMMENT 'Business identifier for the occurrence event. Externally-known reference number used in reinsurance bordereaux and treaty reporting.',
-    `occurrence_status` STRING COMMENT 'Current lifecycle status of the occurrence loss record in the reinsurance cession workflow.. Valid values are `open|closed|under_review|pending_cession|finalized`',
-    `occurrence_timestamp` TIMESTAMP COMMENT 'Precise date and time when the occurrence event began, used for hours clause compliance verification in catastrophe treaties.',
-    `peril_code` STRING COMMENT 'Standardized code identifying the type of peril that caused the occurrence loss, such as hurricane, earthquake, fire, or flood.',
-    `peril_description` STRING COMMENT 'Detailed narrative description of the peril or cause of loss for the occurrence event.',
-    `policy_count` BIGINT COMMENT 'Total number of distinct policies affected by this occurrence event, used for exposure analysis and treaty reporting.',
-    `reinstatement_premium_amount` DECIMAL(18,2) COMMENT 'Reinstatement premium amount due to reinsurers as a result of this occurrence loss exhausting or reducing treaty layer capacity.',
-    `reinstatement_triggered_flag` BOOLEAN COMMENT 'Indicator whether this occurrence loss triggered a treaty layer reinstatement, requiring additional reinstatement premium payment.',
-    `reported_date` DATE COMMENT 'Date when the occurrence loss was first reported to the reinsurance department for cession processing.',
-    `retention_amount` DECIMAL(18,2) COMMENT 'Cedant retention amount applied to this occurrence under the applicable treaty terms, representing the portion of loss retained by the ceding company.',
-    `state_province_code` STRING COMMENT 'Code identifying the state or province where the occurrence event took place, used for regulatory and treaty reporting.',
-    `total_ceded_alae_amount` DECIMAL(18,2) COMMENT 'Total ALAE amount ceded to reinsurers for this occurrence under applicable treaty terms.',
-    `total_ceded_amount` DECIMAL(18,2) COMMENT 'Total amount ceded to reinsurers for this occurrence including loss and ALAE, representing the full reinsurance recovery.',
-    `total_ceded_loss_amount` DECIMAL(18,2) COMMENT 'Total loss amount ceded to reinsurers for this occurrence after applying retention and treaty layer limits.',
-    `total_gross_alae_amount` DECIMAL(18,2) COMMENT 'Total gross Allocated Loss Adjustment Expense aggregated from all claims in this occurrence, before reinsurance recovery.',
-    `total_gross_incurred_amount` DECIMAL(18,2) COMMENT 'Total gross incurred loss including indemnity, ALAE, and ULAE for this occurrence, representing the full exposure before reinsurance.',
-    `total_gross_loss_amount` DECIMAL(18,2) COMMENT 'Total gross loss amount aggregated from all claims associated with this occurrence, before any reinsurance cession or retention deduction.',
-    `total_gross_ulae_amount` DECIMAL(18,2) COMMENT 'Total gross Unallocated Loss Adjustment Expense allocated to this occurrence based on company methodology.',
-    `treaty_year` BIGINT COMMENT 'Treaty year under which this occurrence loss is covered, used for multi-year treaty accounting and aggregate limit tracking.',
-    `updated_timestamp` TIMESTAMP COMMENT 'Date and time when this occurrence loss record was last modified, used for audit trail and data lineage tracking.',
-    CONSTRAINT pk_occurrence_loss PRIMARY KEY(`occurrence_loss_id`)
-) COMMENT 'Aggregates losses from multiple claims into a single occurrence for XOL treaty application. Stores occurrence date, peril, total gross loss, total ceded loss, applicable treaty layer, and hours clause compliance flag.';
+CREATE OR REPLACE TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_zone_terms` (
+    `treaty_zone_terms_id` BIGINT COMMENT 'Unique surrogate identifier for a treaty zone terms record. Primary key.',
+    `cat_zone_id` BIGINT COMMENT 'Foreign key linking to the catastrophe zone for which these treaty terms are defined.',
+    `treaty_id` BIGINT COMMENT 'Foreign key linking to the reinsurance treaty under which these zone-specific terms apply.',
+    `effective_date` DATE COMMENT 'Date when these zone-specific treaty terms became effective. Allows for mid-term treaty amendments targeting specific catastrophe zones.',
+    `expiration_date` DATE COMMENT 'Date when these zone-specific treaty terms expire. Null if terms remain in effect through treaty expiration.',
+    `notes` STRING COMMENT 'Free-text notes documenting the business rationale for zone-specific treaty terms, such as reinsurer requirements or regulatory capital optimization strategies.',
+    `underwriting_restriction_code` STRING COMMENT 'Code indicating underwriting restrictions imposed by reinsurers for this zone under this treaty: none, moratorium, reduced limit, increased retention, or excluded.',
+    `zone_attachment_point` DECIMAL(18,2) COMMENT 'Dollar amount at which reinsurance coverage attaches for losses in this catastrophe zone. Used for zone-specific excess of loss structuring.',
+    `zone_cession_pct` DECIMAL(7,4) COMMENT 'Percentage of risk ceded to reinsurers for policies in this catastrophe zone under this treaty. May differ from treaty-level cession percentage for concentration management.',
+    `zone_exclusion_flag` BOOLEAN COMMENT 'Indicates whether this catastrophe zone is explicitly excluded from reinsurance coverage under this treaty. Used for high-risk zone carve-outs.',
+    `zone_limit` DECIMAL(18,2) COMMENT 'Maximum reinsurance recovery available under this treaty for losses occurring in this catastrophe zone. Used for concentration control and regulatory capital optimization.',
+    `zone_retention_amt` DECIMAL(18,2) COMMENT 'Cedant net retained loss amount before reinsurance attaches for losses in this catastrophe zone. May be higher than treaty-level retention for high-risk zones.',
+    CONSTRAINT pk_treaty_zone_terms PRIMARY KEY(`treaty_zone_terms_id`)
+) COMMENT 'Defines zone-specific reinsurance treaty terms for catastrophe exposure management. One row per treaty per cat zone. Captures zone-level cession percentages, retentions, attachment points, limits, and exclusions used for underwriting guidelines and';
 
 -- ========= FOREIGN KEYS =========
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ADD CONSTRAINT `fk_reinsurance_fac_certificate_reinsurer_id` FOREIGN KEY (`reinsurer_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer`(`reinsurer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ADD CONSTRAINT `fk_reinsurance_treaty_layer_ri_treaty_id` FOREIGN KEY (`ri_treaty_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty`(`ri_treaty_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ADD CONSTRAINT `fk_reinsurance_treaty_reinsurer_assumed_reinsurer_id` FOREIGN KEY (`assumed_reinsurer_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer`(`reinsurer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ADD CONSTRAINT `fk_reinsurance_treaty_reinsurer_ri_broker_id` FOREIGN KEY (`ri_broker_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker`(`ri_broker_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ADD CONSTRAINT `fk_reinsurance_treaty_reinsurer_ri_treaty_id` FOREIGN KEY (`ri_treaty_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty`(`ri_treaty_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ADD CONSTRAINT `fk_reinsurance_treaty_reinsurer_treaty_replacement_reinsurer_id` FOREIGN KEY (`treaty_replacement_reinsurer_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer`(`reinsurer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ADD CONSTRAINT `fk_reinsurance_reinsurance_cession_bordereaux_id` FOREIGN KEY (`bordereaux_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux`(`bordereaux_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ADD CONSTRAINT `fk_reinsurance_reinsurance_cession_fac_certificate_id` FOREIGN KEY (`fac_certificate_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate`(`fac_certificate_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ADD CONSTRAINT `fk_reinsurance_reinsurance_cession_reinsurer_id` FOREIGN KEY (`reinsurer_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer`(`reinsurer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ADD CONSTRAINT `fk_reinsurance_reinsurance_cession_ri_treaty_id` FOREIGN KEY (`ri_treaty_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty`(`ri_treaty_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ADD CONSTRAINT `fk_reinsurance_reinsurance_cession_treaty_layer_id` FOREIGN KEY (`treaty_layer_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer`(`treaty_layer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ADD CONSTRAINT `fk_reinsurance_policy_cession_fac_certificate_id` FOREIGN KEY (`fac_certificate_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate`(`fac_certificate_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ADD CONSTRAINT `fk_reinsurance_policy_cession_reinsurance_cession_id` FOREIGN KEY (`reinsurance_cession_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession`(`reinsurance_cession_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ADD CONSTRAINT `fk_reinsurance_policy_cession_ri_treaty_id` FOREIGN KEY (`ri_treaty_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty`(`ri_treaty_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ADD CONSTRAINT `fk_reinsurance_bordereaux_fac_certificate_id` FOREIGN KEY (`fac_certificate_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate`(`fac_certificate_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ADD CONSTRAINT `fk_reinsurance_bordereaux_prior_bordereaux_id` FOREIGN KEY (`prior_bordereaux_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux`(`bordereaux_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ADD CONSTRAINT `fk_reinsurance_bordereaux_reinsurer_id` FOREIGN KEY (`reinsurer_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer`(`reinsurer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ADD CONSTRAINT `fk_reinsurance_bordereaux_ri_treaty_id` FOREIGN KEY (`ri_treaty_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty`(`ri_treaty_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ADD CONSTRAINT `fk_reinsurance_bordereaux_line_bordereaux_id` FOREIGN KEY (`bordereaux_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux`(`bordereaux_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ADD CONSTRAINT `fk_reinsurance_bordereaux_line_fac_certificate_id` FOREIGN KEY (`fac_certificate_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate`(`fac_certificate_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ADD CONSTRAINT `fk_reinsurance_bordereaux_line_reinsurance_cession_id` FOREIGN KEY (`reinsurance_cession_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession`(`reinsurance_cession_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ADD CONSTRAINT `fk_reinsurance_bordereaux_line_ri_treaty_id` FOREIGN KEY (`ri_treaty_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty`(`ri_treaty_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ADD CONSTRAINT `fk_reinsurance_ceded_premium_transaction_fac_certificate_id` FOREIGN KEY (`fac_certificate_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate`(`fac_certificate_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ADD CONSTRAINT `fk_reinsurance_ceded_premium_transaction_reinsurance_cession_id` FOREIGN KEY (`reinsurance_cession_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession`(`reinsurance_cession_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ADD CONSTRAINT `fk_reinsurance_ceded_premium_transaction_reinsurer_id` FOREIGN KEY (`reinsurer_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer`(`reinsurer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ADD CONSTRAINT `fk_reinsurance_ceded_premium_transaction_reversed_transaction_ceded_premium_transaction_id` FOREIGN KEY (`reversed_transaction_ceded_premium_transaction_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction`(`ceded_premium_transaction_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ADD CONSTRAINT `fk_reinsurance_ceded_premium_transaction_ri_treaty_id` FOREIGN KEY (`ri_treaty_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty`(`ri_treaty_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ADD CONSTRAINT `fk_reinsurance_ceded_loss_transaction_bordereaux_id` FOREIGN KEY (`bordereaux_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux`(`bordereaux_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ADD CONSTRAINT `fk_reinsurance_ceded_loss_transaction_fac_certificate_id` FOREIGN KEY (`fac_certificate_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate`(`fac_certificate_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ADD CONSTRAINT `fk_reinsurance_ceded_loss_transaction_reinsurance_cession_id` FOREIGN KEY (`reinsurance_cession_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession`(`reinsurance_cession_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ADD CONSTRAINT `fk_reinsurance_ceded_loss_transaction_reinsurer_id` FOREIGN KEY (`reinsurer_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer`(`reinsurer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ADD CONSTRAINT `fk_reinsurance_ceded_loss_transaction_ri_treaty_id` FOREIGN KEY (`ri_treaty_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty`(`ri_treaty_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ADD CONSTRAINT `fk_reinsurance_ri_recoverable_bordereaux_id` FOREIGN KEY (`bordereaux_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux`(`bordereaux_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ADD CONSTRAINT `fk_reinsurance_ri_recoverable_fac_certificate_id` FOREIGN KEY (`fac_certificate_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate`(`fac_certificate_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ADD CONSTRAINT `fk_reinsurance_ri_recoverable_reinsurance_cession_id` FOREIGN KEY (`reinsurance_cession_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession`(`reinsurance_cession_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ADD CONSTRAINT `fk_reinsurance_ri_recoverable_reinsurer_id` FOREIGN KEY (`reinsurer_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer`(`reinsurer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ADD CONSTRAINT `fk_reinsurance_ri_recoverable_ri_treaty_id` FOREIGN KEY (`ri_treaty_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty`(`ri_treaty_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ADD CONSTRAINT `fk_reinsurance_ri_settlement_bordereaux_id` FOREIGN KEY (`bordereaux_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux`(`bordereaux_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ADD CONSTRAINT `fk_reinsurance_ri_settlement_fac_certificate_id` FOREIGN KEY (`fac_certificate_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate`(`fac_certificate_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ADD CONSTRAINT `fk_reinsurance_ri_settlement_reinsurer_id` FOREIGN KEY (`reinsurer_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer`(`reinsurer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ADD CONSTRAINT `fk_reinsurance_ri_settlement_ri_treaty_id` FOREIGN KEY (`ri_treaty_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty`(`ri_treaty_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ADD CONSTRAINT `fk_reinsurance_claim_ri_recovery_bordereaux_id` FOREIGN KEY (`bordereaux_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux`(`bordereaux_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ADD CONSTRAINT `fk_reinsurance_claim_ri_recovery_fac_certificate_id` FOREIGN KEY (`fac_certificate_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate`(`fac_certificate_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ADD CONSTRAINT `fk_reinsurance_claim_ri_recovery_reinsurance_cession_id` FOREIGN KEY (`reinsurance_cession_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession`(`reinsurance_cession_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ADD CONSTRAINT `fk_reinsurance_claim_ri_recovery_reinsurer_id` FOREIGN KEY (`reinsurer_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer`(`reinsurer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ADD CONSTRAINT `fk_reinsurance_claim_ri_recovery_ri_treaty_id` FOREIGN KEY (`ri_treaty_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty`(`ri_treaty_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ADD CONSTRAINT `fk_reinsurance_cat_bond_ri_treaty_id` FOREIGN KEY (`ri_treaty_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty`(`ri_treaty_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ADD CONSTRAINT `fk_reinsurance_profit_commission_fac_certificate_id` FOREIGN KEY (`fac_certificate_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate`(`fac_certificate_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ADD CONSTRAINT `fk_reinsurance_profit_commission_reinsurer_id` FOREIGN KEY (`reinsurer_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer`(`reinsurer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ADD CONSTRAINT `fk_reinsurance_profit_commission_ri_treaty_id` FOREIGN KEY (`ri_treaty_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty`(`ri_treaty_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ADD CONSTRAINT `fk_reinsurance_reinstatement_bordereaux_id` FOREIGN KEY (`bordereaux_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux`(`bordereaux_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ADD CONSTRAINT `fk_reinsurance_reinstatement_fac_certificate_id` FOREIGN KEY (`fac_certificate_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate`(`fac_certificate_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ADD CONSTRAINT `fk_reinsurance_reinstatement_occurrence_loss_id` FOREIGN KEY (`occurrence_loss_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss`(`occurrence_loss_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ADD CONSTRAINT `fk_reinsurance_reinstatement_ri_treaty_id` FOREIGN KEY (`ri_treaty_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty`(`ri_treaty_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ADD CONSTRAINT `fk_reinsurance_reinstatement_treaty_layer_id` FOREIGN KEY (`treaty_layer_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer`(`treaty_layer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ADD CONSTRAINT `fk_reinsurance_ri_placement_fac_certificate_id` FOREIGN KEY (`fac_certificate_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate`(`fac_certificate_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ADD CONSTRAINT `fk_reinsurance_ri_placement_lead_reinsurer_id` FOREIGN KEY (`lead_reinsurer_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer`(`reinsurer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ADD CONSTRAINT `fk_reinsurance_ri_placement_ri_broker_id` FOREIGN KEY (`ri_broker_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker`(`ri_broker_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ADD CONSTRAINT `fk_reinsurance_ri_placement_ri_treaty_id` FOREIGN KEY (`ri_treaty_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty`(`ri_treaty_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ADD CONSTRAINT `fk_reinsurance_ri_placement_treaty_layer_id` FOREIGN KEY (`treaty_layer_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer`(`treaty_layer_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ADD CONSTRAINT `fk_reinsurance_occurrence_loss_bordereaux_id` FOREIGN KEY (`bordereaux_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux`(`bordereaux_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ADD CONSTRAINT `fk_reinsurance_occurrence_loss_fac_certificate_id` FOREIGN KEY (`fac_certificate_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate`(`fac_certificate_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ADD CONSTRAINT `fk_reinsurance_occurrence_loss_ri_treaty_id` FOREIGN KEY (`ri_treaty_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty`(`ri_treaty_id`);
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ADD CONSTRAINT `fk_reinsurance_occurrence_loss_treaty_layer_id` FOREIGN KEY (`treaty_layer_id`) REFERENCES `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer`(`treaty_layer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ADD CONSTRAINT `fk_reinsurance_treaty_reinsurer_id` FOREIGN KEY (`reinsurer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer`(`reinsurer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ADD CONSTRAINT `fk_reinsurance_treaty_ri_agreement_id` FOREIGN KEY (`ri_agreement_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement`(`ri_agreement_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ADD CONSTRAINT `fk_reinsurance_treaty_layer_ri_agreement_id` FOREIGN KEY (`ri_agreement_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement`(`ri_agreement_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ADD CONSTRAINT `fk_reinsurance_treaty_layer_treaty_id` FOREIGN KEY (`treaty_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty`(`treaty_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ADD CONSTRAINT `fk_reinsurance_treaty_layer_parent_treaty_layer_id` FOREIGN KEY (`parent_treaty_layer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer`(`treaty_layer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ADD CONSTRAINT `fk_reinsurance_fac_agreement_reinsurer_id` FOREIGN KEY (`reinsurer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer`(`reinsurer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ADD CONSTRAINT `fk_reinsurance_fac_agreement_ri_agreement_id` FOREIGN KEY (`ri_agreement_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement`(`ri_agreement_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ADD CONSTRAINT `fk_reinsurance_reinsurer_parent_reinsurer_id` FOREIGN KEY (`parent_reinsurer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer`(`reinsurer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ADD CONSTRAINT `fk_reinsurance_ri_participant_reinsurer_id` FOREIGN KEY (`reinsurer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer`(`reinsurer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ADD CONSTRAINT `fk_reinsurance_ri_participant_ri_agreement_id` FOREIGN KEY (`ri_agreement_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement`(`ri_agreement_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ADD CONSTRAINT `fk_reinsurance_reinsurance_cession_fac_agreement_id` FOREIGN KEY (`fac_agreement_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement`(`fac_agreement_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ADD CONSTRAINT `fk_reinsurance_reinsurance_cession_ri_agreement_id` FOREIGN KEY (`ri_agreement_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement`(`ri_agreement_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ADD CONSTRAINT `fk_reinsurance_reinsurance_cession_treaty_layer_id` FOREIGN KEY (`treaty_layer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer`(`treaty_layer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ADD CONSTRAINT `fk_reinsurance_ri_premium_transaction_fac_agreement_id` FOREIGN KEY (`fac_agreement_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement`(`fac_agreement_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ADD CONSTRAINT `fk_reinsurance_ri_premium_transaction_original_transaction_id` FOREIGN KEY (`original_transaction_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction`(`ri_premium_transaction_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ADD CONSTRAINT `fk_reinsurance_ri_premium_transaction_reinsurance_cession_id` FOREIGN KEY (`reinsurance_cession_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession`(`reinsurance_cession_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ADD CONSTRAINT `fk_reinsurance_ri_premium_transaction_reinsurer_id` FOREIGN KEY (`reinsurer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer`(`reinsurer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ADD CONSTRAINT `fk_reinsurance_ri_premium_transaction_ri_agreement_id` FOREIGN KEY (`ri_agreement_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement`(`ri_agreement_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ADD CONSTRAINT `fk_reinsurance_ri_premium_transaction_treaty_layer_id` FOREIGN KEY (`treaty_layer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer`(`treaty_layer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ADD CONSTRAINT `fk_reinsurance_ri_claim_cession_fac_agreement_id` FOREIGN KEY (`fac_agreement_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement`(`fac_agreement_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ADD CONSTRAINT `fk_reinsurance_ri_claim_cession_reinsurer_id` FOREIGN KEY (`reinsurer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer`(`reinsurer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ADD CONSTRAINT `fk_reinsurance_ri_claim_cession_ri_agreement_id` FOREIGN KEY (`ri_agreement_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement`(`ri_agreement_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ADD CONSTRAINT `fk_reinsurance_ri_claim_cession_treaty_layer_id` FOREIGN KEY (`treaty_layer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer`(`treaty_layer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ADD CONSTRAINT `fk_reinsurance_ri_recovery_bordereaux_id` FOREIGN KEY (`bordereaux_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux`(`bordereaux_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ADD CONSTRAINT `fk_reinsurance_ri_recovery_fac_agreement_id` FOREIGN KEY (`fac_agreement_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement`(`fac_agreement_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ADD CONSTRAINT `fk_reinsurance_ri_recovery_reinsurer_id` FOREIGN KEY (`reinsurer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer`(`reinsurer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ADD CONSTRAINT `fk_reinsurance_ri_recovery_ri_agreement_id` FOREIGN KEY (`ri_agreement_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement`(`ri_agreement_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ADD CONSTRAINT `fk_reinsurance_ri_recovery_ri_claim_cession_id` FOREIGN KEY (`ri_claim_cession_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession`(`ri_claim_cession_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ADD CONSTRAINT `fk_reinsurance_bordereaux_fac_agreement_id` FOREIGN KEY (`fac_agreement_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement`(`fac_agreement_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ADD CONSTRAINT `fk_reinsurance_bordereaux_prior_bordereaux_id` FOREIGN KEY (`prior_bordereaux_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux`(`bordereaux_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ADD CONSTRAINT `fk_reinsurance_bordereaux_reinsurer_id` FOREIGN KEY (`reinsurer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer`(`reinsurer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ADD CONSTRAINT `fk_reinsurance_bordereaux_ri_agreement_id` FOREIGN KEY (`ri_agreement_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement`(`ri_agreement_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ADD CONSTRAINT `fk_reinsurance_bordereaux_treaty_id` FOREIGN KEY (`treaty_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty`(`treaty_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ADD CONSTRAINT `fk_reinsurance_reinsurance_bordereaux_line_bordereaux_id` FOREIGN KEY (`bordereaux_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux`(`bordereaux_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ADD CONSTRAINT `fk_reinsurance_reinsurance_bordereaux_line_reinsurance_cession_id` FOREIGN KEY (`reinsurance_cession_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession`(`reinsurance_cession_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ADD CONSTRAINT `fk_reinsurance_reinsurance_bordereaux_line_ri_agreement_id` FOREIGN KEY (`ri_agreement_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement`(`ri_agreement_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ADD CONSTRAINT `fk_reinsurance_ri_reinstatement_reinsurance_cession_id` FOREIGN KEY (`reinsurance_cession_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession`(`reinsurance_cession_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ADD CONSTRAINT `fk_reinsurance_ri_reinstatement_reinsurer_id` FOREIGN KEY (`reinsurer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer`(`reinsurer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ADD CONSTRAINT `fk_reinsurance_ri_reinstatement_ri_agreement_id` FOREIGN KEY (`ri_agreement_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement`(`ri_agreement_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ADD CONSTRAINT `fk_reinsurance_ri_reinstatement_treaty_id` FOREIGN KEY (`treaty_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty`(`treaty_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ADD CONSTRAINT `fk_reinsurance_ri_reinstatement_treaty_layer_id` FOREIGN KEY (`treaty_layer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer`(`treaty_layer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ADD CONSTRAINT `fk_reinsurance_ri_settlement_ri_agreement_id` FOREIGN KEY (`ri_agreement_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement`(`ri_agreement_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ADD CONSTRAINT `fk_reinsurance_ri_settlement_treaty_id` FOREIGN KEY (`treaty_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty`(`treaty_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ADD CONSTRAINT `fk_reinsurance_ri_settlement_treaty_layer_id` FOREIGN KEY (`treaty_layer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer`(`treaty_layer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ADD CONSTRAINT `fk_reinsurance_ri_collateral_fac_agreement_id` FOREIGN KEY (`fac_agreement_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement`(`fac_agreement_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ADD CONSTRAINT `fk_reinsurance_ri_collateral_reinsurer_id` FOREIGN KEY (`reinsurer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer`(`reinsurer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ADD CONSTRAINT `fk_reinsurance_ri_collateral_ri_agreement_id` FOREIGN KEY (`ri_agreement_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement`(`ri_agreement_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ADD CONSTRAINT `fk_reinsurance_ri_collateral_treaty_id` FOREIGN KEY (`treaty_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty`(`treaty_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ADD CONSTRAINT `fk_reinsurance_schedule_f_entry_reinsurer_id` FOREIGN KEY (`reinsurer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer`(`reinsurer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ADD CONSTRAINT `fk_reinsurance_schedule_f_entry_ri_agreement_id` FOREIGN KEY (`ri_agreement_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement`(`ri_agreement_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ADD CONSTRAINT `fk_reinsurance_schedule_f_entry_treaty_id` FOREIGN KEY (`treaty_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty`(`treaty_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer_peril_term` ADD CONSTRAINT `fk_reinsurance_treaty_layer_peril_term_treaty_layer_id` FOREIGN KEY (`treaty_layer_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer`(`treaty_layer_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`agreement_peril_coverage` ADD CONSTRAINT `fk_reinsurance_agreement_peril_coverage_ri_agreement_id` FOREIGN KEY (`ri_agreement_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement`(`ri_agreement_id`);
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_zone_terms` ADD CONSTRAINT `fk_reinsurance_treaty_zone_terms_treaty_id` FOREIGN KEY (`treaty_id`) REFERENCES `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty`(`treaty_id`);
 
 -- ========= TAGS =========
-ALTER SCHEMA `vibe_pc_insurance_v499`.`reinsurance` SET TAGS ('dbx_division' = 'operations');
-ALTER SCHEMA `vibe_pc_insurance_v499`.`reinsurance` SET TAGS ('dbx_domain' = 'reinsurance');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` SET TAGS ('dbx_data_type' = 'master_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` SET TAGS ('dbx_subdomain' = 'treaty_management');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `ri_treaty_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Treaty ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Treaty Currency Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `originating_agency_id` SET TAGS ('dbx_business_glossary_term' = 'Originating Agency Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `originating_agency_id` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `originating_agency_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Originating Producer Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `admitted_reinsurer_flag` SET TAGS ('dbx_business_glossary_term' = 'Admitted Reinsurer Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `admitted_reinsurer_flag` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `admitted_reinsurer_flag` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `aggregate_limit_amount` SET TAGS ('dbx_business_glossary_term' = 'Aggregate Limit Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `aggregate_limit_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `aggregate_retention_amount` SET TAGS ('dbx_business_glossary_term' = 'Aggregate Retention Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `aggregate_retention_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `am_best_rating` SET TAGS ('dbx_business_glossary_term' = 'A.M. Best Financial Strength Rating');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `am_best_rating` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `am_best_rating` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `bound_date` SET TAGS ('dbx_business_glossary_term' = 'Treaty Bound Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `broker_commission_pct` SET TAGS ('dbx_business_glossary_term' = 'Broker Commission Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `broker_commission_pct` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `broker_name` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Broker Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `broker_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `broker_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `cancellation_date` SET TAGS ('dbx_business_glossary_term' = 'Treaty Cancellation Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `cat_event_definition` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Event Definition');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `ceded_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Premium Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `ceded_premium_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `ceding_commission_pct` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `ceding_commission_pct` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `cession_percentage` SET TAGS ('dbx_business_glossary_term' = 'Cession Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `cession_percentage` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `cession_percentage` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `cession_percentage` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `collateral_amount` SET TAGS ('dbx_business_glossary_term' = 'Collateral Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `collateral_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `collateral_type` SET TAGS ('dbx_business_glossary_term' = 'Collateral Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `collateral_type` SET TAGS ('dbx_value_regex' = 'LETTER_OF_CREDIT|TRUST_FUND|FUNDS_WITHHELD|NONE');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `coverage_basis` SET TAGS ('dbx_business_glossary_term' = 'Coverage Basis');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `coverage_basis` SET TAGS ('dbx_value_regex' = 'LOSSES_OCCURRING|RISKS_ATTACHING|CLAIMS_MADE');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `coverage_basis` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `coverage_basis` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `deposit_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Deposit Premium Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `deposit_premium_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Treaty Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `expiry_date` SET TAGS ('dbx_business_glossary_term' = 'Treaty Expiry Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `funds_withheld_flag` SET TAGS ('dbx_business_glossary_term' = 'Funds Withheld Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `layer_number` SET TAGS ('dbx_business_glossary_term' = 'Layer Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `lead_reinsurer_name` SET TAGS ('dbx_business_glossary_term' = 'Lead Reinsurer Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `lead_reinsurer_name` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `lead_reinsurer_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `lead_reinsurer_share_pct` SET TAGS ('dbx_business_glossary_term' = 'Lead Reinsurer Share Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `lead_reinsurer_share_pct` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `lead_reinsurer_share_pct` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `lead_reinsurer_share_pct` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `limit_amount` SET TAGS ('dbx_business_glossary_term' = 'Treaty Limit Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `limit_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `loss_corridor_lower_pct` SET TAGS ('dbx_business_glossary_term' = 'Loss Corridor Lower Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `loss_corridor_lower_pct` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `loss_corridor_upper_pct` SET TAGS ('dbx_business_glossary_term' = 'Loss Corridor Upper Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `loss_corridor_upper_pct` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `minimum_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Minimum Premium Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `minimum_premium_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `naic_reinsurer_code` SET TAGS ('dbx_business_glossary_term' = 'National Association of Insurance Commissioners (NAIC) Reinsurer Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `naic_reinsurer_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `naic_reinsurer_code` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `naic_reinsurer_code` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `perils_covered` SET TAGS ('dbx_business_glossary_term' = 'Perils Covered');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `placement_type` SET TAGS ('dbx_business_glossary_term' = 'Placement Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `placement_type` SET TAGS ('dbx_value_regex' = 'TREATY|FACULTATIVE');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `pml_amount` SET TAGS ('dbx_business_glossary_term' = 'Probable Maximum Loss (PML) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `pml_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `profit_commission_pct` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `profit_commission_pct` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `profit_commission_threshold_pct` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Threshold Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `profit_commission_threshold_pct` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `program_name` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Program Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `program_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `program_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `rate_on_line_pct` SET TAGS ('dbx_business_glossary_term' = 'Rate on Line (ROL) Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `rate_on_line_pct` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `reinstatement_count` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Count');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `reinstatement_count` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `reinstatement_count` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `reinstatement_premium_pct` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Premium Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `reinstatement_premium_pct` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `reinstatement_premium_pct` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `reinstatement_premium_pct` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `retention_amount` SET TAGS ('dbx_business_glossary_term' = 'Retention Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `retention_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `retention_type` SET TAGS ('dbx_business_glossary_term' = 'Retention Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `retention_type` SET TAGS ('dbx_value_regex' = 'MONETARY|PERCENTAGE');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `subject_premium_basis` SET TAGS ('dbx_business_glossary_term' = 'Subject Premium Basis');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `subject_premium_basis` SET TAGS ('dbx_value_regex' = 'GWP|NWP|EP|WP');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `territory_scope` SET TAGS ('dbx_business_glossary_term' = 'Treaty Territory Scope');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `treaty_name` SET TAGS ('dbx_business_glossary_term' = 'Treaty Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `treaty_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `treaty_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `treaty_number` SET TAGS ('dbx_business_glossary_term' = 'Treaty Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `treaty_status` SET TAGS ('dbx_business_glossary_term' = 'Treaty Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `treaty_status` SET TAGS ('dbx_value_regex' = 'DRAFT|BOUND|ACTIVE|EXPIRED|CANCELLED|SUSPENDED');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `treaty_type` SET TAGS ('dbx_business_glossary_term' = 'Treaty Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_treaty` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` SET TAGS ('dbx_data_type' = 'master_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` SET TAGS ('dbx_subdomain' = 'treaty_management');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `fac_certificate_id` SET TAGS ('dbx_business_glossary_term' = 'Facultative (FAC) Certificate ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `insured_entity_id` SET TAGS ('dbx_business_glossary_term' = 'Cedant Party ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_business_glossary_term' = 'Coverage Policy Coverage Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Party ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `risk_unit_id` SET TAGS ('dbx_business_glossary_term' = 'Risk Exposure ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `accounting_period` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `accounting_period` SET TAGS ('dbx_value_regex' = '^[0-9]{4}-(0[1-9]|1[0-2])$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `accounting_period` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `accounting_period` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `authorized_reinsurer_flag` SET TAGS ('dbx_business_glossary_term' = 'Authorized Reinsurer Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `authorized_reinsurer_flag` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `authorized_reinsurer_flag` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `bordereaux_period` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Reporting Period');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `bordereaux_period` SET TAGS ('dbx_value_regex' = '^[0-9]{4}-(Q[1-4]|[0-9]{2})$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `bound_date` SET TAGS ('dbx_business_glossary_term' = 'Certificate Bound Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `cancellation_date` SET TAGS ('dbx_business_glossary_term' = 'Certificate Cancellation Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `cat_exposed_flag` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Exposed Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `ceded_alae_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Allocated Loss Adjustment Expense (ALAE) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `ceded_alae_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `ceded_limit_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Limit Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `ceded_limit_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `ceded_loss_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Loss Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `ceded_loss_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `ceded_retention_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Retention Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `ceded_retention_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `ceded_share_pct` SET TAGS ('dbx_business_glossary_term' = 'Ceded Share Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `ceded_share_pct` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `ceding_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `ceding_commission_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `ceding_commission_pct` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `ceding_commission_pct` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `certificate_number` SET TAGS ('dbx_business_glossary_term' = 'Facultative (FAC) Certificate Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `certificate_number` SET TAGS ('dbx_value_regex' = '^FAC-[A-Z0-9]{4,20}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `certificate_status` SET TAGS ('dbx_business_glossary_term' = 'Facultative Certificate Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `certificate_status` SET TAGS ('dbx_value_regex' = 'draft|bound|active|expired|cancelled|declined');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `collateral_amount` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Collateral Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `collateral_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `collateral_required_flag` SET TAGS ('dbx_business_glossary_term' = 'Collateral Required Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `collateral_type` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Collateral Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `collateral_type` SET TAGS ('dbx_value_regex' = 'trust_fund|letter_of_credit|funds_withheld|none');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `expiry_date` SET TAGS ('dbx_business_glossary_term' = 'Certificate Expiry Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `fac_type` SET TAGS ('dbx_business_glossary_term' = 'Facultative (FAC) Reinsurance Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `fac_type` SET TAGS ('dbx_value_regex' = 'proportional|non_proportional|quota_share|excess_of_loss|surplus');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `gross_ceded_premium` SET TAGS ('dbx_business_glossary_term' = 'Gross Ceded Premium');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `gross_ceded_premium` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `inception_date` SET TAGS ('dbx_business_glossary_term' = 'Certificate Inception Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `insured_name` SET TAGS ('dbx_business_glossary_term' = 'Insured Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `insured_name` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `insured_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `insured_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `net_ceded_premium` SET TAGS ('dbx_business_glossary_term' = 'Net Ceded Premium');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `net_ceded_premium` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `original_tiv` SET TAGS ('dbx_business_glossary_term' = 'Original Total Insured Value (TIV)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `original_tiv` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `placement_broker` SET TAGS ('dbx_business_glossary_term' = 'Facultative Placement Broker Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `pml_amount` SET TAGS ('dbx_business_glossary_term' = 'Probable Maximum Loss (PML) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `pml_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `recoverable_balance` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Recoverable Balance');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `recoverable_balance` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `risk_description` SET TAGS ('dbx_business_glossary_term' = 'Risk Description');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `rol_pct` SET TAGS ('dbx_business_glossary_term' = 'Rate on Line (ROL) Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `rol_pct` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `source_system_code` SET TAGS ('dbx_value_regex' = 'SICS|SAPIENS_RI|DUCK_CREEK|GUIDEWIRE|MANUAL');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `underwriter_name` SET TAGS ('dbx_business_glossary_term' = 'Underwriter (UW) Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `underwriter_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `underwriter_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Last Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `xol_attachment_point` SET TAGS ('dbx_business_glossary_term' = 'Excess of Loss (XOL) Attachment Point');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `xol_attachment_point` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `xol_exhaustion_point` SET TAGS ('dbx_business_glossary_term' = 'Excess of Loss (XOL) Exhaustion Point');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`fac_certificate` ALTER COLUMN `xol_exhaustion_point` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` SET TAGS ('dbx_data_type' = 'master_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` SET TAGS ('dbx_subdomain' = 'treaty_management');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `treaty_layer_id` SET TAGS ('dbx_business_glossary_term' = 'Treaty Layer ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Code (ISO 4217)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `insured_location_id` SET TAGS ('dbx_business_glossary_term' = 'Reference Location Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `ri_treaty_id` SET TAGS ('dbx_business_glossary_term' = 'Treaty ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `adjusted_premium` SET TAGS ('dbx_business_glossary_term' = 'Adjusted Premium');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `aggregate_annual_limit` SET TAGS ('dbx_business_glossary_term' = 'Aggregate Annual Limit');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `aggregate_deductible` SET TAGS ('dbx_business_glossary_term' = 'Aggregate Deductible');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `alae_included` SET TAGS ('dbx_business_glossary_term' = 'Allocated Loss Adjustment Expense (ALAE) Included Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `attachment_point` SET TAGS ('dbx_business_glossary_term' = 'Attachment Point');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `cat_event_limit` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Event Limit');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `ceding_commission_pct` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `cession_percentage` SET TAGS ('dbx_business_glossary_term' = 'Cession Percentage (QS)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `cession_percentage` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `cession_percentage` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `deposit_premium` SET TAGS ('dbx_business_glossary_term' = 'Deposit Premium');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Layer Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `exclusions_summary` SET TAGS ('dbx_business_glossary_term' = 'Layer Exclusions Summary');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `exhaustion_point` SET TAGS ('dbx_business_glossary_term' = 'Exhaustion Point');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `expiry_date` SET TAGS ('dbx_business_glossary_term' = 'Layer Expiry Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `hours_clause` SET TAGS ('dbx_business_glossary_term' = 'Hours Clause (CAT Event Window)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `index_base_year` SET TAGS ('dbx_business_glossary_term' = 'Index Base Year');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `index_clause` SET TAGS ('dbx_business_glossary_term' = 'Index Clause Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `lae_treatment` SET TAGS ('dbx_business_glossary_term' = 'Loss Adjustment Expense (LAE) Treatment');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `lae_treatment` SET TAGS ('dbx_value_regex' = 'INCLUDED|EXCLUDED|PRO_RATA');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `lae_treatment` SET TAGS ('dbx_restricted' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `lae_treatment` SET TAGS ('dbx_pii' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `layer_limit` SET TAGS ('dbx_business_glossary_term' = 'Layer Limit');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `layer_name` SET TAGS ('dbx_business_glossary_term' = 'Layer Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `layer_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `layer_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `layer_number` SET TAGS ('dbx_business_glossary_term' = 'Layer Sequence Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `layer_status` SET TAGS ('dbx_business_glossary_term' = 'Layer Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `layer_status` SET TAGS ('dbx_value_regex' = 'ACTIVE|INACTIVE|PENDING|EXPIRED|CANCELLED');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `layer_type` SET TAGS ('dbx_business_glossary_term' = 'Layer Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `layer_type` SET TAGS ('dbx_value_regex' = 'XOL|QS|CAT_XL|FAC|AGGREGATE_XL|CAT_BOND');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `loss_basis` SET TAGS ('dbx_business_glossary_term' = 'Loss Basis');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `loss_basis` SET TAGS ('dbx_value_regex' = 'OCCURRENCE|RISK|AGGREGATE|CLAIMS_MADE');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `max_ceding_commission_pct` SET TAGS ('dbx_business_glossary_term' = 'Maximum Ceding Commission Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `min_ceding_commission_pct` SET TAGS ('dbx_business_glossary_term' = 'Minimum Ceding Commission Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `minimum_premium` SET TAGS ('dbx_business_glossary_term' = 'Minimum Premium');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `occurrence_limit` SET TAGS ('dbx_business_glossary_term' = 'Occurrence Limit');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `pml_basis` SET TAGS ('dbx_business_glossary_term' = 'Probable Maximum Loss (PML) Basis');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `pml_basis` SET TAGS ('dbx_value_regex' = 'PML|TIV|EML|MFL');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `profit_commission_pct` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `reinstatement_count` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Count');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `reinstatement_count` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `reinstatement_count` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `reinstatement_premium_pct` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Premium Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `reinstatement_premium_pct` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `reinstatement_premium_pct` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `reinsurance_premium` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Premium');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `reinsurance_premium` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `reinsurance_premium` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `rol` SET TAGS ('dbx_business_glossary_term' = 'Rate on Line (ROL)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `signed_line_pct` SET TAGS ('dbx_business_glossary_term' = 'Signed Line Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `sliding_scale_commission` SET TAGS ('dbx_business_glossary_term' = 'Sliding Scale Commission Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `subject_premium_basis` SET TAGS ('dbx_business_glossary_term' = 'Subject Premium Basis');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `subject_premium_basis` SET TAGS ('dbx_value_regex' = 'GWP|NWP|EP|WP');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `territorial_scope` SET TAGS ('dbx_business_glossary_term' = 'Territorial Scope');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `treaty_year` SET TAGS ('dbx_business_glossary_term' = 'Treaty Year');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `written_line_pct` SET TAGS ('dbx_business_glossary_term' = 'Written Line Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` SET TAGS ('dbx_data_type' = 'master_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` SET TAGS ('dbx_subdomain' = 'treaty_management');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `am_best_outlook` SET TAGS ('dbx_business_glossary_term' = 'A.M. Best Rating Outlook');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `am_best_outlook` SET TAGS ('dbx_value_regex' = 'stable|positive|negative|developing|under_review');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `am_best_rating` SET TAGS ('dbx_business_glossary_term' = 'A.M. Best Financial Strength Rating');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `am_best_rating` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `am_best_rating` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `am_best_rating_date` SET TAGS ('dbx_business_glossary_term' = 'A.M. Best Rating Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `am_best_rating_date` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `am_best_rating_date` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `approved_lob_list` SET TAGS ('dbx_business_glossary_term' = 'Approved Line of Business (LOB) List');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `authorized_status` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Authorized Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `authorized_status` SET TAGS ('dbx_value_regex' = 'authorized|unauthorized|certified|accredited|suspended');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `bank_account_reference` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Bank Account Reference');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `bank_account_reference` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `bank_account_reference` SET TAGS ('dbx_pii_financial' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `claims_contact_email` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Claims Contact Email');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `claims_contact_email` SET TAGS ('dbx_value_regex' = '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `claims_contact_email` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `claims_contact_email` SET TAGS ('dbx_pii_email' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `class` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Class');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `class` SET TAGS ('dbx_value_regex' = 'professional|captive|government|lloyd_syndicate|pool');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `collateral_type` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Collateral Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `collateral_type` SET TAGS ('dbx_value_regex' = 'none|letter_of_credit|trust_fund|funds_withheld|cash_deposit');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `counterparty_type` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Counterparty Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `counterparty_type` SET TAGS ('dbx_value_regex' = 'reinsurer|retrocessionaire|captive|pool|syndicate|fronting_carrier');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `credit_limit_currency` SET TAGS ('dbx_business_glossary_term' = 'Credit Limit Currency');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `credit_limit_currency` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `credit_limit_usd` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Credit Limit (USD)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `credit_limit_usd` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `domicile_country` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Domicile Country');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `domicile_country` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `domicile_state` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Domicile State');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `domicile_state` SET TAGS ('dbx_value_regex' = '^[A-Z]{2}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `fein` SET TAGS ('dbx_business_glossary_term' = 'Federal Employer Identification Number (FEIN)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `fein` SET TAGS ('dbx_value_regex' = '^[0-9]{2}-[0-9]{7}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `fein` SET TAGS ('dbx_restricted' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `fein` SET TAGS ('dbx_pii_identifier' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `funds_withheld_eligible` SET TAGS ('dbx_business_glossary_term' = 'Funds Withheld Eligible Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `last_review_date` SET TAGS ('dbx_business_glossary_term' = 'Last Counterparty Review Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `legal_name` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Legal Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `legal_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `legal_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `lifecycle_status` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Lifecycle Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `lifecycle_status` SET TAGS ('dbx_value_regex' = 'active|inactive|suspended|under_review|terminated');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `lloyds_syndicate_number` SET TAGS ('dbx_business_glossary_term' = 'Lloyds Syndicate Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `loc_required` SET TAGS ('dbx_business_glossary_term' = 'Letter of Credit (LOC) Required Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `max_single_risk_limit_usd` SET TAGS ('dbx_business_glossary_term' = 'Maximum Single Risk Limit (USD)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `max_single_risk_limit_usd` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `naic_code` SET TAGS ('dbx_business_glossary_term' = 'National Association of Insurance Commissioners (NAIC) Company Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `naic_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `naic_group_code` SET TAGS ('dbx_business_glossary_term' = 'NAIC Group Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `naic_group_code` SET TAGS ('dbx_value_regex' = '^[0-9]{4,5}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `next_review_date` SET TAGS ('dbx_business_glossary_term' = 'Next Counterparty Review Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `onboarding_date` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Onboarding Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `parent_group_name` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Parent Group Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `parent_group_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `parent_group_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `preferred_settlement_currency` SET TAGS ('dbx_business_glossary_term' = 'Preferred Settlement Currency');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `preferred_settlement_currency` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `primary_contact_email` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Primary Contact Email');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `primary_contact_email` SET TAGS ('dbx_value_regex' = '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `primary_contact_email` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `primary_contact_email` SET TAGS ('dbx_pii_email' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `primary_contact_name` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Primary Contact Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `primary_contact_name` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `primary_contact_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `primary_contact_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `primary_contact_phone` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Primary Contact Phone');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `primary_contact_phone` SET TAGS ('dbx_value_regex' = '^+?[0-9s-().]{7,20}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `primary_contact_phone` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `primary_contact_phone` SET TAGS ('dbx_pii_phone' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `registered_address_city` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Registered Address City');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `registered_address_city` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `registered_address_city` SET TAGS ('dbx_pii_address' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `registered_address_country` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Registered Address Country');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `registered_address_country` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `registered_address_country` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `registered_address_country` SET TAGS ('dbx_pii_address' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `registered_address_line1` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Registered Address Line 1');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `registered_address_line1` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `registered_address_line1` SET TAGS ('dbx_pii_address' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `sanctions_screen_date` SET TAGS ('dbx_business_glossary_term' = 'Sanctions Screening Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `sanctions_screened` SET TAGS ('dbx_business_glossary_term' = 'Sanctions Screening Completed Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `settlement_terms_days` SET TAGS ('dbx_business_glossary_term' = 'Settlement Terms (Days)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `sp_rating` SET TAGS ('dbx_business_glossary_term' = 'S&P Global Financial Strength Rating');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `sp_rating` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `sp_rating` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `sp_rating_date` SET TAGS ('dbx_business_glossary_term' = 'S&P Rating Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `sp_rating_date` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `sp_rating_date` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `swift_bic_code` SET TAGS ('dbx_business_glossary_term' = 'SWIFT Bank Identifier Code (BIC)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `swift_bic_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}([A-Z0-9]{3})?$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `swift_bic_code` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `swift_bic_code` SET TAGS ('dbx_pii_category' = 'financial');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `swift_bic_code` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `trading_name` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Trading Name (DBA)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `trading_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `trading_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `trust_fund_eligible` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Trust Fund Eligible Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Last Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` SET TAGS ('dbx_data_type' = 'association_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` SET TAGS ('dbx_subdomain' = 'treaty_management');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `treaty_reinsurer_id` SET TAGS ('dbx_business_glossary_term' = 'Treaty Reinsurer ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `treaty_reinsurer_id` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `treaty_reinsurer_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `assumed_reinsurer_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `assumed_reinsurer_id` SET TAGS ('dbx_business_role' = 'assumed_reinsurer');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `assumed_reinsurer_id` SET TAGS ('dbx_renamed_from' = 'reinsurer_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `assumed_reinsurer_id` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `assumed_reinsurer_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `ri_broker_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Broker ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `ri_treaty_id` SET TAGS ('dbx_business_glossary_term' = 'Treaty ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `treaty_replacement_reinsurer_id` SET TAGS ('dbx_business_glossary_term' = 'Replacement Reinsurer ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `treaty_replacement_reinsurer_id` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `treaty_replacement_reinsurer_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `am_best_rating` SET TAGS ('dbx_business_glossary_term' = 'A.M. Best Financial Strength Rating');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `am_best_rating` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `am_best_rating` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `brokerage_commission_pct` SET TAGS ('dbx_business_glossary_term' = 'Brokerage Commission Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `brokerage_commission_pct` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `brokerage_commission_pct` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `brokerage_commission_pct` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `ceded_lae_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Loss Adjustment Expense (LAE) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `ceded_lae_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `ceded_loss_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Loss Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `ceded_loss_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `ceded_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Premium Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `ceded_premium_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `collateral_held_amount` SET TAGS ('dbx_business_glossary_term' = 'Collateral Held Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `collateral_held_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `collateral_required_amount` SET TAGS ('dbx_business_glossary_term' = 'Collateral Required Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `collateral_required_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `collateral_type` SET TAGS ('dbx_business_glossary_term' = 'Collateral Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `collateral_type` SET TAGS ('dbx_value_regex' = 'letter_of_credit|trust_fund|funds_withheld|cash_deposit|other');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `currency_code` SET TAGS ('dbx_business_glossary_term' = 'Treaty Currency Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `currency_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `domicile_country_code` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Domicile Country Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `domicile_country_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Participation Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `expiry_date` SET TAGS ('dbx_business_glossary_term' = 'Participation Expiry Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `funds_withheld_amount` SET TAGS ('dbx_business_glossary_term' = 'Funds Withheld Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `funds_withheld_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `is_authorized_reinsurer` SET TAGS ('dbx_business_glossary_term' = 'Authorized Reinsurer Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `is_authorized_reinsurer` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `is_authorized_reinsurer` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `is_certified_reinsurer` SET TAGS ('dbx_business_glossary_term' = 'Certified Reinsurer Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `is_certified_reinsurer` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `is_certified_reinsurer` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `is_lead_reinsurer` SET TAGS ('dbx_business_glossary_term' = 'Lead Reinsurer Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `is_lead_reinsurer` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `is_lead_reinsurer` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `naic_reinsurer_code` SET TAGS ('dbx_business_glossary_term' = 'NAIC Reinsurer Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `naic_reinsurer_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `naic_reinsurer_code` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `naic_reinsurer_code` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `offered_line_pct` SET TAGS ('dbx_business_glossary_term' = 'Offered Line Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `order_hereon_pct` SET TAGS ('dbx_business_glossary_term' = 'Order Hereon Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `panel_sequence` SET TAGS ('dbx_business_glossary_term' = 'Panel Sequence Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `participation_notes` SET TAGS ('dbx_business_glossary_term' = 'Participation Notes');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `participation_reference` SET TAGS ('dbx_business_glossary_term' = 'Participation Reference Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `participation_status` SET TAGS ('dbx_business_glossary_term' = 'Participation Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `participation_status` SET TAGS ('dbx_value_regex' = 'active|signed|withdrawn|pending|cancelled|suspended');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `profit_commission_pct` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `profit_commission_pct` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `rating_as_of_date` SET TAGS ('dbx_business_glossary_term' = 'Rating As-Of Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `rating_as_of_date` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `rating_as_of_date` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `recoverable_balance` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Recoverable Balance');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `recoverable_balance` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `reinsurance_commission_pct` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Commission Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `reinsurance_commission_pct` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `reinsurance_commission_pct` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `reinsurance_commission_pct` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `reinsurer_role` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Role');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `reinsurer_role` SET TAGS ('dbx_value_regex' = 'lead|follow|co-reinsurer|fronting|security');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `reinsurer_role` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `reinsurer_role` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `signed_line_pct` SET TAGS ('dbx_business_glossary_term' = 'Signed Line Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `signing_date` SET TAGS ('dbx_business_glossary_term' = 'Signing Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `sliding_scale_max_commission_pct` SET TAGS ('dbx_business_glossary_term' = 'Sliding Scale Maximum Commission Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `sliding_scale_max_commission_pct` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `sliding_scale_min_commission_pct` SET TAGS ('dbx_business_glossary_term' = 'Sliding Scale Minimum Commission Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `sliding_scale_min_commission_pct` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `sp_rating` SET TAGS ('dbx_business_glossary_term' = 'S&P Financial Strength Rating');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `sp_rating` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `sp_rating` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `subscribed_share_pct` SET TAGS ('dbx_business_glossary_term' = 'Subscribed Share Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `withdrawal_date` SET TAGS ('dbx_business_glossary_term' = 'Withdrawal Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `withdrawal_reason` SET TAGS ('dbx_business_glossary_term' = 'Withdrawal Reason');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `withdrawal_reason` SET TAGS ('dbx_value_regex' = 'capacity_reduction|credit_downgrade|market_exit|cedant_request|regulatory|other');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`treaty_reinsurer` ALTER COLUMN `written_line_pct` SET TAGS ('dbx_business_glossary_term' = 'Written Line Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` SET TAGS ('dbx_data_type' = 'transactional_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` SET TAGS ('dbx_subdomain' = 'cession_processing');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurance_cession_id` SET TAGS ('dbx_business_glossary_term' = 'Cession ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurance_cession_id` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurance_cession_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `bordereaux_id` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Code (ISO 4217)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `fac_certificate_id` SET TAGS ('dbx_business_glossary_term' = 'Fac Certificate Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `insured_location_id` SET TAGS ('dbx_business_glossary_term' = 'Insured Location Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_business_glossary_term' = 'Coverage Policy Coverage Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Party ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ri_treaty_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Treaty ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `risk_unit_id` SET TAGS ('dbx_business_glossary_term' = 'Risk Exposure ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `treaty_layer_id` SET TAGS ('dbx_business_glossary_term' = 'Treaty Layer Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `am_best_rating` SET TAGS ('dbx_business_glossary_term' = 'A.M. Best Financial Strength Rating');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `am_best_rating` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `am_best_rating` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `attachment_point` SET TAGS ('dbx_business_glossary_term' = 'Attachment Point');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `attachment_point` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `basis` SET TAGS ('dbx_business_glossary_term' = 'Cession Basis');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `basis` SET TAGS ('dbx_value_regex' = 'risks_attaching|losses_occurring|claims_made');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `cat_event_code` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Event Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_alae` SET TAGS ('dbx_business_glossary_term' = 'Ceded Allocated Loss Adjustment Expense (ALAE)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_alae` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_earned_premium` SET TAGS ('dbx_business_glossary_term' = 'Ceded Earned Premium (CEP)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_earned_premium` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_ibnr` SET TAGS ('dbx_business_glossary_term' = 'Ceded Incurred But Not Reported (IBNR)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_ibnr` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_limit` SET TAGS ('dbx_business_glossary_term' = 'Ceded Limit');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_limit` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_loss_paid` SET TAGS ('dbx_business_glossary_term' = 'Ceded Loss Paid');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_loss_paid` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_loss_reserve` SET TAGS ('dbx_business_glossary_term' = 'Ceded Loss Reserve');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_loss_reserve` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_share_pct` SET TAGS ('dbx_business_glossary_term' = 'Ceded Share Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_tiv` SET TAGS ('dbx_business_glossary_term' = 'Ceded Total Insured Value (TIV)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_tiv` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_unearned_premium` SET TAGS ('dbx_business_glossary_term' = 'Ceded Unearned Premium (CUEP)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_unearned_premium` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_written_premium` SET TAGS ('dbx_business_glossary_term' = 'Ceded Written Premium (CWP)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_written_premium` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceding_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceding_commission_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceding_commission_pct` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceding_commission_pct` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `collateral_amount` SET TAGS ('dbx_business_glossary_term' = 'Collateral Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `collateral_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `collateral_required` SET TAGS ('dbx_business_glossary_term' = 'Collateral Required Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Cession Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `endorsement_reference` SET TAGS ('dbx_business_glossary_term' = 'Policy Endorsement (ENDT) Reference');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `expiry_date` SET TAGS ('dbx_business_glossary_term' = 'Cession Expiry Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `gross_written_premium` SET TAGS ('dbx_business_glossary_term' = 'Gross Written Premium (GWP)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `gross_written_premium` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `is_retrocession` SET TAGS ('dbx_business_glossary_term' = 'Retrocession Indicator');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `naic_company_code` SET TAGS ('dbx_business_glossary_term' = 'National Association of Insurance Commissioners (NAIC) Company Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `naic_company_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `number` SET TAGS ('dbx_business_glossary_term' = 'Cession Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `number` SET TAGS ('dbx_value_regex' = '^CES-[0-9]{4}-[0-9]{8}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `placement_type` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Placement Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `placement_type` SET TAGS ('dbx_value_regex' = 'treaty|facultative');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `profit_commission_pct` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `profit_commission_pct` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `rate_on_line_pct` SET TAGS ('dbx_business_glossary_term' = 'Rate on Line (ROL) Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `rate_on_line_pct` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinstatement_premium` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Premium');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinstatement_premium` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinstatement_premium` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinstatement_premium` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurance_cession_date` SET TAGS ('dbx_business_glossary_term' = 'Cession Transaction Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurance_cession_date` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurance_cession_date` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurance_cession_status` SET TAGS ('dbx_business_glossary_term' = 'Cession Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurance_cession_status` SET TAGS ('dbx_value_regex' = 'draft|active|amended|cancelled|expired|settled');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurance_cession_status` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurance_cession_status` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurance_cession_type` SET TAGS ('dbx_business_glossary_term' = 'Cession Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurance_cession_type` SET TAGS ('dbx_value_regex' = 'pro_rata|excess_of_loss|facultative|cat_xl|cat_bond');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurance_cession_type` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurance_cession_type` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurance_recoverable` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Recoverable Balance');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurance_recoverable` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurance_recoverable` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurance_recoverable` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `retention_amount` SET TAGS ('dbx_business_glossary_term' = 'Retention Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `retention_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Last Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` SET TAGS ('dbx_data_type' = 'association_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` SET TAGS ('dbx_subdomain' = 'cession_processing');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `policy_cession_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Cession ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `endorsement_id` SET TAGS ('dbx_business_glossary_term' = 'Endorsement ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `fac_certificate_id` SET TAGS ('dbx_business_glossary_term' = 'Fac Certificate Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_business_glossary_term' = 'Coverage Policy Coverage Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `reinsurance_cession_id` SET TAGS ('dbx_business_glossary_term' = 'Cession ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `reinsurance_cession_id` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `reinsurance_cession_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `ri_treaty_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Treaty ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `attachment_point` SET TAGS ('dbx_business_glossary_term' = 'Attachment Point');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `bordereaux_included` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Included Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `bordereaux_period` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Reporting Period');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `bordereaux_period` SET TAGS ('dbx_value_regex' = '^d{4}-(0[1-9]|1[0-2])$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `cancellation_date` SET TAGS ('dbx_business_glossary_term' = 'Cession Cancellation Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `cancellation_reason` SET TAGS ('dbx_business_glossary_term' = 'Cession Cancellation Reason');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `cancellation_reason` SET TAGS ('dbx_value_regex' = 'POLICY_CANCELLED|TREATY_TERMINATED|ENDORSEMENT|REUNDERWRITING|ERROR_CORRECTION');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `cat_event_code` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Event Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `ceded_alae` SET TAGS ('dbx_business_glossary_term' = 'Ceded Allocated Loss Adjustment Expense (ALAE)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `ceded_ibnr` SET TAGS ('dbx_business_glossary_term' = 'Ceded Incurred But Not Reported (IBNR)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `ceded_limit_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Limit Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `ceded_loss_paid` SET TAGS ('dbx_business_glossary_term' = 'Ceded Loss Paid');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `ceded_loss_reserve` SET TAGS ('dbx_business_glossary_term' = 'Ceded Loss Reserve');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `ceded_premium_earned` SET TAGS ('dbx_business_glossary_term' = 'Ceded Earned Premium (EP)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `ceded_premium_written` SET TAGS ('dbx_business_glossary_term' = 'Ceded Written Premium (WP)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `ceded_share_pct` SET TAGS ('dbx_business_glossary_term' = 'Ceded Share Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `ceded_unearned_premium` SET TAGS ('dbx_business_glossary_term' = 'Ceded Unearned Premium (UEP)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `ceding_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `ceding_commission_pct` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `cession_reference_number` SET TAGS ('dbx_business_glossary_term' = 'Cession Reference Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Cession Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `exhaustion_point` SET TAGS ('dbx_business_glossary_term' = 'Exhaustion Point');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Cession Expiration Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `net_written_premium` SET TAGS ('dbx_business_glossary_term' = 'Net Written Premium (NWP)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `policy_term_type` SET TAGS ('dbx_business_glossary_term' = 'Policy Term Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `policy_term_type` SET TAGS ('dbx_value_regex' = 'NB|REN|ENDT|CANC|REINSTATE');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `profit_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `reinstatement_premium` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Premium');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `reinstatement_premium` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `reinstatement_premium` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `reinsurance_recoverable` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Recoverable Balance');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `reinsurance_recoverable` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `reinsurance_recoverable` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `reinsurer_share_pct` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Participation Share Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `reinsurer_share_pct` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `reinsurer_share_pct` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `retention_amount` SET TAGS ('dbx_business_glossary_term' = 'Retention Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `source_system_code` SET TAGS ('dbx_value_regex' = 'SICS|SAPIENS_RI|GUIDEWIRE_PC|DUCK_CREEK|MANUAL');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `tiv_ceded` SET TAGS ('dbx_business_glossary_term' = 'Total Insured Value Ceded (TIV)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`policy_cession` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Last Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` SET TAGS ('dbx_data_type' = 'transactional_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` SET TAGS ('dbx_subdomain' = 'cession_processing');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `bordereaux_id` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Code (ISO 4217)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `fac_certificate_id` SET TAGS ('dbx_business_glossary_term' = 'Fac Certificate Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `prior_bordereaux_id` SET TAGS ('dbx_business_glossary_term' = 'Prior Bordereaux ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Party ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `ri_treaty_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Treaty ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `accounting_period` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `accounting_period` SET TAGS ('dbx_value_regex' = '^[0-9]{4}-(Q[1-4]|M(0[1-9]|1[0-2]))$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `accounting_period` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `accounting_period` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `acknowledgement_date` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Acknowledgement Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `authorized_reinsurer_flag` SET TAGS ('dbx_business_glossary_term' = 'Authorized Reinsurer Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `authorized_reinsurer_flag` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `authorized_reinsurer_flag` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `bordereaux_type` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `bordereaux_type` SET TAGS ('dbx_value_regex' = 'premium|loss|combined|adjustment');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `cat_event_code` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Event Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `cat_exposed_flag` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Exposed Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `ceded_alae_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Allocated Loss Adjustment Expense (ALAE) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `ceded_alae_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `ceded_ibnr_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Incurred But Not Reported (IBNR) Reserve Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `ceded_ibnr_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `ceded_loss_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Loss Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `ceded_loss_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `ceded_premium_adjustment` SET TAGS ('dbx_business_glossary_term' = 'Ceded Premium Adjustment Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `ceded_premium_adjustment` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `ceded_share_pct` SET TAGS ('dbx_business_glossary_term' = 'Ceded Share Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `ceded_tiv` SET TAGS ('dbx_business_glossary_term' = 'Ceded Total Insured Value (TIV)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `ceded_tiv` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `ceded_ulae_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Unallocated Loss Adjustment Expense (ULAE) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `ceded_ulae_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `ceding_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `ceding_commission_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `claim_count` SET TAGS ('dbx_business_glossary_term' = 'Ceded Claim Count');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `due_date` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Due Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `experience_refund_amount` SET TAGS ('dbx_business_glossary_term' = 'Experience Refund Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `experience_refund_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `gross_ceded_premium` SET TAGS ('dbx_business_glossary_term' = 'Gross Ceded Premium (GWP Ceded)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `gross_ceded_premium` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `net_ceded_premium` SET TAGS ('dbx_business_glossary_term' = 'Net Ceded Premium (NWP Ceded)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `net_ceded_premium` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `number` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Reference Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `number` SET TAGS ('dbx_value_regex' = '^BDX-[0-9]{4}-[0-9]{6}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `placement_broker` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Placement Broker');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `policy_count` SET TAGS ('dbx_business_glossary_term' = 'Ceded Policy Count');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `profit_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `profit_commission_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `recoverable_balance` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Recoverable Balance');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `recoverable_balance` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `remarks` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Remarks');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `reporting_period_end_date` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Reporting Period End Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `reporting_period_end_date` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `reporting_period_end_date` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `reporting_period_start_date` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Reporting Period Start Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `reporting_period_start_date` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `reporting_period_start_date` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `retention_amount` SET TAGS ('dbx_business_glossary_term' = 'Cedant Retention Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `retention_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `submission_date` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Submission Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `submission_format` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Submission Format');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `submission_format` SET TAGS ('dbx_value_regex' = 'ACORD|CSV|XML|XLSX|PDF');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `submission_method` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Submission Method');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `submission_method` SET TAGS ('dbx_value_regex' = 'electronic|portal|email|paper');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `submission_status` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Submission Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `submission_status` SET TAGS ('dbx_value_regex' = 'draft|submitted|acknowledged|disputed|accepted|voided');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `treaty_type` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Treaty Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `treaty_type` SET TAGS ('dbx_value_regex' = 'QS|XOL|CAT_XL|surplus|FAC');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `treaty_year` SET TAGS ('dbx_business_glossary_term' = 'Treaty Year');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Last Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `version_number` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Version Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` SET TAGS ('dbx_data_type' = 'transactional_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` SET TAGS ('dbx_subdomain' = 'cession_processing');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `bordereaux_line_id` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Line ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `bordereaux_id` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Header ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `claim_id` SET TAGS ('dbx_business_glossary_term' = 'Claim ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Code (ISO 4217)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `fac_certificate_id` SET TAGS ('dbx_business_glossary_term' = 'Facultative (FAC) Certificate ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `insured_location_id` SET TAGS ('dbx_business_glossary_term' = 'Insured Location Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_business_glossary_term' = 'Coverage Policy Coverage Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `reinsurance_cession_id` SET TAGS ('dbx_business_glossary_term' = 'Cession Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `reinsurance_cession_id` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `reinsurance_cession_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `ri_treaty_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Treaty ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `cat_event_code` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Event Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `cat_exposed_flag` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Exposed Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `ceded_alae_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Allocated Loss Adjustment Expense (ALAE) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `ceded_alae_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `ceded_earned_premium` SET TAGS ('dbx_business_glossary_term' = 'Ceded Earned Premium (CEP)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `ceded_earned_premium` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `ceded_limit_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Limit Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `ceded_loss_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Loss Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `ceded_loss_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `ceded_share_pct` SET TAGS ('dbx_business_glossary_term' = 'Ceded Share Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `ceded_ulae_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Unallocated Loss Adjustment Expense (ULAE) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `ceded_ulae_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `ceded_written_premium` SET TAGS ('dbx_business_glossary_term' = 'Ceded Written Premium (CWP)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `ceded_written_premium` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `ceding_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `ceding_commission_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `ceding_commission_pct` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `certificate_number` SET TAGS ('dbx_business_glossary_term' = 'Facultative (FAC) Certificate Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `coverage_type` SET TAGS ('dbx_business_glossary_term' = 'Coverage Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `coverage_type` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `coverage_type` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `date_of_loss` SET TAGS ('dbx_business_glossary_term' = 'Date of Loss (DOL)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `dispute_reason` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Line Dispute Reason');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `gross_written_premium` SET TAGS ('dbx_business_glossary_term' = 'Gross Written Premium (GWP)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `gross_written_premium` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `insured_name` SET TAGS ('dbx_business_glossary_term' = 'Insured Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `insured_name` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `insured_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `insured_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `line_number` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Line Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `line_status` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Line Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `line_status` SET TAGS ('dbx_value_regex' = 'DRAFT|SUBMITTED|ACCEPTED|DISPUTED|SETTLED|VOIDED');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `line_type` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Line Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `line_type` SET TAGS ('dbx_value_regex' = 'PREMIUM|CLAIM|ADJUSTMENT|REINSTATEMENT|RETURN_PREMIUM');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `net_ceded_premium` SET TAGS ('dbx_business_glossary_term' = 'Net Ceded Premium (NCP)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `net_ceded_premium` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `original_tiv` SET TAGS ('dbx_business_glossary_term' = 'Total Insured Value (TIV)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `original_tiv` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `policy_expiry_date` SET TAGS ('dbx_business_glossary_term' = 'Policy Expiry Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `policy_inception_date` SET TAGS ('dbx_business_glossary_term' = 'Policy Inception Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `recoverable_balance` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Recoverable Balance');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `recoverable_balance` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `reinstatement_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Premium Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `reinstatement_premium_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `reinstatement_premium_amount` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `reinstatement_premium_amount` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `report_period_end_date` SET TAGS ('dbx_business_glossary_term' = 'Report Period End Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `report_period_start_date` SET TAGS ('dbx_business_glossary_term' = 'Report Period Start Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `retention_amount` SET TAGS ('dbx_business_glossary_term' = 'Cedant Retention Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `risk_description` SET TAGS ('dbx_business_glossary_term' = 'Risk Description');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `risk_expiry_date` SET TAGS ('dbx_business_glossary_term' = 'Risk Expiry Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `risk_inception_date` SET TAGS ('dbx_business_glossary_term' = 'Risk Inception Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `settlement_date` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Line Settlement Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `xol_attachment_point` SET TAGS ('dbx_business_glossary_term' = 'Excess of Loss (XOL) Attachment Point');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`bordereaux_line` ALTER COLUMN `xol_exhaustion_point` SET TAGS ('dbx_business_glossary_term' = 'Excess of Loss (XOL) Exhaustion Point');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` SET TAGS ('dbx_data_type' = 'transactional_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` SET TAGS ('dbx_subdomain' = 'cession_processing');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `ceded_premium_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Ceded Premium Transaction ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `fac_certificate_id` SET TAGS ('dbx_business_glossary_term' = 'Facultative (FAC) Certificate ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `reinsurance_cession_id` SET TAGS ('dbx_business_glossary_term' = 'Cession Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `reinsurance_cession_id` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `reinsurance_cession_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Party ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `reversed_transaction_ceded_premium_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Reversed Transaction ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `ri_treaty_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Treaty ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `accounting_period_end_date` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period End Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `accounting_period_end_date` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `accounting_period_end_date` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `accounting_period_start_date` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period Start Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `accounting_period_start_date` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `accounting_period_start_date` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `adjustment_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Adjustment Premium Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `adjustment_premium_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `authorized_reinsurer_flag` SET TAGS ('dbx_business_glossary_term' = 'Authorized Reinsurer Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `authorized_reinsurer_flag` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `authorized_reinsurer_flag` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `bordereaux_reference` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Reference Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `cat_event_code` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Event Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `ceding_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `ceding_commission_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `cession_pct` SET TAGS ('dbx_business_glossary_term' = 'Cession Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `cession_type` SET TAGS ('dbx_business_glossary_term' = 'Cession Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `cession_type` SET TAGS ('dbx_value_regex' = 'treaty|facultative|facultative_obligatory');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `dac_ceded_amount` SET TAGS ('dbx_business_glossary_term' = 'Deferred Acquisition Cost (DAC) Ceded Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `dac_ceded_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `deposit_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Deposit Premium Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `deposit_premium_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `earned_premium_ceded_amount` SET TAGS ('dbx_business_glossary_term' = 'Earned Premium (EP) Ceded Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `earned_premium_ceded_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `gl_account_code` SET TAGS ('dbx_business_glossary_term' = 'General Ledger (GL) Account Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `gwp_ceded_amount` SET TAGS ('dbx_business_glossary_term' = 'Gross Written Premium (GWP) Ceded Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `gwp_ceded_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `layer_number` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Layer Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `nwp_ceded_amount` SET TAGS ('dbx_business_glossary_term' = 'Net Written Premium (NWP) Ceded Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `nwp_ceded_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `policy_effective_date` SET TAGS ('dbx_business_glossary_term' = 'Policy Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `policy_expiry_date` SET TAGS ('dbx_business_glossary_term' = 'Policy Expiry Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `profit_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `profit_commission_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `reinstatement_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Premium Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `reinstatement_premium_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `reinstatement_premium_amount` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `reinstatement_premium_amount` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `reversal_flag` SET TAGS ('dbx_business_glossary_term' = 'Reversal Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `rol_pct` SET TAGS ('dbx_business_glossary_term' = 'Rate on Line (ROL) Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `settlement_date` SET TAGS ('dbx_business_glossary_term' = 'Settlement Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `settlement_due_date` SET TAGS ('dbx_business_glossary_term' = 'Settlement Due Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `settlement_status` SET TAGS ('dbx_business_glossary_term' = 'Settlement Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `settlement_status` SET TAGS ('dbx_value_regex' = 'pending|submitted|agreed|paid|disputed');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `source_system_code` SET TAGS ('dbx_value_regex' = 'SICS|ReinsuranceMaster|Guidewire|DuckCreek|Manual');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `source_transaction_reference` SET TAGS ('dbx_business_glossary_term' = 'Source Transaction Reference');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `subject_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Subject Premium Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `subject_premium_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `transaction_date` SET TAGS ('dbx_business_glossary_term' = 'Ceded Premium Transaction Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `transaction_number` SET TAGS ('dbx_business_glossary_term' = 'Ceded Premium Transaction Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `transaction_number` SET TAGS ('dbx_value_regex' = '^CPT-[0-9]{4}-[0-9]{8}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `transaction_status` SET TAGS ('dbx_business_glossary_term' = 'Ceded Premium Transaction Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `transaction_status` SET TAGS ('dbx_value_regex' = 'draft|posted|settled|voided|disputed');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `transaction_type` SET TAGS ('dbx_business_glossary_term' = 'Ceded Premium Transaction Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `transaction_type` SET TAGS ('dbx_value_regex' = 'written|earned|return|adjustment|reinstatement');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `treaty_type` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Treaty Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `treaty_type` SET TAGS ('dbx_value_regex' = 'quota_share|excess_of_loss|cat_xl|surplus|stop_loss');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `uep_ceded_amount` SET TAGS ('dbx_business_glossary_term' = 'Unearned Premium (UEP) Ceded Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `uep_ceded_amount` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_premium_transaction` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` SET TAGS ('dbx_data_type' = 'transactional_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` SET TAGS ('dbx_subdomain' = 'financial_settlement');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `ceded_loss_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Ceded Loss Transaction ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `bordereaux_id` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Batch ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `claim_id` SET TAGS ('dbx_business_glossary_term' = 'Claim ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `fac_certificate_id` SET TAGS ('dbx_business_glossary_term' = 'Facultative (FAC) Certificate ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `insured_location_id` SET TAGS ('dbx_business_glossary_term' = 'Loss Location Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_business_glossary_term' = 'Coverage Policy Coverage Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `reinsurance_cession_id` SET TAGS ('dbx_business_glossary_term' = 'Cession Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `reinsurance_cession_id` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `reinsurance_cession_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `ri_treaty_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Treaty ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `accounting_date` SET TAGS ('dbx_business_glossary_term' = 'Accounting Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `accounting_date` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `accounting_date` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `attachment_point` SET TAGS ('dbx_business_glossary_term' = 'Attachment Point');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `bordereaux_submission_date` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Submission Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `cat_event_code` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Event Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `cat_flag` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `ceded_alae_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Allocated Loss Adjustment Expense (ALAE) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `ceded_loss_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Loss Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `ceded_total_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Total Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `ceded_ulae_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Unallocated Loss Adjustment Expense (ULAE) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `cession_percentage` SET TAGS ('dbx_business_glossary_term' = 'Cession Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `cession_percentage` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `cession_percentage` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `coverage_code` SET TAGS ('dbx_business_glossary_term' = 'Coverage Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `coverage_code` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `coverage_code` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `current_reserve_amount` SET TAGS ('dbx_business_glossary_term' = 'Current Reserve Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `dispute_flag` SET TAGS ('dbx_business_glossary_term' = 'Dispute Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `dispute_reason` SET TAGS ('dbx_business_glossary_term' = 'Dispute Reason');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `dol` SET TAGS ('dbx_business_glossary_term' = 'Date of Loss (DOL)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `exhaustion_point` SET TAGS ('dbx_business_glossary_term' = 'Exhaustion Point');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `gross_loss_amount` SET TAGS ('dbx_business_glossary_term' = 'Gross Loss Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `layer_number` SET TAGS ('dbx_business_glossary_term' = 'Layer Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `net_loss_amount` SET TAGS ('dbx_business_glossary_term' = 'Net Loss Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `paid_recoverable_amount` SET TAGS ('dbx_business_glossary_term' = 'Paid Recoverable Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `peril_code` SET TAGS ('dbx_business_glossary_term' = 'Peril Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `prior_reserve_amount` SET TAGS ('dbx_business_glossary_term' = 'Prior Reserve Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `recoverable_balance` SET TAGS ('dbx_business_glossary_term' = 'Recoverable Balance');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `reinsurer_confirmation_date` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Confirmation Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `reinsurer_confirmation_date` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `reinsurer_confirmation_date` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `report_date` SET TAGS ('dbx_business_glossary_term' = 'Report Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `reporting_period` SET TAGS ('dbx_business_glossary_term' = 'Reporting Period');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `reporting_period` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `reporting_period` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `reserve_change_amount` SET TAGS ('dbx_business_glossary_term' = 'Reserve Change Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `reserve_movement_type` SET TAGS ('dbx_business_glossary_term' = 'Reserve Movement Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `reserve_movement_type` SET TAGS ('dbx_value_regex' = 'initial|increase|decrease|closure|reopening');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `retention_amount` SET TAGS ('dbx_business_glossary_term' = 'Retention Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `transaction_date` SET TAGS ('dbx_business_glossary_term' = 'Transaction Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `transaction_number` SET TAGS ('dbx_business_glossary_term' = 'Transaction Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `transaction_status` SET TAGS ('dbx_business_glossary_term' = 'Transaction Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `transaction_status` SET TAGS ('dbx_value_regex' = 'pending|reported|confirmed|disputed|settled|reversed');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `transaction_type` SET TAGS ('dbx_business_glossary_term' = 'Transaction Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ceded_loss_transaction` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` SET TAGS ('dbx_data_type' = 'transactional_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` SET TAGS ('dbx_subdomain' = 'financial_settlement');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `ri_recoverable_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Recoverable Identifier');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `bordereaux_id` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `claim_id` SET TAGS ('dbx_business_glossary_term' = 'Claim Identifier');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `fac_certificate_id` SET TAGS ('dbx_business_glossary_term' = 'Facultative (FAC) Certificate Identifier');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `insured_location_id` SET TAGS ('dbx_business_glossary_term' = 'Loss Location Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_business_glossary_term' = 'Coverage Policy Coverage Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Identifier');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `reinsurance_cession_id` SET TAGS ('dbx_business_glossary_term' = 'Cession Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `reinsurance_cession_id` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `reinsurance_cession_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Identifier');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `ri_treaty_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Treaty Identifier');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `accounting_period` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `accounting_period` SET TAGS ('dbx_value_regex' = '^[0-9]{4}-[0-9]{2}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `accounting_period` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `accounting_period` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `authorized_reinsurer_flag` SET TAGS ('dbx_business_glossary_term' = 'Authorized Reinsurer Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `authorized_reinsurer_flag` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `authorized_reinsurer_flag` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `billed_date` SET TAGS ('dbx_business_glossary_term' = 'Billed Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `cat_event_code` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Event Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `cat_event_flag` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Event Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `ceded_alae_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Allocated Loss Adjustment Expense (ALAE) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `ceded_loss_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Loss Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `cession_date` SET TAGS ('dbx_business_glossary_term' = 'Cession Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `collateral_held_amount` SET TAGS ('dbx_business_glossary_term' = 'Collateral Held Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `collected_amount` SET TAGS ('dbx_business_glossary_term' = 'Collected Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `collected_date` SET TAGS ('dbx_business_glossary_term' = 'Collected Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `credit_allowed_flag` SET TAGS ('dbx_business_glossary_term' = 'Credit Allowed Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `dispute_date` SET TAGS ('dbx_business_glossary_term' = 'Dispute Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `disputed_amount` SET TAGS ('dbx_business_glossary_term' = 'Disputed Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `due_date` SET TAGS ('dbx_business_glossary_term' = 'Due Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `gross_loss_amount` SET TAGS ('dbx_business_glossary_term' = 'Gross Loss Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `loss_date` SET TAGS ('dbx_business_glossary_term' = 'Date of Loss (DOL)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `loss_type` SET TAGS ('dbx_business_glossary_term' = 'Loss Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `loss_type` SET TAGS ('dbx_value_regex' = 'indemnity|alae|ulae|salvage|subrogation');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Notes');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `overdue_flag` SET TAGS ('dbx_business_glossary_term' = 'Overdue Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `recoverable_balance` SET TAGS ('dbx_business_glossary_term' = 'Recoverable Balance');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `recoverable_number` SET TAGS ('dbx_business_glossary_term' = 'Recoverable Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `recoverable_status` SET TAGS ('dbx_business_glossary_term' = 'Recoverable Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `recoverable_status` SET TAGS ('dbx_value_regex' = 'pending|billed|acknowledged|disputed|collected|written_off');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `recoverable_type` SET TAGS ('dbx_business_glossary_term' = 'Recoverable Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `recoverable_type` SET TAGS ('dbx_value_regex' = 'treaty|facultative|pool|retrocession');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `reported_date` SET TAGS ('dbx_business_glossary_term' = 'Reported Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `reserve_category` SET TAGS ('dbx_business_glossary_term' = 'Reserve Category');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `reserve_category` SET TAGS ('dbx_value_regex' = 'case|ibnr|ibner|paid');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `treaty_year` SET TAGS ('dbx_business_glossary_term' = 'Treaty Year');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `written_off_amount` SET TAGS ('dbx_business_glossary_term' = 'Written Off Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_recoverable` ALTER COLUMN `written_off_date` SET TAGS ('dbx_business_glossary_term' = 'Written Off Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` SET TAGS ('dbx_data_type' = 'transactional_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` SET TAGS ('dbx_subdomain' = 'financial_settlement');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `ri_settlement_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Settlement Identifier');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `bordereaux_id` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `fac_certificate_id` SET TAGS ('dbx_business_glossary_term' = 'Facultative (FAC) Certificate Identifier');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Identifier');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `ri_treaty_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Treaty Identifier');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `adjustment_amount` SET TAGS ('dbx_business_glossary_term' = 'Adjustment Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `approval_date` SET TAGS ('dbx_business_glossary_term' = 'Approval Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `approved_by` SET TAGS ('dbx_business_glossary_term' = 'Approved By');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `authorized_reinsurer_flag` SET TAGS ('dbx_business_glossary_term' = 'Authorized Reinsurer Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `authorized_reinsurer_flag` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `authorized_reinsurer_flag` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `balance_direction` SET TAGS ('dbx_business_glossary_term' = 'Balance Direction');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `balance_direction` SET TAGS ('dbx_value_regex' = 'due_from_reinsurer|due_to_reinsurer|zero');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `broker_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Broker Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `broker_name` SET TAGS ('dbx_business_glossary_term' = 'Broker Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `broker_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `broker_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `ceded_alae_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Allocated Loss Adjustment Expense (ALAE) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `ceded_loss_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Loss Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `ceded_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Premium Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `ceded_ulae_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Unallocated Loss Adjustment Expense (ULAE) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `ceding_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `collateral_held_amount` SET TAGS ('dbx_business_glossary_term' = 'Collateral Held Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `collateral_type` SET TAGS ('dbx_business_glossary_term' = 'Collateral Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `collateral_type` SET TAGS ('dbx_value_regex' = 'letter_of_credit|trust_account|funds_withheld|none');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `dispute_flag` SET TAGS ('dbx_business_glossary_term' = 'Dispute Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `dispute_reason` SET TAGS ('dbx_business_glossary_term' = 'Dispute Reason');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `due_date` SET TAGS ('dbx_business_glossary_term' = 'Due Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `net_balance_amount` SET TAGS ('dbx_business_glossary_term' = 'Net Balance Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Notes');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `payment_date` SET TAGS ('dbx_business_glossary_term' = 'Payment Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `payment_method` SET TAGS ('dbx_business_glossary_term' = 'Payment Method');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `payment_method` SET TAGS ('dbx_value_regex' = 'wire_transfer|check|ach|offset|letter_of_credit');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `payment_reference_number` SET TAGS ('dbx_business_glossary_term' = 'Payment Reference Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `period_end_date` SET TAGS ('dbx_business_glossary_term' = 'Period End Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `period_start_date` SET TAGS ('dbx_business_glossary_term' = 'Period Start Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `profit_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `recoverable_amount` SET TAGS ('dbx_business_glossary_term' = 'Recoverable Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `reinstatement_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Premium Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `reinstatement_premium_amount` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `reinstatement_premium_amount` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `settlement_number` SET TAGS ('dbx_business_glossary_term' = 'Settlement Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `settlement_status` SET TAGS ('dbx_business_glossary_term' = 'Settlement Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `settlement_status` SET TAGS ('dbx_value_regex' = 'draft|pending|approved|paid|disputed|cancelled');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `statement_date` SET TAGS ('dbx_business_glossary_term' = 'Statement Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `statement_type` SET TAGS ('dbx_business_glossary_term' = 'Statement Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `statement_type` SET TAGS ('dbx_value_regex' = 'account_current|cash_call|interim|final|adjustment');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `treaty_year` SET TAGS ('dbx_business_glossary_term' = 'Treaty Year');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` SET TAGS ('dbx_data_type' = 'association_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` SET TAGS ('dbx_subdomain' = 'financial_settlement');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `claim_ri_recovery_id` SET TAGS ('dbx_business_glossary_term' = 'Claim Reinsurance (RI) Recovery ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `bordereaux_id` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `claim_id` SET TAGS ('dbx_business_glossary_term' = 'Claim ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `fac_certificate_id` SET TAGS ('dbx_business_glossary_term' = 'Facultative (FAC) Certificate ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `insured_location_id` SET TAGS ('dbx_business_glossary_term' = 'Loss Location Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_business_glossary_term' = 'Coverage Policy Coverage Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `coverage_policy_coverage_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `reinsurance_cession_id` SET TAGS ('dbx_business_glossary_term' = 'Cession Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `reinsurance_cession_id` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `reinsurance_cession_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `ri_treaty_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Treaty ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `accounting_period` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `accounting_period` SET TAGS ('dbx_value_regex' = '^[0-9]{4}-(0[1-9]|1[0-2])$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `accounting_period` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `accounting_period` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `acknowledgement_date` SET TAGS ('dbx_business_glossary_term' = 'Acknowledgement Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `approval_date` SET TAGS ('dbx_business_glossary_term' = 'Approval Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `authorized_reinsurer_flag` SET TAGS ('dbx_business_glossary_term' = 'Authorized Reinsurer Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `authorized_reinsurer_flag` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `authorized_reinsurer_flag` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `cat_event_code` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Event Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `cat_exposed_flag` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Exposed Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `ceded_alae_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Allocated Loss Adjustment Expense (ALAE) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `ceded_loss_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Loss Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `cession_percentage` SET TAGS ('dbx_business_glossary_term' = 'Cession Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `cession_percentage` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `cession_percentage` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `collateral_amount` SET TAGS ('dbx_business_glossary_term' = 'Collateral Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `collateral_required_flag` SET TAGS ('dbx_business_glossary_term' = 'Collateral Required Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `dispute_flag` SET TAGS ('dbx_business_glossary_term' = 'Dispute Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `dispute_reason` SET TAGS ('dbx_business_glossary_term' = 'Dispute Reason');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `dispute_resolution_date` SET TAGS ('dbx_business_glossary_term' = 'Dispute Resolution Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `gross_alae_amount` SET TAGS ('dbx_business_glossary_term' = 'Gross Allocated Loss Adjustment Expense (ALAE) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `gross_loss_amount` SET TAGS ('dbx_business_glossary_term' = 'Gross Loss Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `layer_attachment_point` SET TAGS ('dbx_business_glossary_term' = 'Layer Attachment Point');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `layer_limit_amount` SET TAGS ('dbx_business_glossary_term' = 'Layer Limit Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `outstanding_recoverable_amount` SET TAGS ('dbx_business_glossary_term' = 'Outstanding Recoverable Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `payment_date` SET TAGS ('dbx_business_glossary_term' = 'Payment Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `payment_reference_number` SET TAGS ('dbx_business_glossary_term' = 'Payment Reference Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `recoverable_amount` SET TAGS ('dbx_business_glossary_term' = 'Recoverable Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `recovered_amount` SET TAGS ('dbx_business_glossary_term' = 'Recovered Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `recovery_basis` SET TAGS ('dbx_business_glossary_term' = 'Recovery Basis');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `recovery_basis` SET TAGS ('dbx_value_regex' = 'loss_only|loss_and_alae|loss_and_ulae|pro_rata');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `recovery_number` SET TAGS ('dbx_business_glossary_term' = 'Recovery Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `recovery_status` SET TAGS ('dbx_business_glossary_term' = 'Recovery Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `recovery_type` SET TAGS ('dbx_business_glossary_term' = 'Recovery Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `recovery_type` SET TAGS ('dbx_value_regex' = 'treaty|facultative|cat_xl|xol|quota_share|surplus');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `reinstatement_number` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `reinstatement_number` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `reinstatement_number` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `reinstatement_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Premium Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `reinstatement_premium_amount` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `reinstatement_premium_amount` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `reinsurer_share_pct` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Share Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `reinsurer_share_pct` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `reinsurer_share_pct` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `retention_amount` SET TAGS ('dbx_business_glossary_term' = 'Retention Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `submission_date` SET TAGS ('dbx_business_glossary_term' = 'Submission Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `treaty_year` SET TAGS ('dbx_business_glossary_term' = 'Treaty Year');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`claim_ri_recovery` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` SET TAGS ('dbx_data_type' = 'master_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` SET TAGS ('dbx_subdomain' = 'treaty_management');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `cat_bond_id` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe Bond (CAT Bond) Identifier');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `org_unit_id` SET TAGS ('dbx_business_glossary_term' = 'Cedant Identifier');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `ri_treaty_id` SET TAGS ('dbx_business_glossary_term' = 'Ri Treaty Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `aggregate_limit_flag` SET TAGS ('dbx_business_glossary_term' = 'Aggregate Limit Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `attachment_point` SET TAGS ('dbx_business_glossary_term' = 'Attachment Point');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `basis_risk_description` SET TAGS ('dbx_business_glossary_term' = 'Basis Risk Description');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `bond_name` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe Bond (CAT Bond) Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `bond_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `bond_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `bond_number` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe Bond (CAT Bond) Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `bond_rating` SET TAGS ('dbx_business_glossary_term' = 'Bond Rating');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `bond_rating` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `bond_rating` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `bond_status` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe Bond (CAT Bond) Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `bond_status` SET TAGS ('dbx_value_regex' = 'active|matured|triggered|cancelled|suspended|pending');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `cat_event_definition` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Event Definition');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `collateral_amount` SET TAGS ('dbx_business_glossary_term' = 'Collateral Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `collateral_type` SET TAGS ('dbx_business_glossary_term' = 'Collateral Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `collateral_type` SET TAGS ('dbx_value_regex' = 'cash|treasury|money_market|investment_grade|mixed');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `coupon_frequency` SET TAGS ('dbx_business_glossary_term' = 'Coupon Frequency');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `coupon_frequency` SET TAGS ('dbx_value_regex' = 'monthly|quarterly|semi_annual|annual');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `coupon_rate_pct` SET TAGS ('dbx_business_glossary_term' = 'Coupon Rate Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `exhaustion_point` SET TAGS ('dbx_business_glossary_term' = 'Exhaustion Point');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `expected_loss_pct` SET TAGS ('dbx_business_glossary_term' = 'Expected Loss Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `issuance_date` SET TAGS ('dbx_business_glossary_term' = 'Issuance Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `maturity_date` SET TAGS ('dbx_business_glossary_term' = 'Maturity Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `modeling_firm` SET TAGS ('dbx_business_glossary_term' = 'Modeling Firm');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Modified Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `multi_event_flag` SET TAGS ('dbx_business_glossary_term' = 'Multi-Event Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `notional_amount` SET TAGS ('dbx_business_glossary_term' = 'Notional Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `outstanding_notional` SET TAGS ('dbx_business_glossary_term' = 'Outstanding Notional');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `perils_covered` SET TAGS ('dbx_business_glossary_term' = 'Perils Covered');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `placement_broker` SET TAGS ('dbx_business_glossary_term' = 'Placement Broker');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `pml_amount` SET TAGS ('dbx_business_glossary_term' = 'Probable Maximum Loss (PML) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `principal_reduction_amount` SET TAGS ('dbx_business_glossary_term' = 'Principal Reduction Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `rating_agency` SET TAGS ('dbx_business_glossary_term' = 'Rating Agency');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `rating_agency` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `rating_agency` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `reinstatement_provision_flag` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Provision Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `reinstatement_provision_flag` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `reinstatement_provision_flag` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `sponsor_name` SET TAGS ('dbx_business_glossary_term' = 'Sponsor Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `sponsor_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `sponsor_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `spv_domicile` SET TAGS ('dbx_business_glossary_term' = 'Special Purpose Vehicle (SPV) Domicile');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `spv_domicile` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `spv_name` SET TAGS ('dbx_business_glossary_term' = 'Special Purpose Vehicle (SPV) Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `spv_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `spv_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `spv_registration_number` SET TAGS ('dbx_business_glossary_term' = 'Special Purpose Vehicle (SPV) Registration Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `spv_registration_number` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `territory_scope` SET TAGS ('dbx_business_glossary_term' = 'Territory Scope');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `trigger_event_code` SET TAGS ('dbx_business_glossary_term' = 'Trigger Event Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `trigger_event_date` SET TAGS ('dbx_business_glossary_term' = 'Trigger Event Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `trigger_type` SET TAGS ('dbx_business_glossary_term' = 'Trigger Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `trigger_type` SET TAGS ('dbx_value_regex' = 'indemnity|parametric|index|modeled_loss|hybrid|industry_loss');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `trustee_name` SET TAGS ('dbx_business_glossary_term' = 'Trustee Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `trustee_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`cat_bond` ALTER COLUMN `trustee_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` SET TAGS ('dbx_data_type' = 'transactional_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` SET TAGS ('dbx_subdomain' = 'financial_settlement');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `profit_commission_id` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `fac_certificate_id` SET TAGS ('dbx_business_glossary_term' = 'Fac Certificate Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `ri_treaty_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Treaty ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `accounting_period` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `accounting_period` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `accounting_period` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `accrued_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Accrued Profit Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `adjustment_amount` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Adjustment Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `adjustment_reason` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Adjustment Reason');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `amount` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `approval_date` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Approval Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `authorized_reinsurer_flag` SET TAGS ('dbx_business_glossary_term' = 'Authorized Reinsurer Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `authorized_reinsurer_flag` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `authorized_reinsurer_flag` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `calculated_commission_rate_pct` SET TAGS ('dbx_business_glossary_term' = 'Calculated Profit Commission Rate Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `calculated_loss_ratio_pct` SET TAGS ('dbx_business_glossary_term' = 'Calculated Loss Ratio Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `calculation_date` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Calculation Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `calculation_method` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Calculation Method');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `calculation_method` SET TAGS ('dbx_value_regex' = 'treaty_year|accident_year|underwriting_year|calendar_year');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `calculation_notes` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Calculation Notes');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `calculation_number` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Calculation Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `calculation_status` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Calculation Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `ceded_alae_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Allocated Loss Adjustment Expense (ALAE) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `ceded_loss_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Loss Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `ceded_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Premium Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `ceded_ulae_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Unallocated Loss Adjustment Expense (ULAE) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `ceding_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `expiry_date` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Expiry Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `formula` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Formula Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `formula` SET TAGS ('dbx_value_regex' = 'fixed_rate|sliding_scale|step_function|custom');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `loss_ratio_threshold_pct` SET TAGS ('dbx_business_glossary_term' = 'Loss Ratio Threshold Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `net_ceded_premium` SET TAGS ('dbx_business_glossary_term' = 'Net Ceded Premium');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `outstanding_balance` SET TAGS ('dbx_business_glossary_term' = 'Outstanding Profit Commission Balance');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `paid_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Paid Profit Commission Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `payment_due_date` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Payment Due Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `prior_calculation_amount` SET TAGS ('dbx_business_glossary_term' = 'Prior Profit Commission Calculation Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `provisional_flag` SET TAGS ('dbx_business_glossary_term' = 'Provisional Calculation Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `sliding_scale_max_pct` SET TAGS ('dbx_business_glossary_term' = 'Sliding Scale Maximum Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `sliding_scale_min_pct` SET TAGS ('dbx_business_glossary_term' = 'Sliding Scale Minimum Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `total_ceded_loss_lae` SET TAGS ('dbx_business_glossary_term' = 'Total Ceded Loss and Loss Adjustment Expense (LAE)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `treaty_type` SET TAGS ('dbx_business_glossary_term' = 'Treaty Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `treaty_type` SET TAGS ('dbx_value_regex' = 'quota_share|surplus|excess_of_loss|stop_loss|aggregate_xol');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `treaty_year` SET TAGS ('dbx_business_glossary_term' = 'Treaty Year');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `updated_by` SET TAGS ('dbx_business_glossary_term' = 'Record Updated By User');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`profit_commission` ALTER COLUMN `created_by` SET TAGS ('dbx_business_glossary_term' = 'Record Created By User');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` SET TAGS ('dbx_data_type' = 'transactional_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` SET TAGS ('dbx_subdomain' = 'financial_settlement');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `reinstatement_id` SET TAGS ('dbx_business_glossary_term' = 'Primary Key for reinstatement');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `reinstatement_id` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `reinstatement_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `bordereaux_id` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Batch ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `fac_certificate_id` SET TAGS ('dbx_business_glossary_term' = 'Fac Certificate Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `occurrence_loss_id` SET TAGS ('dbx_business_glossary_term' = 'Occurrence Loss Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `ri_treaty_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Treaty ID');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `treaty_layer_id` SET TAGS ('dbx_business_glossary_term' = 'Treaty Layer Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `accounting_period` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `accounting_period` SET TAGS ('dbx_value_regex' = '^d{4}-(0[1-9]|1[0-2])$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `accounting_period` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `accounting_period` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `attachment_point` SET TAGS ('dbx_business_glossary_term' = 'Attachment Point');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `automatic_reinstatement_flag` SET TAGS ('dbx_business_glossary_term' = 'Automatic Reinstatement Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `automatic_reinstatement_flag` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `automatic_reinstatement_flag` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `basis` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Basis');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `basis` SET TAGS ('dbx_value_regex' = 'occurrence|aggregate|loss_ratio|sliding_scale');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `broker_name` SET TAGS ('dbx_business_glossary_term' = 'Broker Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `broker_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `broker_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `calculation_date` SET TAGS ('dbx_business_glossary_term' = 'Calculation Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `cat_event_code` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Event Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Effective Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `exhaustion_point` SET TAGS ('dbx_business_glossary_term' = 'Exhaustion Point');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `free_reinstatement_flag` SET TAGS ('dbx_business_glossary_term' = 'Free Reinstatement Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `free_reinstatement_flag` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `free_reinstatement_flag` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `invoice_date` SET TAGS ('dbx_business_glossary_term' = 'Invoice Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `lead_reinsurer_name` SET TAGS ('dbx_business_glossary_term' = 'Lead Reinsurer Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `lead_reinsurer_name` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `lead_reinsurer_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `loss_amount_triggering` SET TAGS ('dbx_business_glossary_term' = 'Loss Amount Triggering');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Notes');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `number` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `payment_date` SET TAGS ('dbx_business_glossary_term' = 'Payment Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `payment_due_date` SET TAGS ('dbx_business_glossary_term' = 'Payment Due Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Premium Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `premium_pct` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Premium Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `prorata_factor` SET TAGS ('dbx_business_glossary_term' = 'Pro-Rata Factor');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `prorata_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Pro-Rata Premium Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `reinstated_limit_amount` SET TAGS ('dbx_business_glossary_term' = 'Reinstated Limit Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `reinstated_limit_amount` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `reinstated_limit_amount` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `reinstatement_status` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `reinstatement_status` SET TAGS ('dbx_value_regex' = 'pending|confirmed|invoiced|paid|disputed|cancelled');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `reinstatement_status` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `reinstatement_status` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `reinsurer_approval_date` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Approval Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `reinsurer_approval_date` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `reinsurer_approval_date` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `reinsurer_approval_required_flag` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Approval Required Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `reinsurer_approval_required_flag` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `reinsurer_approval_required_flag` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `territory_scope` SET TAGS ('dbx_business_glossary_term' = 'Territory Scope');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `treaty_type` SET TAGS ('dbx_business_glossary_term' = 'Treaty Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `treaty_type` SET TAGS ('dbx_value_regex' = 'XOL|CAT_XL|QS|SURPLUS|STOP_LOSS|AGGREGATE');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `treaty_year` SET TAGS ('dbx_business_glossary_term' = 'Treaty Year');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `updated_by` SET TAGS ('dbx_business_glossary_term' = 'Updated By');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`reinstatement` ALTER COLUMN `created_by` SET TAGS ('dbx_business_glossary_term' = 'Created By');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` SET TAGS ('dbx_data_type' = 'master_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` SET TAGS ('dbx_subdomain' = 'treaty_management');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `ri_broker_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Broker Identifier');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `address_line1` SET TAGS ('dbx_business_glossary_term' = 'Address Line 1');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `address_line1` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `address_line1` SET TAGS ('dbx_pii_address' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `address_line2` SET TAGS ('dbx_business_glossary_term' = 'Address Line 2');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `address_line2` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `address_line2` SET TAGS ('dbx_pii_address' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `appointment_date` SET TAGS ('dbx_business_glossary_term' = 'Appointment Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `authorized_markets` SET TAGS ('dbx_business_glossary_term' = 'Authorized Markets');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `broker_code` SET TAGS ('dbx_business_glossary_term' = 'Broker Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `broker_code` SET TAGS ('dbx_value_regex' = '^[A-Z0-9]{3,10}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `broker_status` SET TAGS ('dbx_business_glossary_term' = 'Broker Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `broker_status` SET TAGS ('dbx_value_regex' = 'active|inactive|suspended|terminated|pending_approval');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `broker_type` SET TAGS ('dbx_business_glossary_term' = 'Broker Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `broker_type` SET TAGS ('dbx_value_regex' = 'wholesale|retail|lloyds|specialty|cat_broker|fac_specialist');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `brokerage_rate_pct` SET TAGS ('dbx_business_glossary_term' = 'Brokerage Rate Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `brokerage_rate_pct` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `brokerage_rate_pct` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `cat_placement_flag` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Placement Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `city` SET TAGS ('dbx_business_glossary_term' = 'City');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `city` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `city` SET TAGS ('dbx_pii_address' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `compliance_status` SET TAGS ('dbx_business_glossary_term' = 'Compliance Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `compliance_status` SET TAGS ('dbx_value_regex' = 'compliant|non_compliant|under_review|remediation');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `country_code` SET TAGS ('dbx_business_glossary_term' = 'Country Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `country_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `credit_rating` SET TAGS ('dbx_business_glossary_term' = 'Credit Rating');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `credit_rating` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `credit_rating` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `dba_name` SET TAGS ('dbx_business_glossary_term' = 'Doing Business As (DBA) Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `dba_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `dba_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `eo_coverage_amount` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Coverage Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `eo_coverage_amount` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `eo_coverage_amount` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `eo_expiry_date` SET TAGS ('dbx_business_glossary_term' = 'Errors and Omissions (E&O) Expiry Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `fac_placement_flag` SET TAGS ('dbx_business_glossary_term' = 'Facultative (FAC) Placement Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `fein` SET TAGS ('dbx_business_glossary_term' = 'Federal Employer Identification Number (FEIN)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `fein` SET TAGS ('dbx_value_regex' = '^[0-9]{2}-[0-9]{7}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `fein` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `fein` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `fein` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `last_audit_date` SET TAGS ('dbx_business_glossary_term' = 'Last Audit Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `legal_name` SET TAGS ('dbx_business_glossary_term' = 'Legal Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `legal_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `legal_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `lloyds_authorized_flag` SET TAGS ('dbx_business_glossary_term' = 'Lloyds Authorized Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `lloyds_broker_number` SET TAGS ('dbx_business_glossary_term' = 'Lloyds Broker Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `lloyds_broker_number` SET TAGS ('dbx_value_regex' = '^[A-Z0-9]{4,8}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `naic_code` SET TAGS ('dbx_business_glossary_term' = 'National Association of Insurance Commissioners (NAIC) Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `naic_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `next_review_date` SET TAGS ('dbx_business_glossary_term' = 'Next Review Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Notes');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `parent_company_name` SET TAGS ('dbx_business_glossary_term' = 'Parent Company Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `parent_company_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `parent_company_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `postal_code` SET TAGS ('dbx_business_glossary_term' = 'Postal Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `postal_code` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `postal_code` SET TAGS ('dbx_pii_address' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `primary_contact_email` SET TAGS ('dbx_business_glossary_term' = 'Primary Contact Email Address');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `primary_contact_email` SET TAGS ('dbx_value_regex' = '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `primary_contact_email` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `primary_contact_email` SET TAGS ('dbx_pii_email' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `primary_contact_name` SET TAGS ('dbx_business_glossary_term' = 'Primary Contact Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `primary_contact_name` SET TAGS ('dbx_restricted' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `primary_contact_name` SET TAGS ('dbx_pii_identifier' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `primary_contact_phone` SET TAGS ('dbx_business_glossary_term' = 'Primary Contact Phone Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `primary_contact_phone` SET TAGS ('dbx_confidential' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `primary_contact_phone` SET TAGS ('dbx_pii_phone' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `rating_agency` SET TAGS ('dbx_business_glossary_term' = 'Rating Agency');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `rating_agency` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `rating_agency` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `specialty_lob` SET TAGS ('dbx_business_glossary_term' = 'Specialty Line of Business (LOB)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `state_province` SET TAGS ('dbx_business_glossary_term' = 'State or Province');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `termination_date` SET TAGS ('dbx_business_glossary_term' = 'Termination Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `treaty_placement_flag` SET TAGS ('dbx_business_glossary_term' = 'Treaty Placement Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Updated Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_broker` ALTER COLUMN `website_url` SET TAGS ('dbx_business_glossary_term' = 'Website Uniform Resource Locator (URL)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` SET TAGS ('dbx_data_type' = 'transactional_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` SET TAGS ('dbx_subdomain' = 'treaty_management');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `ri_placement_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Placement Identifier');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `fac_certificate_id` SET TAGS ('dbx_business_glossary_term' = 'Facultative (FAC) Certificate Identifier');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `lead_reinsurer_id` SET TAGS ('dbx_business_glossary_term' = 'Lead Reinsurer Identifier');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `lead_reinsurer_id` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `lead_reinsurer_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `placing_agency_id` SET TAGS ('dbx_business_glossary_term' = 'Placing Agency Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `placing_agency_id` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `placing_agency_id` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `ri_broker_id` SET TAGS ('dbx_business_glossary_term' = 'Broker Identifier');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `ri_treaty_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Treaty Identifier');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `treaty_layer_id` SET TAGS ('dbx_business_glossary_term' = 'Treaty Layer Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `attachment_point` SET TAGS ('dbx_business_glossary_term' = 'Attachment Point');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `binding_date` SET TAGS ('dbx_business_glossary_term' = 'Binding Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `broker_name` SET TAGS ('dbx_business_glossary_term' = 'Broker Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `broker_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `broker_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `brokerage_pct` SET TAGS ('dbx_business_glossary_term' = 'Brokerage Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `brokerage_pct` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `brokerage_pct` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `cancellation_date` SET TAGS ('dbx_business_glossary_term' = 'Cancellation Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `cat_event_definition` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Event Definition');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `cat_exposed_flag` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Exposed Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `ceding_commission_pct` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `exhaustion_point` SET TAGS ('dbx_business_glossary_term' = 'Exhaustion Point');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `expiry_date` SET TAGS ('dbx_business_glossary_term' = 'Expiry Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `fac_type` SET TAGS ('dbx_business_glossary_term' = 'Facultative (FAC) Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `fac_type` SET TAGS ('dbx_value_regex' = 'fac_proportional|fac_xol|fac_cat');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `inception_date` SET TAGS ('dbx_business_glossary_term' = 'Inception Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `lead_reinsurer_share_pct` SET TAGS ('dbx_business_glossary_term' = 'Lead Reinsurer Share Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `lead_reinsurer_share_pct` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `lead_reinsurer_share_pct` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `limit_amount` SET TAGS ('dbx_business_glossary_term' = 'Limit Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `markets_approached_count` SET TAGS ('dbx_business_glossary_term' = 'Markets Approached Count');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Modified Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `participating_reinsurers_count` SET TAGS ('dbx_business_glossary_term' = 'Participating Reinsurers Count');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `participating_reinsurers_count` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `participating_reinsurers_count` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `perils_covered` SET TAGS ('dbx_business_glossary_term' = 'Perils Covered');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `placed_capacity_amount` SET TAGS ('dbx_business_glossary_term' = 'Placed Capacity Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `placed_capacity_amount` SET TAGS ('dbx_pii_category' = 'address');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `placed_capacity_amount` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `placement_notes` SET TAGS ('dbx_business_glossary_term' = 'Placement Notes');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `placement_number` SET TAGS ('dbx_business_glossary_term' = 'Placement Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `placement_stage` SET TAGS ('dbx_business_glossary_term' = 'Placement Stage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `placement_stage` SET TAGS ('dbx_value_regex' = 'pre_marketing|marketing|negotiation|binding|post_binding');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `placement_stage` SET TAGS ('dbx_pii_category' = 'demographic');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `placement_stage` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `placement_status` SET TAGS ('dbx_business_glossary_term' = 'Placement Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `placement_type` SET TAGS ('dbx_business_glossary_term' = 'Placement Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `placement_type` SET TAGS ('dbx_value_regex' = 'treaty|facultative|cat_bond|sideCar');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `pml_amount` SET TAGS ('dbx_business_glossary_term' = 'Probable Maximum Loss (PML) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `program_name` SET TAGS ('dbx_business_glossary_term' = 'Program Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `program_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `program_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `quote_due_date` SET TAGS ('dbx_business_glossary_term' = 'Quote Due Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `quotes_received_count` SET TAGS ('dbx_business_glossary_term' = 'Quotes Received Count');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `retention_amount` SET TAGS ('dbx_business_glossary_term' = 'Retention Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `rol_pct` SET TAGS ('dbx_business_glossary_term' = 'Rate on Line (ROL) Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `slip_submission_date` SET TAGS ('dbx_business_glossary_term' = 'Slip Submission Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `target_capacity_amount` SET TAGS ('dbx_business_glossary_term' = 'Target Capacity Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `target_capacity_amount` SET TAGS ('dbx_pii_category' = 'address');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `target_capacity_amount` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `territory_scope` SET TAGS ('dbx_business_glossary_term' = 'Territory Scope');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `total_signed_line_pct` SET TAGS ('dbx_business_glossary_term' = 'Total Signed Line Percentage');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `treaty_type` SET TAGS ('dbx_business_glossary_term' = 'Treaty Type');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `treaty_type` SET TAGS ('dbx_value_regex' = 'quota_share|surplus|xol|cat_xl|aggregate_xol|stop_loss');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `underwriter_name` SET TAGS ('dbx_business_glossary_term' = 'Underwriter Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `underwriter_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`ri_placement` ALTER COLUMN `underwriter_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` SET TAGS ('dbx_data_type' = 'transactional_data');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` SET TAGS ('dbx_subdomain' = 'financial_settlement');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `occurrence_loss_id` SET TAGS ('dbx_business_glossary_term' = 'Occurrence Loss Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `bordereaux_id` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `fac_certificate_id` SET TAGS ('dbx_business_glossary_term' = 'Fac Certificate Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `insured_location_id` SET TAGS ('dbx_business_glossary_term' = 'Primary Loss Location Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `lob_code_id` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `ri_treaty_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Treaty Identifier (ID)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `treaty_layer_id` SET TAGS ('dbx_business_glossary_term' = 'Treaty Layer Id (Foreign Key)');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `accounting_period` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `accounting_period` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `accounting_period` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `attachment_point` SET TAGS ('dbx_business_glossary_term' = 'Attachment Point');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `cat_flag` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `cession_date` SET TAGS ('dbx_business_glossary_term' = 'Cession Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `claim_count` SET TAGS ('dbx_business_glossary_term' = 'Claim Count');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `country_code` SET TAGS ('dbx_business_glossary_term' = 'Country Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `exhaustion_point` SET TAGS ('dbx_business_glossary_term' = 'Exhaustion Point');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `finalized_date` SET TAGS ('dbx_business_glossary_term' = 'Finalized Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `geographic_region` SET TAGS ('dbx_business_glossary_term' = 'Geographic Region');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `hours_clause_compliant_flag` SET TAGS ('dbx_business_glossary_term' = 'Hours Clause Compliant Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `hours_clause_duration` SET TAGS ('dbx_business_glossary_term' = 'Hours Clause Duration');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `layer_limit_amount` SET TAGS ('dbx_business_glossary_term' = 'Layer Limit Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `net_loss_amount` SET TAGS ('dbx_business_glossary_term' = 'Net Loss Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Notes');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `occurrence_date` SET TAGS ('dbx_business_glossary_term' = 'Occurrence Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `occurrence_end_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Occurrence End Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `occurrence_name` SET TAGS ('dbx_business_glossary_term' = 'Occurrence Name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `occurrence_name` SET TAGS ('dbx_pii_category' = 'name');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `occurrence_name` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `occurrence_number` SET TAGS ('dbx_business_glossary_term' = 'Occurrence Number');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `occurrence_status` SET TAGS ('dbx_business_glossary_term' = 'Occurrence Status');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `occurrence_status` SET TAGS ('dbx_value_regex' = 'open|closed|under_review|pending_cession|finalized');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `occurrence_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Occurrence Timestamp');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `peril_code` SET TAGS ('dbx_business_glossary_term' = 'Peril Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `peril_description` SET TAGS ('dbx_business_glossary_term' = 'Peril Description');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `policy_count` SET TAGS ('dbx_business_glossary_term' = 'Policy Count');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `reinstatement_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Premium Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `reinstatement_premium_amount` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `reinstatement_premium_amount` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `reinstatement_triggered_flag` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Triggered Flag');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `reinstatement_triggered_flag` SET TAGS ('dbx_pii_category' = 'sensitive_id');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `reinstatement_triggered_flag` SET TAGS ('dbx_pii_flag' = 'true');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `reported_date` SET TAGS ('dbx_business_glossary_term' = 'Reported Date');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `retention_amount` SET TAGS ('dbx_business_glossary_term' = 'Retention Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `state_province_code` SET TAGS ('dbx_business_glossary_term' = 'State or Province Code');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `total_ceded_alae_amount` SET TAGS ('dbx_business_glossary_term' = 'Total Ceded Allocated Loss Adjustment Expense (ALAE) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `total_ceded_amount` SET TAGS ('dbx_business_glossary_term' = 'Total Ceded Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `total_ceded_loss_amount` SET TAGS ('dbx_business_glossary_term' = 'Total Ceded Loss Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `total_gross_alae_amount` SET TAGS ('dbx_business_glossary_term' = 'Total Gross Allocated Loss Adjustment Expense (ALAE) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `total_gross_incurred_amount` SET TAGS ('dbx_business_glossary_term' = 'Total Gross Incurred Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `total_gross_loss_amount` SET TAGS ('dbx_business_glossary_term' = 'Total Gross Loss Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `total_gross_ulae_amount` SET TAGS ('dbx_business_glossary_term' = 'Total Gross Unallocated Loss Adjustment Expense (ULAE) Amount');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `treaty_year` SET TAGS ('dbx_business_glossary_term' = 'Treaty Year');
-ALTER TABLE `vibe_pc_insurance_v499`.`reinsurance`.`occurrence_loss` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Updated Timestamp');
+ALTER SCHEMA `vibe_pc_insurance_blog_v499`.`reinsurance` SET TAGS ('dbx_division' = 'operations');
+ALTER SCHEMA `vibe_pc_insurance_blog_v499`.`reinsurance` SET TAGS ('dbx_domain' = 'reinsurance');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` SET TAGS ('dbx_data_type' = 'master_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` SET TAGS ('dbx_subdomain' = 'agreement_structure');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `ri_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Agreement ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `broker_agency_id` SET TAGS ('dbx_business_glossary_term' = 'Broker Agency Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Lead Producer Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `aggregate_limit_amt` SET TAGS ('dbx_business_glossary_term' = 'Aggregate Limit Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `agreement_name` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Agreement Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `agreement_name` SET TAGS ('dbx_pii_category' = 'name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `agreement_number` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Agreement Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `agreement_status` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Agreement Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `agreement_status` SET TAGS ('dbx_value_regex' = 'Draft|Active|Expired|Cancelled|Suspended');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `agreement_type` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Agreement Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `agreement_type` SET TAGS ('dbx_value_regex' = 'Treaty|Facultative|Facultative_Obligatory');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `arbitration_clause` SET TAGS ('dbx_business_glossary_term' = 'Arbitration Clause Indicator');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `attachment_point_amt` SET TAGS ('dbx_business_glossary_term' = 'Attachment Point Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `authorized_status` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Authorized Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `authorized_status` SET TAGS ('dbx_value_regex' = 'Authorized|Unauthorized|Certified|Reciprocal');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `cat_event_scope` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Event Scope');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `cat_event_scope` SET TAGS ('dbx_value_regex' = 'Per_Risk|Per_Occurrence|Per_Event|Aggregate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `cedant_legal_entity` SET TAGS ('dbx_business_glossary_term' = 'Cedant Legal Entity Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `cedant_naic_code` SET TAGS ('dbx_business_glossary_term' = 'Cedant National Association of Insurance Commissioners (NAIC) Company Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `cedant_naic_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `ceding_commission_pct` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `cession_pct` SET TAGS ('dbx_business_glossary_term' = 'Cession Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `collateral_required` SET TAGS ('dbx_business_glossary_term' = 'Collateral Required Indicator');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `collateral_type` SET TAGS ('dbx_business_glossary_term' = 'Collateral Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `collateral_type` SET TAGS ('dbx_value_regex' = 'LOC|Trust|Funds_Withheld|Cash|None');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `coverage_basis` SET TAGS ('dbx_business_glossary_term' = 'Coverage Basis');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `coverage_basis` SET TAGS ('dbx_value_regex' = 'Losses_Occurring|Risks_Attaching|Claims_Made');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `deposit_premium_amt` SET TAGS ('dbx_business_glossary_term' = 'Deposit Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `expiry_date` SET TAGS ('dbx_business_glossary_term' = 'Agreement Expiry Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `funds_withheld` SET TAGS ('dbx_business_glossary_term' = 'Funds Withheld Indicator');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `governing_law` SET TAGS ('dbx_business_glossary_term' = 'Governing Law Jurisdiction');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `hours_clause_hrs` SET TAGS ('dbx_business_glossary_term' = 'Hours Clause Duration (Hours)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `inception_date` SET TAGS ('dbx_business_glossary_term' = 'Agreement Inception Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `insolvency_clause` SET TAGS ('dbx_business_glossary_term' = 'Insolvency Clause Indicator');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `lead_reinsurer_naic_code` SET TAGS ('dbx_business_glossary_term' = 'Lead Reinsurer National Association of Insurance Commissioners (NAIC) Company Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `lead_reinsurer_naic_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `lead_reinsurer_name` SET TAGS ('dbx_business_glossary_term' = 'Lead Reinsurer Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `lead_reinsurer_name` SET TAGS ('dbx_pii_category' = 'name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `limit_amt` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Limit Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `loss_corridor_pct` SET TAGS ('dbx_business_glossary_term' = 'Loss Corridor Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `minimum_premium_amt` SET TAGS ('dbx_business_glossary_term' = 'Minimum Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `offset_clause` SET TAGS ('dbx_business_glossary_term' = 'Offset Clause Indicator');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `profit_commission_pct` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `program_layer` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Program Layer');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `reinstatement_count` SET TAGS ('dbx_business_glossary_term' = 'Number of Reinstatements');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `reinstatement_premium_pct` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Premium Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `retention_amt` SET TAGS ('dbx_business_glossary_term' = 'Cedant Retention Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `retrocession_flag` SET TAGS ('dbx_business_glossary_term' = 'Retrocession Indicator');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `rol_pct` SET TAGS ('dbx_business_glossary_term' = 'Rate on Line (ROL) Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `signed_date` SET TAGS ('dbx_business_glossary_term' = 'Agreement Signed Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `territory_scope` SET TAGS ('dbx_business_glossary_term' = 'Agreement Territory Scope');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `treaty_type` SET TAGS ('dbx_business_glossary_term' = 'Treaty Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `treaty_type` SET TAGS ('dbx_value_regex' = 'QS|XOL|SL|CAT_XL|Surplus|Other');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `unl_basis` SET TAGS ('dbx_business_glossary_term' = 'Ultimate Net Loss (UNL) Basis');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `unl_basis` SET TAGS ('dbx_value_regex' = 'Gross|Net_of_Inuring|Net_of_All_RI');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_agreement` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Last Updated Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` SET TAGS ('dbx_data_type' = 'master_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` SET TAGS ('dbx_subdomain' = 'agreement_structure');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `treaty_id` SET TAGS ('dbx_business_glossary_term' = 'Treaty ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `intermediary_agency_id` SET TAGS ('dbx_business_glossary_term' = 'Intermediary Agency Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `ri_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Agreement ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `aggregate_deductible` SET TAGS ('dbx_business_glossary_term' = 'Aggregate Deductible');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `aggregate_limit` SET TAGS ('dbx_business_glossary_term' = 'Aggregate Limit');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `attachment_point` SET TAGS ('dbx_business_glossary_term' = 'Attachment Point');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `authorized_reinsurer_flag` SET TAGS ('dbx_business_glossary_term' = 'Authorized Reinsurer Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `brokerage_pct` SET TAGS ('dbx_business_glossary_term' = 'Brokerage Commission Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `catastrophe_event_type` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe Event Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `ceding_commission_pct` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `cession_pct` SET TAGS ('dbx_business_glossary_term' = 'Cession Percentage (QS)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `collateral_required_flag` SET TAGS ('dbx_business_glossary_term' = 'Collateral Required Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `coverage_basis` SET TAGS ('dbx_business_glossary_term' = 'Coverage Basis');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `coverage_basis` SET TAGS ('dbx_value_regex' = 'RISKS_ATTACHING|LOSSES_OCCURRING|CLAIMS_MADE');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `deposit_premium` SET TAGS ('dbx_business_glossary_term' = 'Deposit Premium');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Treaty Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Treaty Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `hours_clause` SET TAGS ('dbx_business_glossary_term' = 'Hours Clause (Hours)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `inception_year` SET TAGS ('dbx_business_glossary_term' = 'Treaty Inception Year');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `layer_number` SET TAGS ('dbx_business_glossary_term' = 'Treaty Layer Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `limit` SET TAGS ('dbx_business_glossary_term' = 'Treaty Limit');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `loss_corridor_lower` SET TAGS ('dbx_business_glossary_term' = 'Loss Corridor Lower Bound');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `loss_corridor_upper` SET TAGS ('dbx_business_glossary_term' = 'Loss Corridor Upper Bound');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `minimum_premium` SET TAGS ('dbx_business_glossary_term' = 'Minimum Premium');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `treaty_name` SET TAGS ('dbx_business_glossary_term' = 'Treaty Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `treaty_name` SET TAGS ('dbx_pii_category' = 'name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `number` SET TAGS ('dbx_business_glossary_term' = 'Treaty Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `occurrence_limit` SET TAGS ('dbx_business_glossary_term' = 'Per Occurrence Limit');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `placement_pct` SET TAGS ('dbx_business_glossary_term' = 'Treaty Placement Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `premium` SET TAGS ('dbx_business_glossary_term' = 'Treaty Premium');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `profit_commission_pct` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `reinstatement_count` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Count');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `reinstatement_premium_pct` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Premium Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `reinsurer_share_pct` SET TAGS ('dbx_business_glossary_term' = 'Lead Reinsurer Share Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `retention_amount` SET TAGS ('dbx_business_glossary_term' = 'Cedant Retention Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `retention_pct` SET TAGS ('dbx_business_glossary_term' = 'Cedant Retention Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `retrocession_flag` SET TAGS ('dbx_business_glossary_term' = 'Retrocession Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `rol_pct` SET TAGS ('dbx_business_glossary_term' = 'Rate on Line (ROL) Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `subject_premium_basis` SET TAGS ('dbx_business_glossary_term' = 'Subject Premium Basis');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `subject_premium_basis` SET TAGS ('dbx_value_regex' = 'GWP|NWP|DPW|NET_EARNED');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `territory` SET TAGS ('dbx_business_glossary_term' = 'Treaty Territory');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `treaty_status` SET TAGS ('dbx_business_glossary_term' = 'Treaty Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `treaty_status` SET TAGS ('dbx_value_regex' = 'ACTIVE|EXPIRED|CANCELLED|SUSPENDED|PENDING');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `treaty_type` SET TAGS ('dbx_business_glossary_term' = 'Treaty Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `treaty_type` SET TAGS ('dbx_value_regex' = 'QS|XOL|SL|CAT_XL|STOP_LOSS|SURPLUS');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `unl_basis` SET TAGS ('dbx_business_glossary_term' = 'Ultimate Net Loss (UNL) Basis');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `unl_basis` SET TAGS ('dbx_value_regex' = 'GROSS|NET_OF_INURING|NET_OF_SALVAGE|ULTIMATE_NET_LOSS');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` SET TAGS ('dbx_data_type' = 'master_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` SET TAGS ('dbx_subdomain' = 'agreement_structure');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `treaty_layer_id` SET TAGS ('dbx_business_glossary_term' = 'Treaty Layer ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `cat_zone_id` SET TAGS ('dbx_business_glossary_term' = 'Cat Zone Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `coverage_type_id` SET TAGS ('dbx_business_glossary_term' = 'Coverage Type Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `ri_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Agreement ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `treaty_id` SET TAGS ('dbx_business_glossary_term' = 'Treaty Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `parent_treaty_layer_id` SET TAGS ('dbx_business_glossary_term' = 'Underlying Layer ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `accounting_basis` SET TAGS ('dbx_business_glossary_term' = 'Accounting Basis');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `accounting_basis` SET TAGS ('dbx_value_regex' = 'losses_occurring|risks_attaching');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `annual_aggregate_deductible` SET TAGS ('dbx_business_glossary_term' = 'Annual Aggregate Deductible (AAD)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `annual_aggregate_limit` SET TAGS ('dbx_business_glossary_term' = 'Annual Aggregate Limit (AAL)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `attachment_point` SET TAGS ('dbx_business_glossary_term' = 'Attachment Point');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `broker_reference` SET TAGS ('dbx_business_glossary_term' = 'Broker Reference');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `cedant_retention_pct` SET TAGS ('dbx_business_glossary_term' = 'Cedant Retention Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `ceded_pct` SET TAGS ('dbx_business_glossary_term' = 'Ceded Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `deposit_premium` SET TAGS ('dbx_business_glossary_term' = 'Deposit Premium');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `exhaustion_point` SET TAGS ('dbx_business_glossary_term' = 'Exhaustion Point');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `hours_clause` SET TAGS ('dbx_business_glossary_term' = 'Hours Clause');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `index_basis` SET TAGS ('dbx_business_glossary_term' = 'Index Basis');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `index_clause_flag` SET TAGS ('dbx_business_glossary_term' = 'Index Clause Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `layer_code` SET TAGS ('dbx_business_glossary_term' = 'Layer Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `layer_code` SET TAGS ('dbx_value_regex' = '^[A-Z0-9_-]{1,30}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `layer_limit` SET TAGS ('dbx_business_glossary_term' = 'Layer Limit (Per Occurrence)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `layer_name` SET TAGS ('dbx_business_glossary_term' = 'Layer Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `layer_name` SET TAGS ('dbx_pii_category' = 'name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `layer_notes` SET TAGS ('dbx_business_glossary_term' = 'Layer Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `layer_number` SET TAGS ('dbx_business_glossary_term' = 'Layer Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `layer_status` SET TAGS ('dbx_business_glossary_term' = 'Layer Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `layer_status` SET TAGS ('dbx_value_regex' = 'active|expired|cancelled|pending|suspended');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `layer_type` SET TAGS ('dbx_business_glossary_term' = 'Layer Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `layer_type` SET TAGS ('dbx_value_regex' = 'XOL|CAT_XL|QS|SL|WORKING|CLASH');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `lob_scope` SET TAGS ('dbx_business_glossary_term' = 'Line of Business (LOB) Scope');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `loss_corridor_lower` SET TAGS ('dbx_business_glossary_term' = 'Loss Corridor Lower Bound');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `loss_corridor_upper` SET TAGS ('dbx_business_glossary_term' = 'Loss Corridor Upper Bound');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `loss_occurrence_definition` SET TAGS ('dbx_business_glossary_term' = 'Loss Occurrence Definition');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `minimum_premium` SET TAGS ('dbx_business_glossary_term' = 'Minimum Premium');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `peril_scope` SET TAGS ('dbx_business_glossary_term' = 'Peril Scope');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `placed_pct` SET TAGS ('dbx_business_glossary_term' = 'Placed Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `profit_commission_pct` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `reinstatement_basis` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Basis');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `reinstatement_basis` SET TAGS ('dbx_value_regex' = 'pro_rata|flat|free');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `reinstatement_count` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Count');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `reinstatement_premium_pct` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Premium Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `reinsurance_premium` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Premium');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `retrocession_flag` SET TAGS ('dbx_business_glossary_term' = 'Retrocession Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `rol_pct` SET TAGS ('dbx_business_glossary_term' = 'Rate on Line (ROL) Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `signed_line_pct` SET TAGS ('dbx_business_glossary_term' = 'Signed Line Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `sliding_scale_flag` SET TAGS ('dbx_business_glossary_term' = 'Sliding Scale Commission Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `subject_premium_basis` SET TAGS ('dbx_business_glossary_term' = 'Subject Premium Basis');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `subject_premium_basis` SET TAGS ('dbx_value_regex' = 'GWP|NWP|DPW|NEP|GEP');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `territory_scope` SET TAGS ('dbx_business_glossary_term' = 'Territory Scope');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `unl_basis` SET TAGS ('dbx_business_glossary_term' = 'Ultimate Net Loss (UNL) Basis');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `unl_basis` SET TAGS ('dbx_value_regex' = 'gross|net_of_recoveries|net_of_underlying_ri');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` SET TAGS ('dbx_data_type' = 'master_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` SET TAGS ('dbx_subdomain' = 'agreement_structure');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `fac_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Facultative (FAC) Agreement ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `catastrophe_event_id` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Event ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `fac_broker_party_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Broker Party ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `fac_cedant_party_id` SET TAGS ('dbx_business_glossary_term' = 'Cedant Party ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `fac_reinsurer_party_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Party ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `producers_producer_id` SET TAGS ('dbx_business_glossary_term' = 'Placing Producer Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `quote_id` SET TAGS ('dbx_business_glossary_term' = 'Quote Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `ri_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Agreement ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `riskexposure_insured_risk_id` SET TAGS ('dbx_business_glossary_term' = 'Riskexposure Insured Risk Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `submission_id` SET TAGS ('dbx_business_glossary_term' = 'Submission ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `uw_decision_id` SET TAGS ('dbx_business_glossary_term' = 'Uw Decision Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `uw_referral_id` SET TAGS ('dbx_business_glossary_term' = 'Uw Referral Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `agreement_status` SET TAGS ('dbx_business_glossary_term' = 'Facultative Agreement Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `agreement_status` SET TAGS ('dbx_value_regex' = 'draft|bound|active|expired|cancelled|declined');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `authorized_reinsurer_flag` SET TAGS ('dbx_business_glossary_term' = 'Authorized Reinsurer Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `bound_date` SET TAGS ('dbx_business_glossary_term' = 'FAC Bound Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `broker_commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Broker Commission Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `cancellation_date` SET TAGS ('dbx_business_glossary_term' = 'FAC Cancellation Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `ceded_limit_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Limit Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `ceded_percentage` SET TAGS ('dbx_business_glossary_term' = 'Ceded Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `ceded_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Reinsurance Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `ceded_premium_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `ceding_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `ceding_commission_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `ceding_commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `collateral_amount` SET TAGS ('dbx_business_glossary_term' = 'Collateral Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `collateral_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `collateral_required_flag` SET TAGS ('dbx_business_glossary_term' = 'Collateral Required Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `expiry_date` SET TAGS ('dbx_business_glossary_term' = 'FAC Agreement Expiry Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `fac_certificate_number` SET TAGS ('dbx_business_glossary_term' = 'Facultative (FAC) Certificate Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `fac_premium_rate` SET TAGS ('dbx_business_glossary_term' = 'Facultative (FAC) Premium Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `fac_reference_number` SET TAGS ('dbx_business_glossary_term' = 'Facultative (FAC) Reference Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `fac_type` SET TAGS ('dbx_business_glossary_term' = 'Facultative (FAC) Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `fac_type` SET TAGS ('dbx_value_regex' = 'pro_rata|excess_of_loss');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `gross_written_premium` SET TAGS ('dbx_business_glossary_term' = 'Gross Written Premium (GWP)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `gross_written_premium` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `inception_date` SET TAGS ('dbx_business_glossary_term' = 'FAC Agreement Inception Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `loss_participation_rate` SET TAGS ('dbx_business_glossary_term' = 'Loss Participation Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `original_insured_tiv` SET TAGS ('dbx_business_glossary_term' = 'Original Insured Total Insured Value (TIV)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `placement_basis` SET TAGS ('dbx_business_glossary_term' = 'FAC Placement Basis');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `placement_basis` SET TAGS ('dbx_value_regex' = 'risks_attaching|losses_occurring');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `reinstatement_premium_rate` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Premium Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `reinstatement_provision` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Provision Indicator');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `reinsurer_share_percentage` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Share Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `reinsurer_underwriter_name` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Underwriter Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `reinsurer_underwriter_name` SET TAGS ('dbx_pii_category' = 'name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `retention_amount` SET TAGS ('dbx_business_glossary_term' = 'Cedant Retention Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `retrocession_flag` SET TAGS ('dbx_business_glossary_term' = 'Retrocession (RETRO) Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `schedule_f_category` SET TAGS ('dbx_business_glossary_term' = 'Schedule F Reinsurer Category');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `schedule_f_category` SET TAGS ('dbx_value_regex' = 'authorized|unauthorized|certified|reciprocal_jurisdiction');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `slip_reference` SET TAGS ('dbx_business_glossary_term' = 'FAC Slip Reference');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `special_conditions` SET TAGS ('dbx_business_glossary_term' = 'FAC Special Conditions');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `underwriter_name` SET TAGS ('dbx_business_glossary_term' = 'Underwriter Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `underwriter_name` SET TAGS ('dbx_pii_category' = 'name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`fac_agreement` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Last Updated Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` SET TAGS ('dbx_data_type' = 'master_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` SET TAGS ('dbx_subdomain' = 'agreement_structure');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `parent_reinsurer_id` SET TAGS ('dbx_business_glossary_term' = 'Parent Reinsurer ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `party_id` SET TAGS ('dbx_business_glossary_term' = 'Party Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `am_best_outlook` SET TAGS ('dbx_business_glossary_term' = 'AM Best Rating Outlook');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `am_best_outlook` SET TAGS ('dbx_value_regex' = 'stable|positive|negative|developing|under_review');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `am_best_rating` SET TAGS ('dbx_business_glossary_term' = 'AM Best Financial Strength Rating');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `am_best_rating` SET TAGS ('dbx_value_regex' = '^(A++|A+|A|A-|B++|B+|B|B-|C++|C+|C|C-|D|E|F|S|NR)$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `am_best_rating_date` SET TAGS ('dbx_business_glossary_term' = 'AM Best Rating Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `approval_date` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Approval Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `approval_expiry_date` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Approval Expiry Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `approved_flag` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Approved Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `authorization_status` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Authorization Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `authorization_status` SET TAGS ('dbx_value_regex' = 'authorized|unauthorized|certified|accredited|reciprocal_jurisdiction');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `broker_intermediary_name` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Broker Intermediary Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `broker_intermediary_name` SET TAGS ('dbx_pii_category' = 'name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `reinsurer_code` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `collateral_amount` SET TAGS ('dbx_business_glossary_term' = 'Collateral Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `collateral_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `collateral_required_flag` SET TAGS ('dbx_business_glossary_term' = 'Collateral Required Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `collateral_type` SET TAGS ('dbx_business_glossary_term' = 'Collateral Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `collateral_type` SET TAGS ('dbx_value_regex' = 'letter_of_credit|trust_fund|funds_withheld|cash_deposit|none');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `credit_limit_amount` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Credit Limit Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `credit_limit_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `domicile_country` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Domicile Country');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `domicile_country` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `domicile_country` SET TAGS ('dbx_pii_sensitive' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `domicile_state` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Domicile State');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `domicile_state` SET TAGS ('dbx_value_regex' = '^[A-Z]{2}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `domicile_state` SET TAGS ('dbx_pii_sensitive' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `federal_excise_tax_exempt_flag` SET TAGS ('dbx_business_glossary_term' = 'Federal Excise Tax (FET) Exempt Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `fein` SET TAGS ('dbx_business_glossary_term' = 'Federal Employer Identification Number (FEIN)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `fein` SET TAGS ('dbx_value_regex' = '^[0-9]{2}-[0-9]{7}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `fein` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `group_name` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Group Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `group_name` SET TAGS ('dbx_pii_category' = 'name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `last_review_date` SET TAGS ('dbx_business_glossary_term' = 'Last Counterparty Review Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `lloyds_syndicate_number` SET TAGS ('dbx_business_glossary_term' = 'Lloyds Syndicate Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `lloyds_syndicate_number` SET TAGS ('dbx_value_regex' = '^[0-9]{4}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `minimum_am_best_rating` SET TAGS ('dbx_business_glossary_term' = 'Minimum AM Best Rating Requirement');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `moodys_rating` SET TAGS ('dbx_business_glossary_term' = 'Moodys Insurance Financial Strength Rating');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `naic_code` SET TAGS ('dbx_business_glossary_term' = 'National Association of Insurance Commissioners (NAIC) Company Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `naic_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `next_review_date` SET TAGS ('dbx_business_glossary_term' = 'Next Counterparty Review Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `pool_name` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Pool Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `pool_name` SET TAGS ('dbx_pii_category' = 'name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `reinsurer_status` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Lifecycle Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `reinsurer_status` SET TAGS ('dbx_value_regex' = 'active|inactive|suspended|run_off|insolvent');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `reinsurer_type` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `reinsurer_type` SET TAGS ('dbx_value_regex' = 'assuming_company|lloyds_syndicate|pool|captive|government|other');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `relationship_inception_date` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Relationship Inception Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `retrocession_flag` SET TAGS ('dbx_business_glossary_term' = 'Retrocession Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `schedule_f_category` SET TAGS ('dbx_business_glossary_term' = 'NAIC Schedule F Category');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `schedule_f_category` SET TAGS ('dbx_value_regex' = 'authorized|unauthorized_with_collateral|unauthorized_without_collateral|certified|accredited|reciprocal_jurisdiction');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `short_name` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Short Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `short_name` SET TAGS ('dbx_pii_category' = 'name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `sp_rating` SET TAGS ('dbx_business_glossary_term' = 'S&P Global Financial Strength Rating');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `tax_withholding_rate` SET TAGS ('dbx_business_glossary_term' = 'Tax Withholding Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `tax_withholding_rate` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurer` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Last Updated Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` SET TAGS ('dbx_data_type' = 'master_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` SET TAGS ('dbx_subdomain' = 'agreement_structure');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `ri_participant_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Participant ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `ri_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Agreement ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `ri_party_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Broker ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `ri_reinsurer_party_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Party ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `account_current_basis` SET TAGS ('dbx_business_glossary_term' = 'Account Current Basis');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `account_current_basis` SET TAGS ('dbx_value_regex' = 'written|earned|cash');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `agreement_type` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Agreement Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `agreement_type` SET TAGS ('dbx_value_regex' = 'treaty_qs|treaty_xol|treaty_sl|treaty_cat_xl|facultative');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `brokerage_commission_pct` SET TAGS ('dbx_business_glossary_term' = 'Brokerage Commission Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `ceding_commission_pct` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `cession_share_pct` SET TAGS ('dbx_business_glossary_term' = 'Cession Share Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `commutation_amount` SET TAGS ('dbx_business_glossary_term' = 'Commutation Settlement Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `commutation_date` SET TAGS ('dbx_business_glossary_term' = 'Commutation Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `commutation_flag` SET TAGS ('dbx_business_glossary_term' = 'Commutation Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `currency_code` SET TAGS ('dbx_business_glossary_term' = 'Settlement Currency Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `currency_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `cut_through_clause_flag` SET TAGS ('dbx_business_glossary_term' = 'Cut-Through Clause Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Participation Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Participation Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `funds_withheld_flag` SET TAGS ('dbx_business_glossary_term' = 'Funds Withheld Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `insolvency_clause_flag` SET TAGS ('dbx_business_glossary_term' = 'Insolvency Clause Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `lc_amount` SET TAGS ('dbx_business_glossary_term' = 'Letter of Credit (LC) Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `lc_required_flag` SET TAGS ('dbx_business_glossary_term' = 'Letter of Credit (LC) Required Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `offset_clause_flag` SET TAGS ('dbx_business_glossary_term' = 'Offset Clause Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `order_hereon_pct` SET TAGS ('dbx_business_glossary_term' = 'Order Hereon Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `participant_reference_number` SET TAGS ('dbx_business_glossary_term' = 'Participant Reference Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `participant_status` SET TAGS ('dbx_business_glossary_term' = 'Participant Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `participant_status` SET TAGS ('dbx_value_regex' = 'active|inactive|pending|terminated|suspended');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `participation_type` SET TAGS ('dbx_business_glossary_term' = 'Participation Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `participation_type` SET TAGS ('dbx_value_regex' = 'leader|follower|sole_reinsurer|co_reinsurer|retrocessionaire');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `placement_date` SET TAGS ('dbx_business_glossary_term' = 'Placement Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `profit_commission_pct` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `retrocession_flag` SET TAGS ('dbx_business_glossary_term' = 'Retrocession (RETRO) Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `rol_pct` SET TAGS ('dbx_business_glossary_term' = 'Rate on Line (ROL) Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `settlement_frequency` SET TAGS ('dbx_business_glossary_term' = 'Settlement Frequency');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `settlement_frequency` SET TAGS ('dbx_value_regex' = 'monthly|quarterly|semi_annual|annual|as_agreed');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `signed_line_pct` SET TAGS ('dbx_business_glossary_term' = 'Signed Line Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `signing_date` SET TAGS ('dbx_business_glossary_term' = 'Signing Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `termination_date` SET TAGS ('dbx_business_glossary_term' = 'Participation Termination Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `termination_reason` SET TAGS ('dbx_business_glossary_term' = 'Participation Termination Reason');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `termination_reason` SET TAGS ('dbx_value_regex' = 'commutation|insolvency|mutual_agreement|regulatory|non_renewal');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `trust_fund_amount` SET TAGS ('dbx_business_glossary_term' = 'Trust Fund Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_participant` ALTER COLUMN `written_line_pct` SET TAGS ('dbx_business_glossary_term' = 'Written Line Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` SET TAGS ('dbx_data_type' = 'transactional_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` SET TAGS ('dbx_subdomain' = 'cession_accounting');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurance_cession_id` SET TAGS ('dbx_business_glossary_term' = 'Cession ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `catastrophe_event_id` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe Event ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `catastrophegeography_peril_id` SET TAGS ('dbx_business_glossary_term' = 'Peril Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `claimfinancials_accounting_period_id` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `coverage_id` SET TAGS ('dbx_business_glossary_term' = 'Coverage Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `currency_id` SET TAGS ('dbx_business_glossary_term' = 'Currency Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `fac_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Facultative Agreement ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `policy_term_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Term ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `premium_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Premium Transaction Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurer_party_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Party ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ri_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Agreement ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `riskexposure_insured_risk_id` SET TAGS ('dbx_business_glossary_term' = 'Riskexposure Insured Risk Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `treaty_layer_id` SET TAGS ('dbx_business_glossary_term' = 'Treaty Layer ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `accident_year` SET TAGS ('dbx_business_glossary_term' = 'Accident Year (AY)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `agreement_type` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Agreement Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `agreement_type` SET TAGS ('dbx_value_regex' = 'treaty|facultative');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `attachment_point` SET TAGS ('dbx_business_glossary_term' = 'Attachment Point');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `attachment_point` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `booking_date` SET TAGS ('dbx_business_glossary_term' = 'Cession Booking Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `bordereaux_period` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Reporting Period');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `bordereaux_period` SET TAGS ('dbx_value_regex' = '^[0-9]{4}-(Q[1-4]|[0-9]{2})$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_case_reserve` SET TAGS ('dbx_business_glossary_term' = 'Ceded Case Reserve');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_case_reserve` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_earned_premium` SET TAGS ('dbx_business_glossary_term' = 'Ceded Earned Premium (EP)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_earned_premium` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_gwp` SET TAGS ('dbx_business_glossary_term' = 'Ceded Gross Written Premium (GWP)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_gwp` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_ibnr_reserve` SET TAGS ('dbx_business_glossary_term' = 'Ceded Incurred But Not Reported Reserve (IBNR)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_ibnr_reserve` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_limit` SET TAGS ('dbx_business_glossary_term' = 'Ceded Limit');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_limit` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_tiv` SET TAGS ('dbx_business_glossary_term' = 'Ceded Total Insured Value (TIV)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_tiv` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_unearned_premium` SET TAGS ('dbx_business_glossary_term' = 'Ceded Unearned Premium (UEP)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceded_unearned_premium` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceding_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceding_commission_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceding_commission_pct` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ceding_commission_pct` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `collateral_amount` SET TAGS ('dbx_business_glossary_term' = 'Collateral Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `collateral_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `collateral_type` SET TAGS ('dbx_business_glossary_term' = 'Collateral Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `collateral_type` SET TAGS ('dbx_value_regex' = 'letter_of_credit|trust_fund|cash|none');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `direction` SET TAGS ('dbx_business_glossary_term' = 'Cession Direction');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `direction` SET TAGS ('dbx_value_regex' = 'outward|retrocession');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Cession Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `exhaustion_point` SET TAGS ('dbx_business_glossary_term' = 'Exhaustion Point');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `exhaustion_point` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Cession Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `funds_held_amount` SET TAGS ('dbx_business_glossary_term' = 'Funds Held Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `funds_held_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `is_catastrophe_cession` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe Cession Indicator');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `number` SET TAGS ('dbx_business_glossary_term' = 'Cession Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `policy_year` SET TAGS ('dbx_business_glossary_term' = 'Policy Year (PY)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `rate_on_line` SET TAGS ('dbx_business_glossary_term' = 'Rate on Line (ROL)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `rate_on_line` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurance_cession_status` SET TAGS ('dbx_business_glossary_term' = 'Cession Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurance_cession_status` SET TAGS ('dbx_value_regex' = 'active|pending|cancelled|expired|suspended');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurer_authorization_status` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Authorization Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurer_authorization_status` SET TAGS ('dbx_value_regex' = 'authorized|accredited|certified|unauthorized|reciprocal');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurer_domicile_country` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Domicile Country');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurer_domicile_country` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurer_domicile_country` SET TAGS ('dbx_pii_sensitive' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurer_naic_code` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer NAIC Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `reinsurer_naic_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `retention_amount` SET TAGS ('dbx_business_glossary_term' = 'Cedant Retention Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `retention_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `share_pct` SET TAGS ('dbx_business_glossary_term' = 'Cession Share Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `share_pct` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `treaty_type` SET TAGS ('dbx_business_glossary_term' = 'Treaty Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `treaty_type` SET TAGS ('dbx_value_regex' = 'quota_share|excess_of_loss|stop_loss|cat_xl');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ultimate_net_loss` SET TAGS ('dbx_business_glossary_term' = 'Ultimate Net Loss (UNL)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `ultimate_net_loss` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_cession` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` SET TAGS ('dbx_data_type' = 'transactional_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` SET TAGS ('dbx_subdomain' = 'cession_accounting');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `ri_premium_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Premium Transaction ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `claimfinancials_accounting_period_id` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `fac_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Fac Agreement Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `original_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Original Transaction ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `policy_term_id` SET TAGS ('dbx_business_glossary_term' = 'Policy Term ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `premium_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Premium Transaction Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `reinsurance_cession_id` SET TAGS ('dbx_business_glossary_term' = 'Cession ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Party ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `ri_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Agreement ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `treaty_layer_id` SET TAGS ('dbx_business_glossary_term' = 'Treaty Layer ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `accident_year` SET TAGS ('dbx_business_glossary_term' = 'Accident Year (AY)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `accounting_date` SET TAGS ('dbx_business_glossary_term' = 'Accounting Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `agreement_type` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Agreement Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `agreement_type` SET TAGS ('dbx_value_regex' = 'Quota Share|Excess of Loss|Stop Loss|CAT XL|Surplus Share');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `bordereaux_period` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Reporting Period');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `bordereaux_period` SET TAGS ('dbx_value_regex' = '^[0-9]{4}-(0[1-9]|1[0-2])$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `bordereaux_status` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Submission Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `bordereaux_status` SET TAGS ('dbx_value_regex' = 'Pending|Submitted|Acknowledged|Disputed|Settled');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `ceded_earned_premium` SET TAGS ('dbx_business_glossary_term' = 'Ceded Earned Premium (CEP)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `ceded_earned_premium` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `ceded_unearned_premium` SET TAGS ('dbx_business_glossary_term' = 'Ceded Unearned Premium (CUEP)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `ceded_unearned_premium` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `ceded_written_premium` SET TAGS ('dbx_business_glossary_term' = 'Ceded Written Premium (CWP)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `ceded_written_premium` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `ceding_commission` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `ceding_commission` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `ceding_commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `cession_percentage` SET TAGS ('dbx_business_glossary_term' = 'Cession Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `cession_type` SET TAGS ('dbx_business_glossary_term' = 'Cession Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `cession_type` SET TAGS ('dbx_value_regex' = 'Treaty|Facultative|Retrocession');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `currency_code` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `currency_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `exchange_rate` SET TAGS ('dbx_business_glossary_term' = 'Foreign Exchange Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `gl_account_code` SET TAGS ('dbx_business_glossary_term' = 'General Ledger (GL) Account Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `gross_written_premium` SET TAGS ('dbx_business_glossary_term' = 'Gross Written Premium (GWP)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `gross_written_premium` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `occurrence_reference_code` SET TAGS ('dbx_business_glossary_term' = 'Occurrence Reference ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `policy_effective_date` SET TAGS ('dbx_business_glossary_term' = 'Policy Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `policy_expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Policy Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `policy_year` SET TAGS ('dbx_business_glossary_term' = 'Policy Year (PY)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `profit_commission` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `profit_commission` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `rate_on_line` SET TAGS ('dbx_business_glossary_term' = 'Rate on Line (ROL)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `reinstated_limit` SET TAGS ('dbx_business_glossary_term' = 'Reinstated Limit');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `reinstated_limit` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `reinstatement_premium` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Premium');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `reinstatement_premium` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `reporting_currency_amount` SET TAGS ('dbx_business_glossary_term' = 'Reporting Currency Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `reporting_currency_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `return_premium` SET TAGS ('dbx_business_glossary_term' = 'Ceded Return Premium');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `return_premium` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `reversal_flag` SET TAGS ('dbx_business_glossary_term' = 'Reversal Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `risk_effective_date` SET TAGS ('dbx_business_glossary_term' = 'Risk Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `risk_expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Risk Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `source_system_code` SET TAGS ('dbx_value_regex' = 'SICS|ReinsurancePro|Manual|PAS|BillingCenter');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `transaction_date` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Premium Transaction Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `transaction_number` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Premium Transaction Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `transaction_status` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Premium Transaction Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `transaction_status` SET TAGS ('dbx_value_regex' = 'Draft|Pending|Posted|Reversed|Voided');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `transaction_type` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Premium Transaction Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `transaction_type` SET TAGS ('dbx_value_regex' = 'Written|Earned|Unearned|Return|Reinstatement');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `treaty_year` SET TAGS ('dbx_business_glossary_term' = 'Treaty Year');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_premium_transaction` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` SET TAGS ('dbx_data_type' = 'transactional_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` SET TAGS ('dbx_subdomain' = 'cession_accounting');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `ri_claim_cession_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Claim Cession ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `catastrophe_event_id` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe Event ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `catastrophegeography_peril_id` SET TAGS ('dbx_business_glossary_term' = 'Peril Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `claim_exposure_id` SET TAGS ('dbx_business_glossary_term' = 'Claim Exposure ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `claim_id` SET TAGS ('dbx_business_glossary_term' = 'Claim ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `claimfinancials_accounting_period_id` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `fac_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Fac Agreement Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_internal' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `ri_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Agreement ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `riskexposure_insured_risk_id` SET TAGS ('dbx_business_glossary_term' = 'Riskexposure Insured Risk Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `treaty_layer_id` SET TAGS ('dbx_business_glossary_term' = 'Treaty Layer ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `accident_year` SET TAGS ('dbx_business_glossary_term' = 'Accident Year (AY)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `bordereaux_period` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Period');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `bordereaux_period` SET TAGS ('dbx_value_regex' = '^[0-9]{4}-(Q[1-4]|M(0[1-9]|1[0-2]))$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `bordereaux_submission_date` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Submission Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `cat_event_code` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Event Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `ceded_alae_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Allocated Loss Adjustment Expense (ALAE) Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `ceded_lae_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Loss Adjustment Expense (LAE) Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `ceded_loss_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Loss Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `ceded_paid_loss_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Paid Loss Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `ceded_reserve_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Reserve Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `cession_effective_date` SET TAGS ('dbx_business_glossary_term' = 'Cession Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `cession_number` SET TAGS ('dbx_business_glossary_term' = 'Cession Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `cession_percentage` SET TAGS ('dbx_business_glossary_term' = 'Cession Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `cession_status` SET TAGS ('dbx_business_glossary_term' = 'Cession Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `cession_status` SET TAGS ('dbx_value_regex' = 'pending|active|settled|disputed|withdrawn|closed');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `cession_type` SET TAGS ('dbx_business_glossary_term' = 'Cession Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `cession_type` SET TAGS ('dbx_value_regex' = 'treaty|facultative|retrocession');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `commutation_date` SET TAGS ('dbx_business_glossary_term' = 'Commutation Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `commutation_flag` SET TAGS ('dbx_business_glossary_term' = 'Commutation Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `currency_code` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `currency_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `dispute_reason` SET TAGS ('dbx_business_glossary_term' = 'Dispute Reason');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `funds_held_amount` SET TAGS ('dbx_business_glossary_term' = 'Funds Held Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `gross_loss_amount` SET TAGS ('dbx_business_glossary_term' = 'Gross Loss Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `is_cat_claim` SET TAGS ('dbx_business_glossary_term' = 'Is Catastrophe (CAT) Claim Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `layer_limit_amount` SET TAGS ('dbx_business_glossary_term' = 'Layer Limit Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `layer_retention_amount` SET TAGS ('dbx_business_glossary_term' = 'Layer Retention Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `loss_date` SET TAGS ('dbx_business_glossary_term' = 'Loss Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `policy_year` SET TAGS ('dbx_business_glossary_term' = 'Policy Year (PY)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `recovery_billed_date` SET TAGS ('dbx_business_glossary_term' = 'Recovery Billed Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `recovery_received_date` SET TAGS ('dbx_business_glossary_term' = 'Recovery Received Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `recovery_status` SET TAGS ('dbx_business_glossary_term' = 'Recovery Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `recovery_status` SET TAGS ('dbx_value_regex' = 'not_billed|billed|partially_recovered|fully_recovered|disputed|written_off');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `reinsurance_type` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `reinsurance_type` SET TAGS ('dbx_value_regex' = 'quota_share|excess_of_loss|stop_loss|cat_xl|facultative_proportional|facultative_non_proportional');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `reinsurer_participation_pct` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Participation Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `report_date` SET TAGS ('dbx_business_glossary_term' = 'Report Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `rol_rate` SET TAGS ('dbx_business_glossary_term' = 'Rate on Line (ROL) Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `schedule_f_category` SET TAGS ('dbx_business_glossary_term' = 'Schedule F Category');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `schedule_f_category` SET TAGS ('dbx_value_regex' = 'authorized|unauthorized|certified|other_alien');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `treaty_year` SET TAGS ('dbx_business_glossary_term' = 'Treaty Year');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `unl_amount` SET TAGS ('dbx_business_glossary_term' = 'Ultimate Net Loss (UNL) Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_claim_cession` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Updated Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` SET TAGS ('dbx_data_type' = 'transactional_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` SET TAGS ('dbx_subdomain' = 'cession_accounting');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `ri_recovery_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Recovery Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `bordereaux_id` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Batch Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `catastrophe_event_id` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Event Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `claim_exposure_id` SET TAGS ('dbx_business_glossary_term' = 'Claim Exposure Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `claimfinancials_accounting_period_id` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `fac_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Fac Agreement Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `ri_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Agreement Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `ri_claim_cession_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Claim Cession Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `accident_year` SET TAGS ('dbx_business_glossary_term' = 'Accident Year (AY)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `authorized_reinsurer_flag` SET TAGS ('dbx_business_glossary_term' = 'Authorized Reinsurer Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `billed_date` SET TAGS ('dbx_business_glossary_term' = 'Recovery Billed Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `bordereaux_submission_date` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Submission Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `calendar_year` SET TAGS ('dbx_business_glossary_term' = 'Calendar Year (CY)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `cat_code` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe (CAT) Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `ceded_share_percentage` SET TAGS ('dbx_business_glossary_term' = 'Ceded Share Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `collateral_required_flag` SET TAGS ('dbx_business_glossary_term' = 'Collateral Required Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `collected_amount` SET TAGS ('dbx_business_glossary_term' = 'Collected Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `collected_date` SET TAGS ('dbx_business_glossary_term' = 'Recovery Collected Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `commutation_date` SET TAGS ('dbx_business_glossary_term' = 'Commutation Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `commutation_flag` SET TAGS ('dbx_business_glossary_term' = 'Commutation Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `currency_code` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `currency_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `dispute_date` SET TAGS ('dbx_business_glossary_term' = 'Dispute Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `dispute_flag` SET TAGS ('dbx_business_glossary_term' = 'Dispute Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `dispute_reason` SET TAGS ('dbx_business_glossary_term' = 'Dispute Reason');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `exchange_rate` SET TAGS ('dbx_business_glossary_term' = 'Foreign Exchange (FX) Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `facultative_certificate_number` SET TAGS ('dbx_business_glossary_term' = 'Facultative (FAC) Certificate Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `movement_date` SET TAGS ('dbx_business_glossary_term' = 'Recovery Movement Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `movement_type` SET TAGS ('dbx_business_glossary_term' = 'Recovery Movement Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Recovery Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `outstanding_amount` SET TAGS ('dbx_business_glossary_term' = 'Outstanding Recovery Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `payment_type` SET TAGS ('dbx_business_glossary_term' = 'Payment Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `payment_type` SET TAGS ('dbx_value_regex' = 'loss|lae|dcc|subrogation|salvage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `policy_year` SET TAGS ('dbx_business_glossary_term' = 'Policy Year (PY)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `recovery_amount` SET TAGS ('dbx_business_glossary_term' = 'Recovery Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `recovery_amount_usd` SET TAGS ('dbx_business_glossary_term' = 'Recovery Amount in United States Dollars (USD)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `recovery_status` SET TAGS ('dbx_business_glossary_term' = 'Recovery Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `recovery_status` SET TAGS ('dbx_value_regex' = 'pending|billed|collected|disputed|written_off|reversed');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `reinstatement_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `reinstatement_premium_flag` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Premium Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `reserve_type` SET TAGS ('dbx_business_glossary_term' = 'Reserve Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `reserve_type` SET TAGS ('dbx_value_regex' = 'case|ibnr|lae|ulae|alae');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `transaction_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Recovery Transaction Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `treaty_year` SET TAGS ('dbx_business_glossary_term' = 'Treaty Year');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_recovery` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` SET TAGS ('dbx_data_type' = 'transactional_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` SET TAGS ('dbx_subdomain' = 'cession_accounting');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `bordereaux_id` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `bordereaux_broker_party_id` SET TAGS ('dbx_business_glossary_term' = 'Broker Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `bordereaux_party_id` SET TAGS ('dbx_business_glossary_term' = 'Cedent Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `claimfinancials_accounting_period_id` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `fac_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Fac Agreement Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `prior_bordereaux_id` SET TAGS ('dbx_business_glossary_term' = 'Prior Bordereaux Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `ri_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Ri Agreement Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `treaty_id` SET TAGS ('dbx_business_glossary_term' = 'Treaty Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `accepted_date` SET TAGS ('dbx_business_glossary_term' = 'Accepted Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `amendment_number` SET TAGS ('dbx_business_glossary_term' = 'Amendment Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `approved_by_user_code` SET TAGS ('dbx_business_glossary_term' = 'Approved By User Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `approved_by_user_code` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `approved_by_user_code` SET TAGS ('dbx_pii' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `bordereaux_status` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `bordereaux_status` SET TAGS ('dbx_value_regex' = 'draft|submitted|accepted|rejected|amended|finalized');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `bordereaux_type` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `bordereaux_type` SET TAGS ('dbx_value_regex' = 'premium|loss|combined|statistical|exposure|claim_detail');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `ceded_alae_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Allocated Loss Adjustment Expense (ALAE) Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `ceded_earned_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Earned Premium (EP) Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `ceded_ibnr_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Incurred But Not Reported (IBNR) Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `ceded_lae_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Loss Adjustment Expense (LAE) Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `ceded_loss_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Loss Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `ceded_outstanding_loss_reserve_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Outstanding Loss Reserve (OSLR) Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `ceded_paid_loss_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Paid Loss Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `ceded_ulae_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Unallocated Loss Adjustment Expense (ULAE) Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `ceded_unearned_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Unearned Premium (UEP) Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `ceded_written_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Written Premium (WP) Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `claim_count` SET TAGS ('dbx_business_glossary_term' = 'Claim Count');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Commission Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Commission Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `currency_code` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `currency_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `due_date` SET TAGS ('dbx_business_glossary_term' = 'Due Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `finalized_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Finalized Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `loss_ratio` SET TAGS ('dbx_business_glossary_term' = 'Loss Ratio (LR)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `modified_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Modified Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `net_balance_due_amount` SET TAGS ('dbx_business_glossary_term' = 'Net Balance Due Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `number` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `policy_count` SET TAGS ('dbx_business_glossary_term' = 'Policy Count');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `prepared_by_user_code` SET TAGS ('dbx_business_glossary_term' = 'Prepared By User Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `prepared_by_user_code` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `prepared_by_user_code` SET TAGS ('dbx_pii' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `profit_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `rejected_date` SET TAGS ('dbx_business_glossary_term' = 'Rejected Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `rejection_reason` SET TAGS ('dbx_business_glossary_term' = 'Rejection Reason');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `reporting_period_end_date` SET TAGS ('dbx_business_glossary_term' = 'Reporting Period End Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `reporting_period_start_date` SET TAGS ('dbx_business_glossary_term' = 'Reporting Period Start Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `submission_date` SET TAGS ('dbx_business_glossary_term' = 'Submission Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `submission_format` SET TAGS ('dbx_business_glossary_term' = 'Submission Format');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `submission_method` SET TAGS ('dbx_business_glossary_term' = 'Submission Method');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`bordereaux` ALTER COLUMN `submission_method` SET TAGS ('dbx_value_regex' = 'electronic|paper|email|portal|api|edi');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` SET TAGS ('dbx_data_type' = 'transactional_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` SET TAGS ('dbx_subdomain' = 'cession_accounting');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `reinsurance_bordereaux_line_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Bordereaux Line ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `bordereaux_id` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Run ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `catastrophe_event_id` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe Event ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `catastrophegeography_peril_id` SET TAGS ('dbx_business_glossary_term' = 'Peril Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `claim_id` SET TAGS ('dbx_business_glossary_term' = 'Claim ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `claimfinancials_accounting_period_id` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `policy_id` SET TAGS ('dbx_business_glossary_term' = 'Policy ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `premium_transaction_id` SET TAGS ('dbx_business_glossary_term' = 'Premium Transaction Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `reinsurance_cession_id` SET TAGS ('dbx_business_glossary_term' = 'Cession ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `reinsurer_party_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Party ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `ri_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Agreement ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `agreement_number` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Agreement Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `agreement_type` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Agreement Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `agreement_type` SET TAGS ('dbx_value_regex' = 'TREATY|FACULTATIVE');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `attachment_point` SET TAGS ('dbx_business_glossary_term' = 'Attachment Point');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `bordereaux_line_type` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Line Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `bordereaux_line_type` SET TAGS ('dbx_value_regex' = 'PREMIUM_CESSION|CLAIM_CESSION|ADJUSTMENT|RETURN_PREMIUM|REINSTATEMENT');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `catastrophe_code` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `ceded_earned_premium` SET TAGS ('dbx_business_glossary_term' = 'Ceded Earned Premium (CEP)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `ceded_earned_premium` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `ceded_earned_premium` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `ceded_ibnr_reserve` SET TAGS ('dbx_business_glossary_term' = 'Ceded Incurred But Not Reported (IBNR) Reserve');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `ceded_ibnr_reserve` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `ceded_ibnr_reserve` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `ceded_lae_paid` SET TAGS ('dbx_business_glossary_term' = 'Ceded Loss Adjustment Expense (LAE) Paid');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `ceded_lae_paid` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `ceded_lae_paid` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `ceded_lae_reserve` SET TAGS ('dbx_business_glossary_term' = 'Ceded Loss Adjustment Expense (LAE) Reserve');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `ceded_lae_reserve` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `ceded_lae_reserve` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `ceded_loss_paid` SET TAGS ('dbx_business_glossary_term' = 'Ceded Loss Paid');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `ceded_loss_paid` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `ceded_loss_paid` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `ceded_loss_reserve` SET TAGS ('dbx_business_glossary_term' = 'Ceded Loss Reserve');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `ceded_loss_reserve` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `ceded_loss_reserve` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `ceded_unearned_premium` SET TAGS ('dbx_business_glossary_term' = 'Ceded Unearned Premium (CUEP)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `ceded_unearned_premium` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `ceded_unearned_premium` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `ceded_written_premium` SET TAGS ('dbx_business_glossary_term' = 'Ceded Written Premium (CWP)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `ceded_written_premium` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `ceded_written_premium` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `ceding_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `ceding_commission_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `ceding_commission_amount` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `ceding_commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `cession_percentage` SET TAGS ('dbx_business_glossary_term' = 'Cession Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `currency_code` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `currency_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `exchange_rate` SET TAGS ('dbx_business_glossary_term' = 'Exchange Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `gross_written_premium` SET TAGS ('dbx_business_glossary_term' = 'Gross Written Premium (GWP)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `gross_written_premium` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `gross_written_premium` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `insured_name` SET TAGS ('dbx_business_glossary_term' = 'Insured Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `insured_name` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `insured_name` SET TAGS ('dbx_pii_category' = 'name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `is_retrocession` SET TAGS ('dbx_business_glossary_term' = 'Is Retrocession Indicator');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `line_sequence_number` SET TAGS ('dbx_business_glossary_term' = 'Line Sequence Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `line_status` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Line Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `line_status` SET TAGS ('dbx_value_regex' = 'DRAFT|SUBMITTED|ACCEPTED|DISPUTED|SETTLED|VOIDED');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `loss_date` SET TAGS ('dbx_business_glossary_term' = 'Loss Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `policy_effective_date` SET TAGS ('dbx_business_glossary_term' = 'Policy Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `policy_expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Policy Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `rate_on_line` SET TAGS ('dbx_business_glossary_term' = 'Rate on Line (ROL)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `reinsurer_limit` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Limit');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `reinsurer_share_percentage` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Share Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `report_date` SET TAGS ('dbx_business_glossary_term' = 'Claim Report Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `reporting_period_end_date` SET TAGS ('dbx_business_glossary_term' = 'Reporting Period End Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `reporting_period_start_date` SET TAGS ('dbx_business_glossary_term' = 'Reporting Period Start Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `retention_amount` SET TAGS ('dbx_business_glossary_term' = 'Retention Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `retention_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `retention_amount` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `source_system_reference` SET TAGS ('dbx_business_glossary_term' = 'Source System Reference');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `treaty_type` SET TAGS ('dbx_business_glossary_term' = 'Treaty Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `treaty_type` SET TAGS ('dbx_value_regex' = 'QUOTA_SHARE|EXCESS_OF_LOSS|STOP_LOSS|CAT_XL|SURPLUS');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `treaty_year` SET TAGS ('dbx_business_glossary_term' = 'Treaty Year');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`reinsurance_bordereaux_line` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` SET TAGS ('dbx_data_type' = 'transactional_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` SET TAGS ('dbx_subdomain' = 'cession_accounting');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `ri_reinstatement_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Reinstatement ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `catastrophe_event_id` SET TAGS ('dbx_business_glossary_term' = 'Catastrophe Event Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `catastrophegeography_peril_id` SET TAGS ('dbx_business_glossary_term' = 'Peril Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `claimfinancials_accounting_period_id` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `reinsurance_cession_id` SET TAGS ('dbx_business_glossary_term' = 'Cession ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `ri_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Agreement ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `treaty_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Treaty ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `treaty_layer_id` SET TAGS ('dbx_business_glossary_term' = 'Treaty Layer Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `bordereaux_period` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Reporting Period');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `bordereaux_period` SET TAGS ('dbx_value_regex' = '^[0-9]{4}-(0[1-9]|1[0-2])$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `dispute_reason` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Dispute Reason');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `due_date` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Premium Due Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `exhausted_limit_amt` SET TAGS ('dbx_business_glossary_term' = 'Exhausted Limit Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `gl_account_code` SET TAGS ('dbx_business_glossary_term' = 'General Ledger (GL) Account Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `invoice_date` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Premium Invoice Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `invoice_number` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Premium Invoice Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `is_automatic` SET TAGS ('dbx_business_glossary_term' = 'Automatic Reinstatement Indicator');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `is_free_reinstatement` SET TAGS ('dbx_business_glossary_term' = 'Free Reinstatement Indicator');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `layer_limit_amt` SET TAGS ('dbx_business_glossary_term' = 'Treaty Layer Limit Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `max_reinstatements_allowed` SET TAGS ('dbx_business_glossary_term' = 'Maximum Reinstatements Allowed');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `occurrence_date` SET TAGS ('dbx_business_glossary_term' = 'Loss Occurrence Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `occurrence_reference` SET TAGS ('dbx_business_glossary_term' = 'Loss Occurrence Reference');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `occurrence_reference_code` SET TAGS ('dbx_business_glossary_term' = 'Loss Occurrence ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `original_premium_basis_amt` SET TAGS ('dbx_business_glossary_term' = 'Original Premium Basis Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `payment_date` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Premium Payment Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `payment_reference` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Premium Payment Reference');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `pro_rata_factor` SET TAGS ('dbx_business_glossary_term' = 'Pro-Rata Time Factor');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `reinstated_limit_amt` SET TAGS ('dbx_business_glossary_term' = 'Reinstated Limit Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `reinstatement_number` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `reinstatement_premium_amt` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `reinstatement_premium_currency` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Premium Currency');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `reinstatement_premium_currency` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `reinstatement_premium_rate` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Premium Rate (ROL)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `reinstatement_sequence` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Sequence Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `reinstatement_status` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `reinstatement_status` SET TAGS ('dbx_value_regex' = 'pending|confirmed|invoiced|paid|cancelled|disputed');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `reinstatement_type` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `reinstatement_type` SET TAGS ('dbx_value_regex' = 'automatic|conditional|free|paid');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `reinsurer_confirmation_ref` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Confirmation Reference');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `reinsurer_reinstatement_premium_amt` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Share Reinstatement Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `reinsurer_share_pct` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Share Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `retention_amt` SET TAGS ('dbx_business_glossary_term' = 'Cedant Retention Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `treaty_year` SET TAGS ('dbx_business_glossary_term' = 'Treaty Year');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_reinstatement` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` SET TAGS ('dbx_data_type' = 'transactional_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` SET TAGS ('dbx_subdomain' = 'cession_accounting');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `ri_settlement_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Settlement ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `claimfinancials_accounting_period_id` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `reinsurer_party_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Party ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `ri_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Agreement ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `treaty_id` SET TAGS ('dbx_business_glossary_term' = 'Treaty Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `treaty_layer_id` SET TAGS ('dbx_business_glossary_term' = 'Treaty Layer Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `adjustment_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Adjustment Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `adjustment_premium_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `adjustment_premium_amount` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `agreement_type` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Agreement Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `agreement_type` SET TAGS ('dbx_value_regex' = 'treaty|facultative');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `approval_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Settlement Approval Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `approved_by` SET TAGS ('dbx_business_glossary_term' = 'Approved By');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `authorized_reinsurer_flag` SET TAGS ('dbx_business_glossary_term' = 'Authorized Reinsurer Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `bordereaux_reference_number` SET TAGS ('dbx_business_glossary_term' = 'Bordereaux Reference Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `ceded_premium_earned_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Earned Premium (EP) Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `ceded_premium_earned_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `ceded_premium_earned_amount` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `ceded_premium_written_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Written Premium (WP) Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `ceded_premium_written_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `ceded_premium_written_amount` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `ceded_unearned_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceded Unearned Premium (UEP) Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `ceded_unearned_premium_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `ceded_unearned_premium_amount` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `ceding_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `ceding_commission_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `ceding_commission_amount` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `cession_share_percent` SET TAGS ('dbx_business_glossary_term' = 'Cession Share Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `collateral_held_amount` SET TAGS ('dbx_business_glossary_term' = 'Collateral Held Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `collateral_held_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `collateral_held_amount` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `currency_code` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `currency_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `deposit_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Deposit Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `deposit_premium_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `deposit_premium_amount` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `dispute_reason` SET TAGS ('dbx_business_glossary_term' = 'Settlement Dispute Reason');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `dispute_resolution_date` SET TAGS ('dbx_business_glossary_term' = 'Dispute Resolution Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `due_date` SET TAGS ('dbx_business_glossary_term' = 'Settlement Due Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `funds_withheld_amount` SET TAGS ('dbx_business_glossary_term' = 'Funds Withheld Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `funds_withheld_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `funds_withheld_amount` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `gl_account_code` SET TAGS ('dbx_business_glossary_term' = 'General Ledger (GL) Account Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `interest_on_funds_withheld_amount` SET TAGS ('dbx_business_glossary_term' = 'Interest on Funds Withheld Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `interest_on_funds_withheld_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `interest_on_funds_withheld_amount` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `lae_recoverable_amount` SET TAGS ('dbx_business_glossary_term' = 'Loss Adjustment Expense (LAE) Recoverable Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `lae_recoverable_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `lae_recoverable_amount` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `loss_recoverable_amount` SET TAGS ('dbx_business_glossary_term' = 'Loss Recoverable Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `loss_recoverable_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `loss_recoverable_amount` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `net_settlement_amount` SET TAGS ('dbx_business_glossary_term' = 'Net Settlement Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `net_settlement_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `net_settlement_amount` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `paid_date` SET TAGS ('dbx_business_glossary_term' = 'Settlement Paid Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `profit_commission_amount` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `profit_commission_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `profit_commission_amount` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `profit_commission_loss_ratio` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Loss Ratio (LR)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `profit_commission_rate` SET TAGS ('dbx_business_glossary_term' = 'Profit Commission Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `rate_on_line` SET TAGS ('dbx_business_glossary_term' = 'Rate on Line (ROL)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `reinstatement_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Reinstatement Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `reinstatement_premium_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `reinstatement_premium_amount` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `reinsurer_domicile_country` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Domicile Country');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `reinsurer_domicile_country` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `reinsurer_domicile_country` SET TAGS ('dbx_pii_sensitive' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `reinsurer_naic_code` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer National Association of Insurance Commissioners (NAIC) Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `reinsurer_naic_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `settlement_date` SET TAGS ('dbx_business_glossary_term' = 'Settlement Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `settlement_direction` SET TAGS ('dbx_business_glossary_term' = 'Settlement Direction');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `settlement_direction` SET TAGS ('dbx_value_regex' = 'payable_to_reinsurer|receivable_from_reinsurer');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `settlement_notes` SET TAGS ('dbx_business_glossary_term' = 'Settlement Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `settlement_number` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Settlement Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `settlement_number` SET TAGS ('dbx_value_regex' = '^RI-SETL-[0-9]{4}-[0-9]{6}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `settlement_period_end_date` SET TAGS ('dbx_business_glossary_term' = 'Settlement Period End Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `settlement_period_start_date` SET TAGS ('dbx_business_glossary_term' = 'Settlement Period Start Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `settlement_status` SET TAGS ('dbx_business_glossary_term' = 'Settlement Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `settlement_status` SET TAGS ('dbx_value_regex' = 'draft|pending_approval|approved|settled|disputed|voided');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `settlement_type` SET TAGS ('dbx_business_glossary_term' = 'Settlement Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `settlement_type` SET TAGS ('dbx_value_regex' = 'periodic|final|commutation|profit_commission|reinstatement_premium');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `subject_premium_amount` SET TAGS ('dbx_business_glossary_term' = 'Subject Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `subject_premium_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `subject_premium_amount` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `treaty_type` SET TAGS ('dbx_business_glossary_term' = 'Treaty Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `treaty_type` SET TAGS ('dbx_value_regex' = 'quota_share|excess_of_loss|stop_loss|cat_xl|surplus_share');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `ultimate_net_loss_amount` SET TAGS ('dbx_business_glossary_term' = 'Ultimate Net Loss (UNL) Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `ultimate_net_loss_amount` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `ultimate_net_loss_amount` SET TAGS ('dbx_pii_financial' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_settlement` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` SET TAGS ('dbx_data_type' = 'master_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` SET TAGS ('dbx_subdomain' = 'cession_accounting');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `ri_collateral_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Collateral ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `claimfinancials_accounting_period_id` SET TAGS ('dbx_business_glossary_term' = 'Accounting Period ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `fac_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Fac Agreement Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `ri_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance (RI) Agreement ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `treaty_id` SET TAGS ('dbx_business_glossary_term' = 'Treaty Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `adequacy_status` SET TAGS ('dbx_business_glossary_term' = 'Collateral Adequacy Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `adequacy_status` SET TAGS ('dbx_value_regex' = 'adequate|deficient|excess|under_review');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `available_amt` SET TAGS ('dbx_business_glossary_term' = 'Collateral Available Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `available_amt` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `broker_name` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Broker Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `broker_name` SET TAGS ('dbx_pii_category' = 'name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `cedant_legal_entity` SET TAGS ('dbx_business_glossary_term' = 'Cedant Legal Entity Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `cedant_naic_code` SET TAGS ('dbx_business_glossary_term' = 'Cedant National Association of Insurance Commissioners (NAIC) Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `cedant_naic_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `certified_reinsurer_rating` SET TAGS ('dbx_business_glossary_term' = 'Certified Reinsurer Rating');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `certified_reinsurer_rating` SET TAGS ('dbx_value_regex' = 'CR-1|CR-2|CR-3|CR-4|CR-5|CR-6');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `collateral_notes` SET TAGS ('dbx_business_glossary_term' = 'Collateral Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `collateral_number` SET TAGS ('dbx_business_glossary_term' = 'Collateral Instrument Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `collateral_purpose` SET TAGS ('dbx_business_glossary_term' = 'Collateral Purpose');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `collateral_purpose` SET TAGS ('dbx_value_regex' = 'ceded_reserves|unearned_premium|loss_reserves|lae_reserves|combined');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `collateral_status` SET TAGS ('dbx_business_glossary_term' = 'Collateral Instrument Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `collateral_status` SET TAGS ('dbx_value_regex' = 'active|expired|drawn|cancelled|pending|released');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `collateral_type` SET TAGS ('dbx_business_glossary_term' = 'Collateral Instrument Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `collateral_type` SET TAGS ('dbx_value_regex' = 'letter_of_credit|trust_fund|funds_withheld|cash_deposit|surety_bond|other');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `currency_code` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `currency_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `deficiency_amt` SET TAGS ('dbx_business_glossary_term' = 'Collateral Deficiency Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `deficiency_amt` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `draw_deadline_date` SET TAGS ('dbx_business_glossary_term' = 'Collateral Draw Deadline Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `drawn_amt` SET TAGS ('dbx_business_glossary_term' = 'Collateral Drawn Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `drawn_amt` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Collateral Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `evergreen_flag` SET TAGS ('dbx_business_glossary_term' = 'Evergreen Collateral Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `expiry_date` SET TAGS ('dbx_business_glossary_term' = 'Collateral Expiry Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `external_reference_number` SET TAGS ('dbx_business_glossary_term' = 'External Reference Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `face_amt` SET TAGS ('dbx_business_glossary_term' = 'Collateral Face Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `face_amt` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `governing_law` SET TAGS ('dbx_business_glossary_term' = 'Governing Law');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `issuing_institution_country` SET TAGS ('dbx_business_glossary_term' = 'Issuing Institution Country Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `issuing_institution_country` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `issuing_institution_country` SET TAGS ('dbx_pii_sensitive' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `issuing_institution_name` SET TAGS ('dbx_business_glossary_term' = 'Issuing Financial Institution Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `issuing_institution_name` SET TAGS ('dbx_pii_category' = 'name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `last_valuation_date` SET TAGS ('dbx_business_glossary_term' = 'Last Collateral Valuation Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `lc_issuing_bank_swift` SET TAGS ('dbx_business_glossary_term' = 'Letter of Credit (LC) Issuing Bank SWIFT Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `lc_issuing_bank_swift` SET TAGS ('dbx_value_regex' = '^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `lc_issuing_bank_swift` SET TAGS ('dbx_restricted' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `lc_issuing_bank_swift` SET TAGS ('dbx_pii' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `next_review_date` SET TAGS ('dbx_business_glossary_term' = 'Next Collateral Review Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `non_renewal_notice_days` SET TAGS ('dbx_business_glossary_term' = 'Non-Renewal Notice Period (Days)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `reduced_collateral_pct` SET TAGS ('dbx_business_glossary_term' = 'Reduced Collateral Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `regulatory_jurisdiction` SET TAGS ('dbx_business_glossary_term' = 'Regulatory Jurisdiction');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `reinsurer_certified_flag` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Certified Reinsurer Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `release_date` SET TAGS ('dbx_business_glossary_term' = 'Collateral Release Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `renewal_date` SET TAGS ('dbx_business_glossary_term' = 'Collateral Renewal Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `required_amt` SET TAGS ('dbx_business_glossary_term' = 'Required Collateral Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `required_amt` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `schedule_f_category` SET TAGS ('dbx_business_glossary_term' = 'Schedule F Reinsurance Category');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `schedule_f_category` SET TAGS ('dbx_value_regex' = 'authorized|unauthorized_with_collateral|unauthorized_without_collateral|certified');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `source_system_code` SET TAGS ('dbx_business_glossary_term' = 'Source System Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `source_system_code` SET TAGS ('dbx_value_regex' = 'SICS|SAPIENS_RI|MANUAL|OTHER');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `trust_account_number` SET TAGS ('dbx_business_glossary_term' = 'Trust Account Number');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `trust_account_number` SET TAGS ('dbx_confidential' = 'true');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `trust_account_number` SET TAGS ('dbx_pii_category' = 'financial');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`ri_collateral` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Updated Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` SET TAGS ('dbx_data_type' = 'transactional_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` SET TAGS ('dbx_subdomain' = 'cession_accounting');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `schedule_f_entry_id` SET TAGS ('dbx_business_glossary_term' = 'Schedule F Entry ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `line_of_business_id` SET TAGS ('dbx_business_glossary_term' = 'Line Of Business Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `reinsurer_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `ri_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Agreement ID');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `treaty_id` SET TAGS ('dbx_business_glossary_term' = 'Treaty Id (Foreign Key)');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `agreement_type` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Agreement Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `agreement_type` SET TAGS ('dbx_value_regex' = 'treaty|facultative|facultative_obligatory');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `amendment_date` SET TAGS ('dbx_business_glossary_term' = 'Schedule F Amendment Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `assumed_premium_written_amt` SET TAGS ('dbx_business_glossary_term' = 'Assumed Written Premium Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `authorized_status` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Authorized Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `authorized_status` SET TAGS ('dbx_value_regex' = 'authorized|unauthorized|certified|accredited|reciprocal_jurisdiction');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `cedant_legal_entity` SET TAGS ('dbx_business_glossary_term' = 'Cedant Legal Entity Name');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `cedant_naic_code` SET TAGS ('dbx_business_glossary_term' = 'Cedant National Association of Insurance Commissioners (NAIC) Company Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `cedant_naic_code` SET TAGS ('dbx_value_regex' = '^[0-9]{5}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `ceded_contingent_commission_amt` SET TAGS ('dbx_business_glossary_term' = 'Ceded Contingent Commission Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `ceded_ibnr_amt` SET TAGS ('dbx_business_glossary_term' = 'Ceded Incurred But Not Reported (IBNR) Reserve Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `ceded_lae_reserve_amt` SET TAGS ('dbx_business_glossary_term' = 'Ceded Loss Adjustment Expense (LAE) Reserve Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `ceded_losses_outstanding_amt` SET TAGS ('dbx_business_glossary_term' = 'Ceded Outstanding Loss Reserve (OSLR) Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `ceded_losses_paid_amt` SET TAGS ('dbx_business_glossary_term' = 'Ceded Losses Paid Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `ceded_premium_earned_amt` SET TAGS ('dbx_business_glossary_term' = 'Ceded Earned Premium (EP) Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `ceded_premium_written_amt` SET TAGS ('dbx_business_glossary_term' = 'Ceded Written Premium (WP) Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `ceded_unearned_premium_amt` SET TAGS ('dbx_business_glossary_term' = 'Ceded Unearned Premium (UEP) Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `ceding_commission_received_amt` SET TAGS ('dbx_business_glossary_term' = 'Ceding Commission Received Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `collateral_held_amt` SET TAGS ('dbx_business_glossary_term' = 'Collateral Held Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `collateral_type` SET TAGS ('dbx_business_glossary_term' = 'Collateral Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `collateral_type` SET TAGS ('dbx_value_regex' = 'letter_of_credit|trust_fund|funds_withheld|cash_deposit|none');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `collectibility_status` SET TAGS ('dbx_business_glossary_term' = 'Collectibility Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `collectibility_status` SET TAGS ('dbx_value_regex' = 'collectible|overdue_90|overdue_180|dispute|uncollectible|partial');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `created_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Created Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `currency_code` SET TAGS ('dbx_business_glossary_term' = 'Currency Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `currency_code` SET TAGS ('dbx_value_regex' = '^[A-Z]{3}$');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `dispute_amt` SET TAGS ('dbx_business_glossary_term' = 'Disputed Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `dispute_flag` SET TAGS ('dbx_business_glossary_term' = 'Reinsurance Dispute Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `entry_status` SET TAGS ('dbx_business_glossary_term' = 'Schedule F Entry Status');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `entry_status` SET TAGS ('dbx_value_regex' = 'draft|submitted|filed|amended|superseded');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `exchange_rate` SET TAGS ('dbx_business_glossary_term' = 'Foreign Exchange Rate');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `filing_date` SET TAGS ('dbx_business_glossary_term' = 'Schedule F Filing Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `funds_withheld_amt` SET TAGS ('dbx_business_glossary_term' = 'Funds Withheld Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `net_balance_due_amt` SET TAGS ('dbx_business_glossary_term' = 'Net Balance Due Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `overdue_balance_amt` SET TAGS ('dbx_business_glossary_term' = 'Overdue Balance Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `overdue_days` SET TAGS ('dbx_business_glossary_term' = 'Overdue Days');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `provision_for_reinsurance_amt` SET TAGS ('dbx_business_glossary_term' = 'Provision for Reinsurance Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `rating_agency` SET TAGS ('dbx_business_glossary_term' = 'Rating Agency');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `rating_agency` SET TAGS ('dbx_value_regex' = 'AM_Best|SP|Moodys|Fitch|Kroll');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `rbc_action_level` SET TAGS ('dbx_business_glossary_term' = 'Risk-Based Capital (RBC) Action Level');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `rbc_action_level` SET TAGS ('dbx_value_regex' = 'no_action|company_action|regulatory_action|authorized_control|mandatory_control');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `reinsurer_rating` SET TAGS ('dbx_business_glossary_term' = 'Reinsurer Financial Strength Rating');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `reporting_year` SET TAGS ('dbx_business_glossary_term' = 'Reporting Year');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `schedule_f_part` SET TAGS ('dbx_business_glossary_term' = 'Schedule F Part');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `schedule_f_part` SET TAGS ('dbx_value_regex' = 'part1|part2|part3|part4|part5|part6');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `treaty_type` SET TAGS ('dbx_business_glossary_term' = 'Treaty Type');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `treaty_type` SET TAGS ('dbx_value_regex' = 'quota_share|excess_of_loss|stop_loss|cat_xl');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`schedule_f_entry` ALTER COLUMN `updated_timestamp` SET TAGS ('dbx_business_glossary_term' = 'Record Last Updated Timestamp');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer_peril_term` SET TAGS ('dbx_data_type' = 'association_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer_peril_term` SET TAGS ('dbx_subdomain' = 'agreement_structure');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer_peril_term` SET TAGS ('dbx_association_edges' = 'reinsurance.treaty_layer,catastrophegeography.peril');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer_peril_term` ALTER COLUMN `treaty_layer_peril_term_id` SET TAGS ('dbx_business_glossary_term' = 'Treaty Layer Peril Term Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer_peril_term` ALTER COLUMN `catastrophegeography_peril_id` SET TAGS ('dbx_business_glossary_term' = 'Treaty Layer Peril Term - Peril Id');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer_peril_term` ALTER COLUMN `treaty_layer_id` SET TAGS ('dbx_business_glossary_term' = 'Treaty Layer Peril Term - Treaty Layer Id');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer_peril_term` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Peril Term Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer_peril_term` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Peril Term Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer_peril_term` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Peril Term Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer_peril_term` ALTER COLUMN `peril_attachment_point` SET TAGS ('dbx_business_glossary_term' = 'Peril-Specific Attachment Point');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer_peril_term` ALTER COLUMN `peril_cession_pct` SET TAGS ('dbx_business_glossary_term' = 'Peril-Specific Cession Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer_peril_term` ALTER COLUMN `peril_inclusion_flag` SET TAGS ('dbx_business_glossary_term' = 'Peril Inclusion Indicator');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer_peril_term` ALTER COLUMN `peril_limit` SET TAGS ('dbx_business_glossary_term' = 'Peril-Specific Layer Limit');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer_peril_term` ALTER COLUMN `peril_retention` SET TAGS ('dbx_business_glossary_term' = 'Peril-Specific Retention');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer_peril_term` ALTER COLUMN `peril_rol_pct` SET TAGS ('dbx_business_glossary_term' = 'Peril-Specific Rate on Line');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_layer_peril_term` ALTER COLUMN `peril_sublimit_flag` SET TAGS ('dbx_business_glossary_term' = 'Peril Sublimit Indicator');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`agreement_peril_coverage` SET TAGS ('dbx_data_type' = 'association_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`agreement_peril_coverage` SET TAGS ('dbx_subdomain' = 'agreement_structure');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`agreement_peril_coverage` SET TAGS ('dbx_association_edges' = 'reinsurance.ri_agreement,catastrophegeography.peril');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`agreement_peril_coverage` ALTER COLUMN `agreement_peril_coverage_id` SET TAGS ('dbx_business_glossary_term' = 'Agreement Peril Coverage Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`agreement_peril_coverage` ALTER COLUMN `catastrophegeography_peril_id` SET TAGS ('dbx_business_glossary_term' = 'Agreement Peril Coverage - Peril Id');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`agreement_peril_coverage` ALTER COLUMN `ri_agreement_id` SET TAGS ('dbx_business_glossary_term' = 'Agreement Peril Coverage - Ri Agreement Id');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`agreement_peril_coverage` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`agreement_peril_coverage` ALTER COLUMN `expiry_date` SET TAGS ('dbx_business_glossary_term' = 'Expiry Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`agreement_peril_coverage` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`agreement_peril_coverage` ALTER COLUMN `peril_attachment_point_amt` SET TAGS ('dbx_business_glossary_term' = 'Peril Attachment Point Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`agreement_peril_coverage` ALTER COLUMN `peril_coverage_basis` SET TAGS ('dbx_business_glossary_term' = 'Peril Coverage Basis');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`agreement_peril_coverage` ALTER COLUMN `peril_exclusion_clause` SET TAGS ('dbx_business_glossary_term' = 'Peril Exclusion Clause');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`agreement_peril_coverage` ALTER COLUMN `peril_inclusion_flag` SET TAGS ('dbx_business_glossary_term' = 'Peril Inclusion Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`agreement_peril_coverage` ALTER COLUMN `peril_reinstatement_provision` SET TAGS ('dbx_business_glossary_term' = 'Peril Reinstatement Provision');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`agreement_peril_coverage` ALTER COLUMN `peril_specific_retention_amt` SET TAGS ('dbx_business_glossary_term' = 'Peril Specific Retention Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`agreement_peril_coverage` ALTER COLUMN `peril_sublimit_amt` SET TAGS ('dbx_business_glossary_term' = 'Peril Sublimit Amount');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`agreement_peril_coverage` ALTER COLUMN `peril_territory_restriction` SET TAGS ('dbx_business_glossary_term' = 'Peril Territory Restriction');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_zone_terms` SET TAGS ('dbx_data_type' = 'association_data');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_zone_terms` SET TAGS ('dbx_subdomain' = 'agreement_structure');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_zone_terms` SET TAGS ('dbx_association_edges' = 'reinsurance.treaty,catastrophegeography.cat_zone');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_zone_terms` ALTER COLUMN `treaty_zone_terms_id` SET TAGS ('dbx_business_glossary_term' = 'Treaty Zone Terms Identifier');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_zone_terms` ALTER COLUMN `cat_zone_id` SET TAGS ('dbx_business_glossary_term' = 'Treaty Zone Terms - Cat Zone Id');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_zone_terms` ALTER COLUMN `treaty_id` SET TAGS ('dbx_business_glossary_term' = 'Treaty Zone Terms - Treaty Id');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_zone_terms` ALTER COLUMN `effective_date` SET TAGS ('dbx_business_glossary_term' = 'Effective Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_zone_terms` ALTER COLUMN `expiration_date` SET TAGS ('dbx_business_glossary_term' = 'Expiration Date');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_zone_terms` ALTER COLUMN `notes` SET TAGS ('dbx_business_glossary_term' = 'Notes');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_zone_terms` ALTER COLUMN `underwriting_restriction_code` SET TAGS ('dbx_business_glossary_term' = 'Underwriting Restriction Code');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_zone_terms` ALTER COLUMN `zone_attachment_point` SET TAGS ('dbx_business_glossary_term' = 'Zone Attachment Point');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_zone_terms` ALTER COLUMN `zone_cession_pct` SET TAGS ('dbx_business_glossary_term' = 'Zone Cession Percentage');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_zone_terms` ALTER COLUMN `zone_exclusion_flag` SET TAGS ('dbx_business_glossary_term' = 'Zone Exclusion Flag');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_zone_terms` ALTER COLUMN `zone_limit` SET TAGS ('dbx_business_glossary_term' = 'Zone Limit');
+ALTER TABLE `vibe_pc_insurance_blog_v499`.`reinsurance`.`treaty_zone_terms` ALTER COLUMN `zone_retention_amt` SET TAGS ('dbx_business_glossary_term' = 'Zone Retention Amount');

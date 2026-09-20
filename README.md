@@ -97,7 +97,7 @@ The **[`model-installer/data-model-installer.ipynb`](./model-installer/data-mode
 |---|---:|---:|---:|---:|---:|
 | `restaurants` MVM @ 10 rows | 87 | 870 | 0 | 506 (338 cross-domain) | **0** |
 | `banking` MVM @ 100 rows | 227 | 22,700 | 0 | 2,478 (2,002 cross-domain) | **0** |
-| `pc_insurance` ECM @ 10 rows | 170 | 1,700 | 0 | 907 (528 cross-domain) | **0** |
+| `pc_insurance` ECM @ 10 rows | 226 | 2,260 | 0 | 1,271 (794 cross-domain) | **0** |
 
 **→ Full installer reference — every widget, phase, and guarantee — is documented in the notebook's first cell.**
 
@@ -160,7 +160,7 @@ Click an industry to open its folder. The installer resolves the highest version
 | [Payments & Fintech](./data-models/payments_fintech/) | v1 | [546](./data-models/payments_fintech/v1/ecm/) | [223](./data-models/payments_fintech/v1/mvm/) |
 | [Health Insurance](./data-models/health_insurance/) | v2 | [411](./data-models/health_insurance/v2/ecm/) | [130](./data-models/health_insurance/v2/mvm/) |
 | [Life Insurance](./data-models/life_insurance/) | v1 | [468](./data-models/life_insurance/v1/ecm/) | [217](./data-models/life_insurance/v1/mvm/) |
-| [Property & Casualty Insurance](./data-models/pc_insurance/) | v1 | [170](./data-models/pc_insurance/v1/ecm/) | — |
+| [Property & Casualty Insurance](./data-models/pc_insurance/) | v1 | [226](./data-models/pc_insurance/v1/ecm/) | — |
 
 </details>
 

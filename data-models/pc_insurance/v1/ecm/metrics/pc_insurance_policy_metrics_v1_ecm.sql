@@ -1,525 +1,647 @@
--- Metric views for domain: policy | Business: Pc_Insurance | Version: 1 | Generated on: 2026-09-18 02:41:20
+-- Metric views for domain: policy | Business: Pc_Insurance | Version: 1 | Generated on: 2026-09-20 14:47:38
 
-CREATE OR REPLACE VIEW `vibe_pc_insurance_v499`.`_metrics`.`policy`
+CREATE OR REPLACE VIEW `vibe_pc_insurance_blog_v499`.`_metrics`.`policy`
 WITH METRICS
 LANGUAGE YAML
 AS $$
   version: 1.1
-  comment: "Core policy metrics tracking written premium, insured value, policy counts, and portfolio composition by line of business, status, and regulatory state."
-  source: "`vibe_pc_insurance_v499`.`policy`.`policy`"
+  comment: "Core policy-level KPIs tracking written premium, policy counts, and risk distribution across lines of business, states, and distribution channels."
+  source: "`vibe_pc_insurance_blog_v499`.`policy`.`policy`"
   dimensions:
-    - name: "lob_code"
-      expr: lob_code
-      comment: "Line of business code (e.g., commercial auto, homeowners, workers comp) for portfolio segmentation."
     - name: "policy_status"
       expr: policy_status
-      comment: "Current policy status (active, cancelled, expired, pending) for portfolio health analysis."
-    - name: "policy_type"
-      expr: policy_type
-      comment: "Policy type classification (new business, renewal, rewrite) for growth and retention analysis."
-    - name: "regulatory_state"
-      expr: regulatory_state_id
-      comment: "Regulatory state jurisdiction for compliance and geographic performance analysis."
-    - name: "business_type"
-      expr: business_type
-      comment: "Business type classification (personal lines, commercial lines) for market segment analysis."
+      comment: "Current status of the policy (Active, Cancelled, Expired, etc.)"
+    - name: "lob_code"
+      expr: lob_code
+      comment: "Line of business code (e.g., Personal Auto, Commercial Property)"
+    - name: "state_code"
+      expr: state_code
+      comment: "State jurisdiction where policy is written"
+    - name: "distribution_channel"
+      expr: distribution_channel
+      comment: "Distribution channel (Agent, Broker, Direct, etc.)"
+    - name: "underwriting_tier"
+      expr: underwriting_tier
+      comment: "Underwriting tier or risk classification"
     - name: "effective_year"
       expr: YEAR(effective_date)
-      comment: "Policy effective year for trend analysis and vintage cohort tracking."
+      comment: "Calendar year when policy became effective"
     - name: "effective_quarter"
-      expr: CONCAT(CAST(YEAR(effective_date) AS STRING), '-Q', CAST(QUARTER(effective_date) AS STRING))
-      comment: "Policy effective quarter for seasonal pattern analysis and quarterly performance tracking."
-    - name: "term_months"
-      expr: term_months
-      comment: "Policy term length in months for term structure analysis."
-    - name: "cat_exposure_flag"
-      expr: cat_exposure_flag
-      comment: "Catastrophe exposure indicator for risk concentration and reinsurance planning."
-    - name: "underwriting_company_code"
-      expr: underwriting_company_code
-      comment: "Underwriting company code for multi-carrier portfolio analysis."
+      expr: CONCAT('Q', QUARTER(effective_date), '-', YEAR(effective_date))
+      comment: "Quarter and year when policy became effective"
+    - name: "effective_month"
+      expr: DATE_TRUNC('MONTH', effective_date)
+      comment: "Month when policy became effective"
+    - name: "renewal_indicator"
+      expr: renewal_indicator
+      comment: "Flag indicating whether policy is a renewal"
+    - name: "auto_renew_flag"
+      expr: auto_renew_flag
+      comment: "Flag indicating whether policy is set to auto-renew"
+    - name: "program_code"
+      expr: program_code
+      comment: "Program or product code"
+    - name: "carrier_code"
+      expr: carrier_code
+      comment: "Carrier or company code"
   measures:
     - name: "policy_count"
       expr: COUNT(DISTINCT policy_id)
-      comment: "Distinct count of policies for portfolio size and growth tracking."
-    - name: "total_gwp"
-      expr: SUM(CAST(gwp_amount AS DOUBLE))
-      comment: "Total gross written premium for top-line revenue and production volume."
-    - name: "total_nwp"
-      expr: SUM(CAST(nwp_amount AS DOUBLE))
-      comment: "Total net written premium after cancellations and adjustments for earned premium forecasting."
+      comment: "Total number of unique policies"
+    - name: "total_written_premium"
+      expr: SUM(CAST(written_premium_amount AS DOUBLE))
+      comment: "Total written premium across all policies"
+    - name: "avg_written_premium"
+      expr: AVG(CAST(written_premium_amount AS DOUBLE))
+      comment: "Average written premium per policy"
     - name: "total_insured_value"
       expr: SUM(CAST(total_insured_value AS DOUBLE))
-      comment: "Total insured value across all policies for exposure aggregation and capacity planning."
-    - name: "total_pml"
-      expr: SUM(CAST(pml_amount AS DOUBLE))
-      comment: "Total probable maximum loss for catastrophe risk assessment and reinsurance structuring."
-    - name: "avg_gwp_per_policy"
-      expr: AVG(CAST(gwp_amount AS DOUBLE))
-      comment: "Average gross written premium per policy for pricing adequacy and market positioning analysis."
+      comment: "Total insured value across all policies"
+    - name: "avg_risk_score"
+      expr: AVG(CAST(risk_score AS DOUBLE))
+      comment: "Average risk score across policies"
     - name: "avg_commission_rate"
       expr: AVG(CAST(commission_rate AS DOUBLE))
-      comment: "Average commission rate for distribution cost analysis and profitability assessment."
+      comment: "Average commission rate across policies"
+    - name: "renewal_count"
+      expr: COUNT(DISTINCT CASE WHEN renewal_indicator = TRUE THEN policy_id END)
+      comment: "Count of policies that are renewals"
+    - name: "new_business_count"
+      expr: COUNT(DISTINCT CASE WHEN renewal_indicator = FALSE THEN policy_id END)
+      comment: "Count of new business policies"
+    - name: "cancelled_policy_count"
+      expr: COUNT(DISTINCT CASE WHEN cancellation_date IS NOT NULL THEN policy_id END)
+      comment: "Count of policies that have been cancelled"
 $$;
 
-CREATE OR REPLACE VIEW `vibe_pc_insurance_v499`.`_metrics`.`policy_transaction`
+CREATE OR REPLACE VIEW `vibe_pc_insurance_blog_v499`.`_metrics`.`policy_term`
 WITH METRICS
 LANGUAGE YAML
 AS $$
   version: 1.1
-  comment: "Policy transaction metrics tracking premium changes, transaction volume, and commission by transaction type, effective period, and line of business."
-  source: "`vibe_pc_insurance_v499`.`policy`.`policy_transaction`"
+  comment: "Policy term-level KPIs tracking premium, term counts, and performance by term period, enabling time-bounded policy analysis and renewal tracking."
+  source: "`vibe_pc_insurance_blog_v499`.`policy`.`term`"
   dimensions:
-    - name: "transaction_type"
-      expr: type_code
-      comment: "Transaction type code (new business, endorsement, cancellation, renewal) for transaction mix analysis."
-    - name: "transaction_status"
-      expr: transaction_status
-      comment: "Transaction status (pending, approved, rejected, reversed) for workflow efficiency tracking."
-    - name: "lob_code"
-      expr: lob_code
-      comment: "Line of business code for transaction volume and premium change analysis by product line."
+    - name: "term_status"
+      expr: term_status
+      comment: "Current status of the policy term"
+    - name: "lob"
+      expr: lob
+      comment: "Line of business for this term"
+    - name: "is_renewal"
+      expr: is_renewal
+      comment: "Flag indicating whether term is a renewal"
+    - name: "billing_method"
+      expr: billing_method
+      comment: "Billing method for this term"
+    - name: "distribution_channel"
+      expr: distribution_channel
+      comment: "Distribution channel for this term"
     - name: "effective_year"
       expr: YEAR(effective_date)
-      comment: "Transaction effective year for annual trend analysis."
+      comment: "Calendar year when term became effective"
+    - name: "effective_quarter"
+      expr: CONCAT('Q', QUARTER(effective_date), '-', YEAR(effective_date))
+      comment: "Quarter and year when term became effective"
     - name: "effective_month"
       expr: DATE_TRUNC('MONTH', effective_date)
-      comment: "Transaction effective month for monthly production tracking and seasonality analysis."
-    - name: "booking_year_month"
-      expr: DATE_TRUNC('MONTH', booking_date)
-      comment: "Booking month for accounting period revenue recognition and financial reporting."
-    - name: "reversal_flag"
-      expr: reversal_flag
-      comment: "Reversal indicator for transaction quality and error rate monitoring."
+      comment: "Month when term became effective"
+    - name: "policy_year"
+      expr: policy_year
+      comment: "Policy year number"
+    - name: "calendar_year"
+      expr: calendar_year
+      comment: "Calendar year for reporting"
+    - name: "accident_year"
+      expr: accident_year
+      comment: "Accident year for loss reserving"
     - name: "cancellation_type"
       expr: cancellation_type
-      comment: "Cancellation type (flat, short-rate, pro-rata) for retention analysis and unearned premium calculation."
-    - name: "initiating_party_type"
-      expr: initiating_party_type
-      comment: "Party initiating transaction (insured, carrier, agent) for workflow and service quality analysis."
+      comment: "Type of cancellation if term was cancelled"
+    - name: "renewal_type"
+      expr: renewal_type
+      comment: "Type of renewal if term is a renewal"
+  measures:
+    - name: "term_count"
+      expr: COUNT(DISTINCT term_id)
+      comment: "Total number of unique policy terms"
+    - name: "total_written_premium"
+      expr: SUM(CAST(written_premium_amount AS DOUBLE))
+      comment: "Total written premium across all terms"
+    - name: "avg_written_premium"
+      expr: AVG(CAST(written_premium_amount AS DOUBLE))
+      comment: "Average written premium per term"
+    - name: "avg_term_duration_days"
+      expr: AVG(CAST(duration_days AS DOUBLE))
+      comment: "Average term duration in days"
+    - name: "renewal_term_count"
+      expr: COUNT(DISTINCT CASE WHEN is_renewal = TRUE THEN term_id END)
+      comment: "Count of terms that are renewals"
+    - name: "new_business_term_count"
+      expr: COUNT(DISTINCT CASE WHEN is_renewal = FALSE THEN term_id END)
+      comment: "Count of new business terms"
+    - name: "cancelled_term_count"
+      expr: COUNT(DISTINCT CASE WHEN cancellation_date IS NOT NULL THEN term_id END)
+      comment: "Count of terms that have been cancelled"
+    - name: "unique_policy_count"
+      expr: COUNT(DISTINCT policy_id)
+      comment: "Count of unique policies across all terms"
+$$;
+
+CREATE OR REPLACE VIEW `vibe_pc_insurance_blog_v499`.`_metrics`.`policy_transaction`
+WITH METRICS
+LANGUAGE YAML
+AS $$
+  version: 1.1
+  comment: "Policy transaction-level KPIs tracking premium changes, transaction counts, and endorsement activity by transaction type and effective period."
+  source: "`vibe_pc_insurance_blog_v499`.`policy`.`policy_transaction`"
+  dimensions:
+    - name: "type_code"
+      expr: type_code
+      comment: "Transaction type code (New Business, Renewal, Endorsement, Cancellation, etc.)"
+    - name: "transaction_status"
+      expr: transaction_status
+      comment: "Current status of the transaction"
+    - name: "reason_code"
+      expr: reason_code
+      comment: "Reason code for the transaction"
+    - name: "cancellation_type_code"
+      expr: cancellation_type_code
+      comment: "Type of cancellation if transaction is a cancellation"
+    - name: "cancellation_basis"
+      expr: cancellation_basis
+      comment: "Basis for cancellation (pro-rata, short-rate, flat)"
+    - name: "effective_year"
+      expr: YEAR(effective_date)
+      comment: "Calendar year when transaction became effective"
+    - name: "effective_quarter"
+      expr: CONCAT('Q', QUARTER(effective_date), '-', YEAR(effective_date))
+      comment: "Quarter and year when transaction became effective"
+    - name: "effective_month"
+      expr: DATE_TRUNC('MONTH', effective_date)
+      comment: "Month when transaction became effective"
+    - name: "accounting_month"
+      expr: DATE_TRUNC('MONTH', accounting_date)
+      comment: "Accounting month for the transaction"
+    - name: "policy_year"
+      expr: policy_year
+      comment: "Policy year number"
+    - name: "is_renewal_flag"
+      expr: is_renewal_flag
+      comment: "Flag indicating whether transaction is a renewal"
+    - name: "is_midterm_flag"
+      expr: is_midterm_flag
+      comment: "Flag indicating whether transaction is mid-term"
+    - name: "is_backdated_flag"
+      expr: is_backdated_flag
+      comment: "Flag indicating whether transaction is backdated"
+    - name: "requires_underwriting_review_flag"
+      expr: requires_underwriting_review_flag
+      comment: "Flag indicating whether transaction requires underwriting review"
   measures:
     - name: "transaction_count"
       expr: COUNT(DISTINCT policy_transaction_id)
-      comment: "Distinct count of policy transactions for operational volume and workflow capacity planning."
-    - name: "total_written_premium"
-      expr: SUM(CAST(written_premium_amount AS DOUBLE))
-      comment: "Total written premium across all transactions for production volume and revenue tracking."
+      comment: "Total number of unique policy transactions"
     - name: "total_premium_change"
-      expr: SUM(CAST(premium_change_amount AS DOUBLE))
-      comment: "Total premium change amount for endorsement impact and pricing adjustment analysis."
-    - name: "total_commission"
-      expr: SUM(CAST(commission_amount AS DOUBLE))
-      comment: "Total commission paid for distribution cost tracking and profitability analysis."
-    - name: "total_fees"
-      expr: SUM(CAST(fee_amount AS DOUBLE))
-      comment: "Total fees collected for ancillary revenue and administrative cost recovery."
-    - name: "total_taxes"
-      expr: SUM(CAST(tax_amount AS DOUBLE))
-      comment: "Total taxes collected for regulatory remittance and compliance reporting."
-    - name: "total_transaction_amount"
-      expr: SUM(CAST(total_transaction_amount AS DOUBLE))
-      comment: "Total transaction amount including premium, fees, and taxes for cash flow and billing analysis."
-    - name: "avg_commission_rate"
-      expr: AVG(CAST(commission_rate AS DOUBLE))
-      comment: "Average commission rate for distribution cost benchmarking and producer compensation analysis."
+      expr: SUM(CAST(written_premium_change_amount AS DOUBLE))
+      comment: "Total written premium change across all transactions"
+    - name: "avg_premium_change"
+      expr: AVG(CAST(written_premium_change_amount AS DOUBLE))
+      comment: "Average written premium change per transaction"
+    - name: "total_commission_impact"
+      expr: SUM(CAST(commission_impact_amount AS DOUBLE))
+      comment: "Total commission impact across all transactions"
+    - name: "avg_commission_impact"
+      expr: AVG(CAST(commission_impact_amount AS DOUBLE))
+      comment: "Average commission impact per transaction"
+    - name: "endorsement_count"
+      expr: COUNT(DISTINCT CASE WHEN type_code = 'Endorsement' THEN policy_transaction_id END)
+      comment: "Count of endorsement transactions"
+    - name: "cancellation_count"
+      expr: COUNT(DISTINCT CASE WHEN type_code = 'Cancellation' THEN policy_transaction_id END)
+      comment: "Count of cancellation transactions"
+    - name: "renewal_count"
+      expr: COUNT(DISTINCT CASE WHEN is_renewal_flag = TRUE THEN policy_transaction_id END)
+      comment: "Count of renewal transactions"
+    - name: "midterm_transaction_count"
+      expr: COUNT(DISTINCT CASE WHEN is_midterm_flag = TRUE THEN policy_transaction_id END)
+      comment: "Count of mid-term transactions"
+    - name: "backdated_transaction_count"
+      expr: COUNT(DISTINCT CASE WHEN is_backdated_flag = TRUE THEN policy_transaction_id END)
+      comment: "Count of backdated transactions"
+    - name: "avg_reinstatement_lapse_days"
+      expr: AVG(CAST(reinstatement_lapse_days AS DOUBLE))
+      comment: "Average lapse days for reinstatement transactions"
 $$;
 
-CREATE OR REPLACE VIEW `vibe_pc_insurance_v499`.`_metrics`.`policy_coverage`
+CREATE OR REPLACE VIEW `vibe_pc_insurance_blog_v499`.`_metrics`.`policy_fee`
 WITH METRICS
 LANGUAGE YAML
 AS $$
   version: 1.1
-  comment: "Coverage-level metrics tracking limits, deductibles, premium, and coverage mix by coverage status, line of business, and territory."
-  source: "`vibe_pc_insurance_v499`.`policy`.`policy_coverage`"
+  comment: "Fee transaction KPIs tracking fee revenue, waiver rates, and refund activity by fee type, state, and billing method."
+  source: "`vibe_pc_insurance_blog_v499`.`policy`.`fee`"
   dimensions:
-    - name: "coverage_status"
-      expr: coverage_status
-      comment: "Coverage status (active, deleted, suspended) for coverage portfolio health analysis."
-    - name: "lob_code"
-      expr: lob_code_id
-      comment: "Line of business code for coverage mix and product performance analysis."
-    - name: "territory_code"
-      expr: territory_code
-      comment: "Territory code for geographic rating and risk concentration analysis."
-    - name: "deductible_type"
-      expr: deductible_type
-      comment: "Deductible type (flat, percentage, franchise) for retention strategy and claims cost analysis."
-    - name: "limit_type"
-      expr: limit_type
-      comment: "Limit type (per occurrence, aggregate, combined) for exposure management and reinsurance structuring."
-    - name: "optional_coverage_flag"
-      expr: optional_coverage_flag
-      comment: "Optional coverage indicator for attachment rate and cross-sell analysis."
-    - name: "blanket_coverage_flag"
-      expr: blanket_coverage_flag
-      comment: "Blanket coverage indicator for multi-location and schedule rating analysis."
-    - name: "effective_year"
-      expr: YEAR(effective_date)
-      comment: "Coverage effective year for trend analysis and vintage performance tracking."
-    - name: "valuation_method"
-      expr: valuation_method
-      comment: "Valuation method (ACV, replacement cost, agreed value) for claims settlement and pricing analysis."
-  measures:
-    - name: "coverage_count"
-      expr: COUNT(DISTINCT policy_coverage_id)
-      comment: "Distinct count of coverages for coverage density and product mix analysis."
-    - name: "total_limit"
-      expr: SUM(CAST(limit_amount AS DOUBLE))
-      comment: "Total coverage limit for exposure aggregation and capacity utilization tracking."
-    - name: "total_deductible"
-      expr: SUM(CAST(deductible_amount AS DOUBLE))
-      comment: "Total deductible amount for retention analysis and claims cost forecasting."
-    - name: "total_premium"
-      expr: SUM(CAST(premium_amount AS DOUBLE))
-      comment: "Total coverage premium for pricing adequacy and product profitability analysis."
-    - name: "total_agreed_value"
-      expr: SUM(CAST(agreed_value_amount AS DOUBLE))
-      comment: "Total agreed value for valuation exposure and claims settlement planning."
-    - name: "avg_limit_per_coverage"
-      expr: AVG(CAST(limit_amount AS DOUBLE))
-      comment: "Average limit per coverage for pricing benchmarking and market positioning."
-    - name: "avg_deductible_per_coverage"
-      expr: AVG(CAST(deductible_amount AS DOUBLE))
-      comment: "Average deductible per coverage for retention strategy and claims frequency impact analysis."
-    - name: "avg_rate"
-      expr: AVG(CAST(rate AS DOUBLE))
-      comment: "Average rate per coverage for pricing competitiveness and rate adequacy monitoring."
-$$;
-
-CREATE OR REPLACE VIEW `vibe_pc_insurance_v499`.`_metrics`.`policy_quote`
-WITH METRICS
-LANGUAGE YAML
-AS $$
-  version: 1.1
-  comment: "Quote metrics tracking conversion, quoted premium, underwriting decisions, and quote volume by status, line of business, and producer."
-  source: "`vibe_pc_insurance_v499`.`policy`.`quote`"
-  dimensions:
-    - name: "quote_status"
-      expr: quote_status
-      comment: "Quote status (draft, quoted, bound, declined, expired) for conversion funnel and sales effectiveness analysis."
-    - name: "quote_type"
-      expr: quote_type
-      comment: "Quote type (new business, renewal, remarket) for quote mix and sales strategy analysis."
-    - name: "lob"
-      expr: lob
-      comment: "Line of business for quote volume and conversion rate analysis by product line."
-    - name: "rating_state"
-      expr: rating_state
-      comment: "Rating state for geographic quote activity and market penetration analysis."
-    - name: "uw_tier"
-      expr: uw_tier
-      comment: "Underwriting tier (preferred, standard, substandard) for risk selection and pricing tier analysis."
-    - name: "surplus_lines_flag"
-      expr: surplus_lines_flag
-      comment: "Surplus lines indicator for non-admitted market activity and regulatory compliance tracking."
-    - name: "binding_authority_flag"
-      expr: binding_authority_flag
-      comment: "Binding authority indicator for delegated underwriting and producer authority analysis."
-    - name: "quote_year"
-      expr: YEAR(created_timestamp)
-      comment: "Quote creation year for annual quote volume and conversion trend analysis."
-    - name: "quote_month"
-      expr: DATE_TRUNC('MONTH', created_timestamp)
-      comment: "Quote creation month for monthly sales activity and seasonality tracking."
-  measures:
-    - name: "quote_count"
-      expr: COUNT(DISTINCT quote_id)
-      comment: "Distinct count of quotes for sales pipeline volume and market demand tracking."
-    - name: "total_quoted_gwp"
-      expr: SUM(CAST(quoted_gwp AS DOUBLE))
-      comment: "Total quoted gross written premium for pipeline value and revenue forecasting."
-    - name: "total_quoted_premium"
-      expr: SUM(CAST(quoted_total_premium AS DOUBLE))
-      comment: "Total quoted premium including taxes and fees for total customer cost analysis."
-    - name: "total_tiv"
-      expr: SUM(CAST(tiv AS DOUBLE))
-      comment: "Total insured value quoted for exposure pipeline and capacity planning."
-    - name: "total_pml"
-      expr: SUM(CAST(pml AS DOUBLE))
-      comment: "Total probable maximum loss quoted for catastrophe exposure pipeline and reinsurance planning."
-    - name: "avg_quoted_gwp"
-      expr: AVG(CAST(quoted_gwp AS DOUBLE))
-      comment: "Average quoted gross written premium per quote for pricing strategy and market positioning."
-    - name: "avg_uw_score"
-      expr: AVG(CAST(uw_score AS DOUBLE))
-      comment: "Average underwriting score for risk selection quality and portfolio risk profile analysis."
-    - name: "avg_credit_score"
-      expr: AVG(CAST(credit_score AS DOUBLE))
-      comment: "Average credit score for credit-based pricing and risk segmentation analysis."
-$$;
-
-CREATE OR REPLACE VIEW `vibe_pc_insurance_v499`.`_metrics`.`policy_uw_decision`
-WITH METRICS
-LANGUAGE YAML
-AS $$
-  version: 1.1
-  comment: "Underwriting decision metrics tracking approval rates, declination reasons, risk scores, and premium adjustments by decision action, line of business, and risk tier."
-  source: "`vibe_pc_insurance_v499`.`policy`.`uw_decision`"
-  dimensions:
-    - name: "decision_action"
-      expr: decision_action
-      comment: "Underwriting decision action (approve, decline, refer, quote) for approval rate and referral analysis."
-    - name: "decision_status"
-      expr: decision_status
-      comment: "Decision status (pending, final, overridden) for workflow efficiency and override rate tracking."
-    - name: "lob"
-      expr: lob
-      comment: "Line of business for underwriting performance and risk appetite analysis by product."
-    - name: "risk_tier"
-      expr: risk_tier
-      comment: "Risk tier classification (preferred, standard, substandard) for risk selection and pricing tier effectiveness."
-    - name: "business_type"
-      expr: business_type
-      comment: "Business type for underwriting performance comparison between personal and commercial lines."
-    - name: "automated_decision_flag"
-      expr: automated_decision_flag
-      comment: "Automated decision indicator for straight-through processing rate and automation effectiveness."
-    - name: "override_flag"
-      expr: override_flag
-      comment: "Override indicator for underwriting authority compliance and exception rate monitoring."
-    - name: "approval_required_flag"
-      expr: approval_required_flag
-      comment: "Approval required indicator for referral rate and authority limit analysis."
-    - name: "decision_year"
-      expr: YEAR(decision_date)
-      comment: "Decision year for annual underwriting performance trend analysis."
-    - name: "decision_month"
-      expr: DATE_TRUNC('MONTH', decision_date)
-      comment: "Decision month for monthly underwriting activity and cycle time tracking."
-  measures:
-    - name: "decision_count"
-      expr: COUNT(DISTINCT uw_decision_id)
-      comment: "Distinct count of underwriting decisions for workflow volume and capacity planning."
-    - name: "total_premium_adjustment"
-      expr: SUM(CAST(premium_adjustment_amount AS DOUBLE))
-      comment: "Total premium adjustment amount for pricing discipline and underwriting impact on revenue."
-    - name: "total_limit_adjustment"
-      expr: SUM(CAST(limit_adjustment AS DOUBLE))
-      comment: "Total limit adjustment for exposure management and underwriting authority effectiveness."
-    - name: "total_deductible_adjustment"
-      expr: SUM(CAST(deductible_adjustment AS DOUBLE))
-      comment: "Total deductible adjustment for retention strategy and risk mitigation effectiveness."
-    - name: "avg_risk_score"
-      expr: AVG(CAST(risk_score AS DOUBLE))
-      comment: "Average risk score for portfolio risk profile and underwriting quality monitoring."
-    - name: "avg_premium_adjustment_pct"
-      expr: AVG(CAST(premium_adjustment_pct AS DOUBLE))
-      comment: "Average premium adjustment percentage for pricing discipline and underwriting impact analysis."
-$$;
-
-CREATE OR REPLACE VIEW `vibe_pc_insurance_v499`.`_metrics`.`policy_binder`
-WITH METRICS
-LANGUAGE YAML
-AS $$
-  version: 1.1
-  comment: "Binder metrics tracking binding authority usage, estimated premium, conversion to policy, and binder volume by status, line of business, and binding authority."
-  source: "`vibe_pc_insurance_v499`.`policy`.`binder`"
-  dimensions:
-    - name: "binder_status"
-      expr: binder_status
-      comment: "Binder status (active, converted, cancelled, expired) for binding authority utilization and conversion tracking."
-    - name: "lob_code"
-      expr: lob_code
-      comment: "Line of business code for binding authority usage analysis by product line."
-    - name: "regulatory_state_code"
-      expr: regulatory_state_code
-      comment: "Regulatory state code for geographic binding authority activity and compliance monitoring."
-    - name: "binding_year"
-      expr: YEAR(binding_timestamp)
-      comment: "Binding year for annual binding authority volume and trend analysis."
-    - name: "binding_month"
-      expr: DATE_TRUNC('MONTH', binding_timestamp)
-      comment: "Binding month for monthly binding authority activity and seasonality tracking."
-    - name: "conversion_year"
-      expr: YEAR(conversion_date)
-      comment: "Conversion year for binder-to-policy conversion timing and workflow efficiency analysis."
-  measures:
-    - name: "binder_count"
-      expr: COUNT(DISTINCT binder_id)
-      comment: "Distinct count of binders for binding authority volume and delegated underwriting activity tracking."
-    - name: "total_estimated_premium"
-      expr: SUM(CAST(estimated_premium_amount AS DOUBLE))
-      comment: "Total estimated premium on binders for binding authority exposure and revenue forecasting."
-    - name: "total_deductible"
-      expr: SUM(CAST(deductible_amount AS DOUBLE))
-      comment: "Total deductible amount on binders for retention analysis and binding authority risk profile."
-    - name: "total_per_occurrence_limit"
-      expr: SUM(CAST(per_occurrence_limit_amount AS DOUBLE))
-      comment: "Total per occurrence limit for binding authority exposure aggregation and capacity monitoring."
-    - name: "total_limit"
-      expr: SUM(CAST(total_limit_amount AS DOUBLE))
-      comment: "Total limit amount for binding authority aggregate exposure and reinsurance planning."
-    - name: "avg_estimated_premium"
-      expr: AVG(CAST(estimated_premium_amount AS DOUBLE))
-      comment: "Average estimated premium per binder for binding authority pricing and market segment analysis."
-$$;
-
-CREATE OR REPLACE VIEW `vibe_pc_insurance_v499`.`_metrics`.`policy_premium_cession_allocation`
-WITH METRICS
-LANGUAGE YAML
-AS $$
-  version: 1.1
-  comment: "Premium cession allocation metrics tracking ceded premium, cession percentage, and allocation volume by accounting period, allocation status, and premium basis."
-  source: "`vibe_pc_insurance_v499`.`policy`.`premium_cession_allocation`"
-  dimensions:
-    - name: "accounting_period"
-      expr: accounting_period
-      comment: "Accounting period for ceded premium recognition and reinsurance accounting reconciliation."
-    - name: "allocation_status"
-      expr: allocation_status
-      comment: "Allocation status (pending, confirmed, adjusted) for cession workflow and bordereaux accuracy tracking."
-    - name: "premium_allocation_basis"
-      expr: premium_allocation_basis
-      comment: "Premium allocation basis (written, earned, in-force) for cession timing and reinsurance accounting method."
-    - name: "allocation_year"
-      expr: YEAR(allocation_effective_date)
-      comment: "Allocation effective year for annual ceded premium trend and reinsurance cost analysis."
-    - name: "allocation_month"
-      expr: DATE_TRUNC('MONTH', allocation_effective_date)
-      comment: "Allocation effective month for monthly ceded premium tracking and bordereaux submission timing."
-  measures:
-    - name: "allocation_count"
-      expr: COUNT(DISTINCT premium_cession_allocation_id)
-      comment: "Distinct count of premium cession allocations for reinsurance transaction volume and workflow complexity."
-    - name: "total_allocated_premium"
-      expr: SUM(CAST(allocated_premium_amount AS DOUBLE))
-      comment: "Total allocated ceded premium for reinsurance cost and net retention analysis."
-    - name: "avg_cession_percentage"
-      expr: AVG(CAST(cession_percentage AS DOUBLE))
-      comment: "Average cession percentage for reinsurance program utilization and retention strategy effectiveness."
-$$;
-
-CREATE OR REPLACE VIEW `vibe_pc_insurance_v499`.`_metrics`.`policy_producer`
-WITH METRICS
-LANGUAGE YAML
-AS $$
-  version: 1.1
-  comment: "Policy producer relationship metrics tracking commission splits, producer assignments, and producer performance by role, territory, and line of business."
-  source: "`vibe_pc_insurance_v499`.`policy`.`policy_producer`"
-  dimensions:
-    - name: "role_code"
-      expr: role_code
-      comment: "Producer role code (writing agent, servicing agent, broker) for distribution channel and commission structure analysis."
-    - name: "lob_code"
-      expr: lob_code
-      comment: "Line of business code for producer specialization and product mix analysis."
-    - name: "territory_code"
-      expr: territory_code
-      comment: "Territory code for geographic producer coverage and market penetration analysis."
-    - name: "primary_producer_flag"
-      expr: primary_producer_flag
-      comment: "Primary producer indicator for commission split and producer hierarchy analysis."
-    - name: "binding_authority_flag"
-      expr: binding_authority_flag
-      comment: "Binding authority indicator for delegated underwriting and producer authority tracking."
-    - name: "relationship_status"
-      expr: relationship_status
-      comment: "Relationship status (active, terminated, suspended) for producer network health and attrition analysis."
-    - name: "commission_plan_code"
-      expr: commission_plan_code
-      comment: "Commission plan code for compensation structure and producer incentive analysis."
-    - name: "assignment_year"
-      expr: YEAR(assignment_date)
-      comment: "Assignment year for producer onboarding and network growth trend analysis."
-  measures:
-    - name: "producer_assignment_count"
-      expr: COUNT(DISTINCT policy_producer_id)
-      comment: "Distinct count of producer assignments for distribution network size and policy-producer relationship complexity."
-    - name: "avg_commission_split_pct"
-      expr: AVG(CAST(commission_split_percentage AS DOUBLE))
-      comment: "Average commission split percentage for multi-producer compensation and split commission analysis."
-    - name: "avg_override_commission_rate"
-      expr: AVG(CAST(override_commission_rate AS DOUBLE))
-      comment: "Average override commission rate for hierarchical compensation and management override tracking."
-    - name: "avg_commission_holdback_pct"
-      expr: AVG(CAST(commission_holdback_percentage AS DOUBLE))
-      comment: "Average commission holdback percentage for producer credit risk and contingent commission reserve analysis."
-$$;
-
-CREATE OR REPLACE VIEW `vibe_pc_insurance_v499`.`_metrics`.`policy_condition`
-WITH METRICS
-LANGUAGE YAML
-AS $$
-  version: 1.1
-  comment: "Policy condition metrics tracking underwriting conditions, compliance requirements, and condition satisfaction by category, status, and line of business."
-  source: "`vibe_pc_insurance_v499`.`policy`.`condition`"
-  dimensions:
-    - name: "condition_status"
-      expr: condition_status
-      comment: "Condition status (open, satisfied, waived, expired) for compliance tracking and underwriting condition management."
-    - name: "condition_category"
-      expr: condition_category
-      comment: "Condition condition_category for condition type analysis and underwriting requirement classification."
     - name: "type_code"
       expr: type_code
-      comment: "Condition type code for detailed condition classification and reporting requirement tracking."
-    - name: "lob_code"
-      expr: lob_code
-      comment: "Line of business code for condition prevalence and underwriting requirement analysis by product."
-    - name: "mandatory_flag"
-      expr: mandatory_flag
-      comment: "Mandatory condition indicator for compliance risk and critical condition tracking."
-    - name: "regulatory_requirement_flag"
-      expr: regulatory_requirement_flag
-      comment: "Regulatory requirement indicator for compliance obligation and regulatory condition monitoring."
-    - name: "compliance_flag"
-      expr: compliance_flag
-      comment: "Compliance status indicator for condition satisfaction and regulatory adherence tracking."
-    - name: "coverage_impact_flag"
-      expr: coverage_impact_flag
-      comment: "Coverage impact indicator for conditions affecting coverage terms and policy enforceability."
-    - name: "premium_impact_flag"
-      expr: premium_impact_flag
-      comment: "Premium impact indicator for conditions affecting pricing and premium adjustment tracking."
+      comment: "Fee type code (Policy Fee, Installment Fee, etc.)"
+    - name: "state_code"
+      expr: state_code
+      comment: "State jurisdiction for the fee"
+    - name: "billing_method_code"
+      expr: billing_method_code
+      comment: "Billing method code"
+    - name: "payment_plan_code"
+      expr: payment_plan_code
+      comment: "Payment plan code"
+    - name: "waived_flag"
+      expr: waived_flag
+      comment: "Flag indicating whether fee was waived"
+    - name: "refunded_flag"
+      expr: refunded_flag
+      comment: "Flag indicating whether fee was refunded"
+    - name: "reversal_flag"
+      expr: reversal_flag
+      comment: "Flag indicating whether fee was reversed"
+    - name: "taxable_flag"
+      expr: taxable_flag
+      comment: "Flag indicating whether fee is taxable"
+    - name: "transaction_month"
+      expr: DATE_TRUNC('MONTH', transaction_date)
+      comment: "Month when fee transaction occurred"
+    - name: "effective_month"
+      expr: DATE_TRUNC('MONTH', effective_date)
+      comment: "Month when fee became effective"
+    - name: "waiver_reason_code"
+      expr: waiver_reason_code
+      comment: "Reason code for fee waiver"
+    - name: "refund_reason_code"
+      expr: refund_reason_code
+      comment: "Reason code for fee refund"
   measures:
-    - name: "condition_count"
-      expr: COUNT(DISTINCT condition_id)
-      comment: "Distinct count of policy conditions for underwriting complexity and compliance workload tracking."
+    - name: "fee_count"
+      expr: COUNT(DISTINCT fee_id)
+      comment: "Total number of unique fee transactions"
+    - name: "total_fee_amount"
+      expr: SUM(CAST(amount AS DOUBLE))
+      comment: "Total fee amount across all transactions"
+    - name: "avg_fee_amount"
+      expr: AVG(CAST(amount AS DOUBLE))
+      comment: "Average fee amount per transaction"
+    - name: "waived_fee_count"
+      expr: COUNT(DISTINCT CASE WHEN waived_flag = TRUE THEN fee_id END)
+      comment: "Count of fees that were waived"
+    - name: "refunded_fee_count"
+      expr: COUNT(DISTINCT CASE WHEN refunded_flag = TRUE THEN fee_id END)
+      comment: "Count of fees that were refunded"
+    - name: "reversed_fee_count"
+      expr: COUNT(DISTINCT CASE WHEN reversal_flag = TRUE THEN fee_id END)
+      comment: "Count of fees that were reversed"
+    - name: "taxable_fee_count"
+      expr: COUNT(DISTINCT CASE WHEN taxable_flag = TRUE THEN fee_id END)
+      comment: "Count of fees that are taxable"
+    - name: "avg_installment_number"
+      expr: AVG(CAST(installment_number AS DOUBLE))
+      comment: "Average installment number for installment fees"
 $$;
 
-CREATE OR REPLACE VIEW `vibe_pc_insurance_v499`.`_metrics`.`policy_status_history`
+CREATE OR REPLACE VIEW `vibe_pc_insurance_blog_v499`.`_metrics`.`policy_line`
 WITH METRICS
 LANGUAGE YAML
 AS $$
   version: 1.1
-  comment: "Policy status transition metrics tracking status changes, cancellation reasons, premium impact, and transition volume by status, line of business, and transition reason."
-  source: "`vibe_pc_insurance_v499`.`policy`.`status_history`"
+  comment: "Line of business KPIs tracking written premium, limits, deductibles, and loss ratios by LOB, territory, and program."
+  source: "`vibe_pc_insurance_blog_v499`.`policy`.`line`"
   dimensions:
-    - name: "new_status"
-      expr: new_status
-      comment: "New policy status for status transition analysis and policy lifecycle tracking."
-    - name: "prior_status"
-      expr: prior_status
-      comment: "Prior policy status for status change pattern and workflow analysis."
-    - name: "transition_reason_code"
-      expr: transition_reason_code
-      comment: "Transition reason code for status change driver analysis and retention strategy."
-    - name: "lob"
-      expr: lob
-      comment: "Line of business for status transition pattern and retention analysis by product."
-    - name: "cancellation_type"
-      expr: cancellation_type
-      comment: "Cancellation type (flat, short-rate, pro-rata) for cancellation pattern and unearned premium analysis."
-    - name: "initiated_by_party_type"
-      expr: initiated_by_party_type
-      comment: "Initiating party type (insured, carrier, agent) for cancellation driver and retention strategy analysis."
-    - name: "reversal_flag"
-      expr: reversal_flag
-      comment: "Reversal indicator for status change error rate and workflow quality monitoring."
-    - name: "transition_year"
-      expr: YEAR(transition_timestamp)
-      comment: "Transition year for annual status change trend and retention analysis."
-    - name: "transition_month"
-      expr: DATE_TRUNC('MONTH', transition_timestamp)
-      comment: "Transition month for monthly status change activity and seasonality tracking."
+    - name: "lob_code"
+      expr: lob_code
+      comment: "Line of business code"
+    - name: "lob_name"
+      expr: lob_name
+      comment: "Line of business name"
+    - name: "lob_status"
+      expr: lob_status
+      comment: "Status of the line of business"
+    - name: "sub_line_code"
+      expr: sub_line_code
+      comment: "Sub-line of business code"
+    - name: "sub_line_name"
+      expr: sub_line_name
+      comment: "Sub-line of business name"
+    - name: "territory_code"
+      expr: territory_code
+      comment: "Territory code"
+    - name: "program_code"
+      expr: program_code
+      comment: "Program code"
+    - name: "program_name"
+      expr: program_name
+      comment: "Program name"
+    - name: "underwriting_tier"
+      expr: underwriting_tier
+      comment: "Underwriting tier"
+    - name: "package_indicator"
+      expr: package_indicator
+      comment: "Flag indicating whether line is part of a package"
+    - name: "catastrophe_zone_code"
+      expr: catastrophe_zone_code
+      comment: "Catastrophe zone code"
+    - name: "naic_lob_code"
+      expr: naic_lob_code
+      comment: "NAIC line of business code"
+    - name: "effective_year"
+      expr: YEAR(lob_effective_date)
+      comment: "Calendar year when LOB became effective"
+    - name: "effective_month"
+      expr: DATE_TRUNC('MONTH', lob_effective_date)
+      comment: "Month when LOB became effective"
   measures:
-    - name: "status_transition_count"
-      expr: COUNT(DISTINCT status_history_id)
-      comment: "Distinct count of status transitions for policy lifecycle complexity and workflow volume tracking."
-    - name: "total_premium_impact"
-      expr: SUM(CAST(premium_impact_amount AS DOUBLE))
-      comment: "Total premium impact from status changes for revenue volatility and cancellation cost analysis."
-    - name: "total_unearned_premium_returned"
-      expr: SUM(CAST(unearned_premium_returned_amount AS DOUBLE))
-      comment: "Total unearned premium returned for cancellation cost and cash flow impact analysis."
+    - name: "line_count"
+      expr: COUNT(DISTINCT line_id)
+      comment: "Total number of unique lines of business"
+    - name: "total_written_premium"
+      expr: SUM(CAST(written_premium_amount AS DOUBLE))
+      comment: "Total written premium across all lines"
+    - name: "avg_written_premium"
+      expr: AVG(CAST(written_premium_amount AS DOUBLE))
+      comment: "Average written premium per line"
+    - name: "total_policy_limit"
+      expr: SUM(CAST(policy_limit_amount AS DOUBLE))
+      comment: "Total policy limit across all lines"
+    - name: "avg_policy_limit"
+      expr: AVG(CAST(policy_limit_amount AS DOUBLE))
+      comment: "Average policy limit per line"
+    - name: "total_insured_value"
+      expr: SUM(CAST(total_insured_value_amount AS DOUBLE))
+      comment: "Total insured value across all lines"
+    - name: "avg_deductible"
+      expr: AVG(CAST(deductible_amount AS DOUBLE))
+      comment: "Average deductible amount per line"
+    - name: "avg_retention"
+      expr: AVG(CAST(retention_amount AS DOUBLE))
+      comment: "Average retention amount per line"
+    - name: "total_pml"
+      expr: SUM(CAST(pml_amount AS DOUBLE))
+      comment: "Total probable maximum loss across all lines"
+    - name: "total_aal"
+      expr: SUM(CAST(aal_amount AS DOUBLE))
+      comment: "Total average annual loss across all lines"
+    - name: "avg_loss_ratio_target"
+      expr: AVG(CAST(loss_ratio_target AS DOUBLE))
+      comment: "Average target loss ratio across lines"
+    - name: "avg_experience_mod_factor"
+      expr: AVG(CAST(experience_mod_factor AS DOUBLE))
+      comment: "Average experience modification factor"
+    - name: "avg_rate_factor"
+      expr: AVG(CAST(rate_factor AS DOUBLE))
+      comment: "Average rate factor"
+    - name: "avg_ceded_percentage"
+      expr: AVG(CAST(ceded_percentage AS DOUBLE))
+      comment: "Average ceded percentage to reinsurance"
+    - name: "avg_coinsurance_percentage"
+      expr: AVG(CAST(coinsurance_percentage AS DOUBLE))
+      comment: "Average coinsurance percentage"
+$$;
+
+CREATE OR REPLACE VIEW `vibe_pc_insurance_blog_v499`.`_metrics`.`policy_policyholder`
+WITH METRICS
+LANGUAGE YAML
+AS $$
+  version: 1.1
+  comment: "Policyholder relationship KPIs tracking insured counts, primary vs additional insured distribution, and interest types by holder type and role."
+  source: "`vibe_pc_insurance_blog_v499`.`policy`.`policyholder`"
+  dimensions:
+    - name: "holder_type"
+      expr: holder_type
+      comment: "Type of policyholder (Named Insured, Additional Insured, etc.)"
+    - name: "interest_type"
+      expr: interest_type
+      comment: "Type of insurable interest"
+    - name: "policyholder_status"
+      expr: policyholder_status
+      comment: "Current status of the policyholder relationship"
+    - name: "is_primary_insured"
+      expr: is_primary_insured
+      comment: "Flag indicating whether this is the primary insured"
+    - name: "certificate_holder_flag"
+      expr: certificate_holder_flag
+      comment: "Flag indicating whether policyholder is a certificate holder"
+    - name: "billing_responsibility_flag"
+      expr: billing_responsibility_flag
+      comment: "Flag indicating whether policyholder has billing responsibility"
+    - name: "waiver_of_subrogation_flag"
+      expr: waiver_of_subrogation_flag
+      comment: "Flag indicating whether waiver of subrogation applies"
+    - name: "notice_required_flag"
+      expr: notice_required_flag
+      comment: "Flag indicating whether notice is required"
+    - name: "relationship_to_primary"
+      expr: relationship_to_primary
+      comment: "Relationship to primary insured"
+    - name: "loss_payable_clause_type"
+      expr: loss_payable_clause_type
+      comment: "Type of loss payable clause"
+    - name: "effective_year"
+      expr: YEAR(effective_date)
+      comment: "Calendar year when policyholder relationship became effective"
+    - name: "effective_month"
+      expr: DATE_TRUNC('MONTH', effective_date)
+      comment: "Month when policyholder relationship became effective"
+  measures:
+    - name: "policyholder_count"
+      expr: COUNT(DISTINCT policyholder_id)
+      comment: "Total number of unique policyholder relationships"
+    - name: "unique_party_count"
+      expr: COUNT(DISTINCT party_id)
+      comment: "Count of unique parties across all policyholder relationships"
+    - name: "unique_policy_count"
+      expr: COUNT(DISTINCT policy_id)
+      comment: "Count of unique policies across all policyholder relationships"
+    - name: "primary_insured_count"
+      expr: COUNT(DISTINCT CASE WHEN is_primary_insured = TRUE THEN policyholder_id END)
+      comment: "Count of primary insured relationships"
+    - name: "additional_insured_count"
+      expr: COUNT(DISTINCT CASE WHEN is_primary_insured = FALSE THEN policyholder_id END)
+      comment: "Count of additional insured relationships"
+    - name: "certificate_holder_count"
+      expr: COUNT(DISTINCT CASE WHEN certificate_holder_flag = TRUE THEN policyholder_id END)
+      comment: "Count of certificate holder relationships"
+    - name: "avg_ownership_percentage"
+      expr: AVG(CAST(ownership_percentage AS DOUBLE))
+      comment: "Average ownership percentage across policyholder relationships"
+    - name: "avg_rank_order"
+      expr: AVG(CAST(rank_order AS DOUBLE))
+      comment: "Average rank order of policyholders"
+$$;
+
+CREATE OR REPLACE VIEW `vibe_pc_insurance_blog_v499`.`_metrics`.`policy_reinsurance_link`
+WITH METRICS
+LANGUAGE YAML
+AS $$
+  version: 1.1
+  comment: "Reinsurance cession KPIs tracking ceded limits, attachment points, commission rates, and reinsurer participation by treaty type and placement status."
+  source: "`vibe_pc_insurance_blog_v499`.`policy`.`reinsurance_link`"
+  dimensions:
+    - name: "placement_type"
+      expr: placement_type
+      comment: "Type of reinsurance placement (Treaty, Facultative)"
+    - name: "placement_status"
+      expr: placement_status
+      comment: "Status of the reinsurance placement"
+    - name: "treaty_type"
+      expr: treaty_type
+      comment: "Type of treaty (Quota Share, Excess of Loss, Stop Loss)"
+    - name: "cession_basis"
+      expr: cession_basis
+      comment: "Basis for cession calculation"
+    - name: "lob_code"
+      expr: lob_code
+      comment: "Line of business code"
+    - name: "territorial_scope"
+      expr: territorial_scope
+      comment: "Territorial scope of reinsurance coverage"
+    - name: "authorized_flag"
+      expr: authorized_flag
+      comment: "Flag indicating whether reinsurer is authorized"
+    - name: "cat_event_flag"
+      expr: cat_event_flag
+      comment: "Flag indicating whether coverage applies to catastrophe events"
+    - name: "collateral_required_flag"
+      expr: collateral_required_flag
+      comment: "Flag indicating whether collateral is required"
+    - name: "reinstatement_provision_flag"
+      expr: reinstatement_provision_flag
+      comment: "Flag indicating whether reinstatement provisions apply"
+    - name: "sliding_scale_flag"
+      expr: sliding_scale_flag
+      comment: "Flag indicating whether sliding scale commission applies"
+    - name: "loss_corridor_flag"
+      expr: loss_corridor_flag
+      comment: "Flag indicating whether loss corridor applies"
+    - name: "effective_year"
+      expr: YEAR(effective_date)
+      comment: "Calendar year when reinsurance became effective"
+    - name: "effective_month"
+      expr: DATE_TRUNC('MONTH', effective_date)
+      comment: "Month when reinsurance became effective"
+  measures:
+    - name: "reinsurance_link_count"
+      expr: COUNT(DISTINCT reinsurance_link_id)
+      comment: "Total number of unique reinsurance links"
+    - name: "total_ceded_limit"
+      expr: SUM(CAST(ceded_limit_amount AS DOUBLE))
+      comment: "Total ceded limit across all reinsurance links"
+    - name: "avg_ceded_limit"
+      expr: AVG(CAST(ceded_limit_amount AS DOUBLE))
+      comment: "Average ceded limit per reinsurance link"
+    - name: "total_retention"
+      expr: SUM(CAST(retention_amount AS DOUBLE))
+      comment: "Total retention amount across all reinsurance links"
+    - name: "avg_retention"
+      expr: AVG(CAST(retention_amount AS DOUBLE))
+      comment: "Average retention amount per reinsurance link"
+    - name: "avg_attachment_point"
+      expr: AVG(CAST(attachment_point AS DOUBLE))
+      comment: "Average attachment point across reinsurance links"
+    - name: "avg_cession_percentage"
+      expr: AVG(CAST(cession_percentage AS DOUBLE))
+      comment: "Average cession percentage to reinsurers"
+    - name: "avg_reinsurer_share_percentage"
+      expr: AVG(CAST(reinsurer_share_percentage AS DOUBLE))
+      comment: "Average reinsurer share percentage"
+    - name: "avg_commission_percentage"
+      expr: AVG(CAST(commission_percentage AS DOUBLE))
+      comment: "Average commission percentage from reinsurers"
+    - name: "avg_profit_commission_percentage"
+      expr: AVG(CAST(profit_commission_percentage AS DOUBLE))
+      comment: "Average profit commission percentage"
+    - name: "total_aggregate_limit"
+      expr: SUM(CAST(aggregate_limit_amount AS DOUBLE))
+      comment: "Total aggregate limit across all reinsurance links"
+    - name: "total_aggregate_deductible"
+      expr: SUM(CAST(aggregate_deductible_amount AS DOUBLE))
+      comment: "Total aggregate deductible across all reinsurance links"
+    - name: "total_collateral"
+      expr: SUM(CAST(collateral_amount AS DOUBLE))
+      comment: "Total collateral amount across all reinsurance links"
+    - name: "avg_reinstatement_premium_percentage"
+      expr: AVG(CAST(reinstatement_premium_percentage AS DOUBLE))
+      comment: "Average reinstatement premium percentage"
+$$;
+
+CREATE OR REPLACE VIEW `vibe_pc_insurance_blog_v499`.`_metrics`.`policy_state_reg`
+WITH METRICS
+LANGUAGE YAML
+AS $$
+  version: 1.1
+  comment: "State regulatory compliance KPIs tracking tax amounts, filing counts, and compliance status by state, LOB, and regulatory program."
+  source: "`vibe_pc_insurance_blog_v499`.`policy`.`state_reg`"
+  dimensions:
+    - name: "admitted_status"
+      expr: admitted_status
+      comment: "Admitted or surplus lines status"
+    - name: "regulatory_compliance_status"
+      expr: regulatory_compliance_status
+      comment: "Current regulatory compliance status"
+    - name: "naic_line_of_business_code"
+      expr: naic_line_of_business_code
+      comment: "NAIC line of business code"
+    - name: "assigned_risk_pool_indicator"
+      expr: assigned_risk_pool_indicator
+      comment: "Flag indicating whether policy is in assigned risk pool"
+    - name: "fair_plan_indicator"
+      expr: fair_plan_indicator
+      comment: "Flag indicating whether policy is in FAIR plan"
+    - name: "financial_responsibility_filing_indicator"
+      expr: financial_responsibility_filing_indicator
+      comment: "Flag indicating whether financial responsibility filing is required"
+    - name: "state_mandated_coverage_indicator"
+      expr: state_mandated_coverage_indicator
+      comment: "Flag indicating whether state-mandated coverage applies"
+    - name: "effective_year"
+      expr: YEAR(effective_date)
+      comment: "Calendar year when state regulation became effective"
+    - name: "effective_month"
+      expr: DATE_TRUNC('MONTH', effective_date)
+      comment: "Month when state regulation became effective"
+    - name: "compliance_review_month"
+      expr: DATE_TRUNC('MONTH', compliance_review_date)
+      comment: "Month when compliance review occurred"
+  measures:
+    - name: "state_reg_count"
+      expr: COUNT(DISTINCT state_reg_id)
+      comment: "Total number of unique state regulatory records"
+    - name: "total_state_tax"
+      expr: SUM(CAST(state_tax_amount AS DOUBLE))
+      comment: "Total state tax amount across all records"
+    - name: "avg_state_tax_rate"
+      expr: AVG(CAST(state_tax_rate AS DOUBLE))
+      comment: "Average state tax rate"
+    - name: "total_municipal_tax"
+      expr: SUM(CAST(municipal_tax_amount AS DOUBLE))
+      comment: "Total municipal tax amount across all records"
+    - name: "avg_municipal_tax_rate"
+      expr: AVG(CAST(municipal_tax_rate AS DOUBLE))
+      comment: "Average municipal tax rate"
+    - name: "total_stamping_fee"
+      expr: SUM(CAST(stamping_fee_amount AS DOUBLE))
+      comment: "Total stamping fee amount across all records"
+    - name: "total_guaranty_fund_assessment"
+      expr: SUM(CAST(guaranty_fund_assessment_amount AS DOUBLE))
+      comment: "Total guaranty fund assessment amount"
+    - name: "avg_guaranty_fund_assessment_rate"
+      expr: AVG(CAST(guaranty_fund_assessment_rate AS DOUBLE))
+      comment: "Average guaranty fund assessment rate"
+    - name: "avg_minimum_liability_limit"
+      expr: AVG(CAST(minimum_liability_limit_required AS DOUBLE))
+      comment: "Average minimum liability limit required by state"
+    - name: "assigned_risk_pool_count"
+      expr: COUNT(DISTINCT CASE WHEN assigned_risk_pool_indicator = TRUE THEN state_reg_id END)
+      comment: "Count of policies in assigned risk pools"
+    - name: "fair_plan_count"
+      expr: COUNT(DISTINCT CASE WHEN fair_plan_indicator = TRUE THEN state_reg_id END)
+      comment: "Count of policies in FAIR plans"
+    - name: "financial_responsibility_filing_count"
+      expr: COUNT(DISTINCT CASE WHEN financial_responsibility_filing_indicator = TRUE THEN state_reg_id END)
+      comment: "Count of policies with financial responsibility filings"
 $$;

@@ -98,6 +98,7 @@ The **[`model-installer/data-model-installer.ipynb`](./model-installer/data-mode
 | `restaurants` MVM @ 10 rows | 87 | 870 | 0 | 506 (338 cross-domain) | **0** |
 | `banking` MVM @ 100 rows | 227 | 22,700 | 0 | 2,478 (2,002 cross-domain) | **0** |
 | `pc_insurance` ECM @ 10 rows | 226 | 2,260 | 0 | 1,271 (794 cross-domain) | **0** |
+| `pc_insurance` MVM @ 10 rows | 120 | 1,200 | 0 | 994 (722 cross-domain) | **0** |
 
 **→ Full installer reference — every widget, phase, and guarantee — is documented in the notebook's first cell.**
 
@@ -149,7 +150,7 @@ All 40 MVMs ship with **zero structural findings**. The 15 ECM silos and 34 ECM 
 
 Click an industry to open its folder. The installer resolves the highest version present.
 
-> **Property & Casualty Insurance** is the 41st industry, added after the original gallery run (from [issue #42](https://github.com/databricks-industry-solutions/lakehouse-industry-data-models/issues/42)). It ships ECM-only for now, so the aggregate totals above still describe the original **40 industries / 80 models**; the index below lists all 41.
+> **Property & Casualty Insurance** is the 41st industry, added after the original gallery run (from [issue #42](https://github.com/databricks-industry-solutions/lakehouse-industry-data-models/issues/42)). It ships both ECM and MVM. The aggregate totals above still describe the original **40 industries / 80 models** (P&C is counted separately); the index below lists all 41.
 
 <details>
 <summary><b>Financial Services &amp; Insurance</b></summary>
@@ -160,7 +161,7 @@ Click an industry to open its folder. The installer resolves the highest version
 | [Payments & Fintech](./data-models/payments_fintech/) | v1 | [546](./data-models/payments_fintech/v1/ecm/) | [223](./data-models/payments_fintech/v1/mvm/) |
 | [Health Insurance](./data-models/health_insurance/) | v2 | [411](./data-models/health_insurance/v2/ecm/) | [130](./data-models/health_insurance/v2/mvm/) |
 | [Life Insurance](./data-models/life_insurance/) | v1 | [468](./data-models/life_insurance/v1/ecm/) | [217](./data-models/life_insurance/v1/mvm/) |
-| [Property & Casualty Insurance](./data-models/pc_insurance/) | v1 | [226](./data-models/pc_insurance/v1/ecm/) | — |
+| [Property & Casualty Insurance](./data-models/pc_insurance/) | v1 | [226](./data-models/pc_insurance/v1/ecm/) | [120](./data-models/pc_insurance/v1/mvm/) |
 
 </details>
 

@@ -1,0 +1,136 @@
+{
+  "model_requirements": {
+    "business_name": "mock_business",
+    "business_description": "Mock business for testing",
+    "operation": "new base model",
+    "model_version": "1",
+    "data_model_scopes": "Minimum Viable Model - MVM"
+  },
+  "_vibe_session_metadata": {
+    "generated_from_version": "",
+    "target_model_version": "v1_mvm",
+    "start_time": "2026-04-19T00:00:00+00:00",
+    "end_time": "2026-04-19T00:00:30+00:00",
+    "duration_hours": 0.008,
+    "status": "success",
+    "confidence_score": 0.95,
+    "summary": "Mock agent run — canned model for testing",
+    "model_stats_at_generation": {
+      "domain_count": 2,
+      "product_count": 4,
+      "attribute_count": 10,
+      "fk_count": 2,
+      "unlinked_id_count": 0,
+      "siloed_count": 0,
+      "llm_fk_skip_count": 0
+    },
+    "version_history": [],
+    "ai_usage": {}
+  },
+  "model": {
+    "type": "business",
+    "name": "mock_business",
+    "version": "v1_mvm",
+    "description": "Mock business for testing",
+    "industry_alignment": "Retail",
+    "location": "",
+    "core_business_processes": "",
+    "orgnaization_divisions": "Operations and Business",
+    "data_domains": "",
+    "common_business_jargons": "",
+    "operational_systems_of_records": "",
+    "industry_governing_body": "",
+    "model_conventions": {
+      "data_asset_naming_convention": "snake_case",
+      "primary_key_suffix": "_id",
+      "schema_prefix": "",
+      "schema_suffix": "",
+      "tag_prefix": "dbx_",
+      "tag_suffix": "",
+      "table_id_type": "BIGINT",
+      "boolean_format": "Boolean (True/False)",
+      "date_format": "yyyy-MM-dd",
+      "timestamp_format": "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
+      "data_classification_levels": "restricted=restricted, confidential=confidential, internal=Internal, public=public",
+      "housekeeping_columns": "No",
+      "history_tracking_columns": "No"
+    },
+    "domains": [
+      {
+        "name": "sales",
+        "division": "Business",
+        "description": "Sales domain — customers, orders, products",
+        "database_name": "sales",
+        "products": [
+          {
+            "name": "customers",
+            "table_name": "customers",
+            "primary_key": "customer_id",
+            "description": "Customers table",
+            "type": "reference",
+            "attributes": [
+              {"name": "customer_id", "column_name": "customer_id",
+               "type": "BIGINT", "description": "PK"},
+              {"name": "customer_name", "column_name": "customer_name",
+               "type": "STRING", "description": "Name"},
+              {"name": "customer_email", "column_name": "customer_email",
+               "type": "STRING", "description": "Email"}
+            ]
+          },
+          {
+            "name": "orders",
+            "table_name": "orders",
+            "primary_key": "order_id",
+            "description": "Orders table",
+            "type": "transaction",
+            "attributes": [
+              {"name": "order_id", "column_name": "order_id",
+               "type": "BIGINT", "description": "PK"},
+              {"name": "customer_id", "column_name": "customer_id",
+               "type": "BIGINT", "description": "FK to customers",
+               "foreign_key_to": "sales.customers.customer_id"},
+              {"name": "total_amount", "column_name": "total_amount",
+               "type": "DECIMAL(18,2)", "description": "Total"}
+            ]
+          }
+        ]
+      },
+      {
+        "name": "inventory",
+        "division": "Operations",
+        "description": "Inventory domain — products and stock",
+        "database_name": "inventory",
+        "products": [
+          {
+            "name": "products",
+            "table_name": "products",
+            "primary_key": "product_id",
+            "description": "Product catalog",
+            "type": "reference",
+            "attributes": [
+              {"name": "product_id", "column_name": "product_id",
+               "type": "BIGINT", "description": "PK"},
+              {"name": "product_name", "column_name": "product_name",
+               "type": "STRING", "description": "Name"}
+            ]
+          },
+          {
+            "name": "stock_levels",
+            "table_name": "stock_levels",
+            "primary_key": "stock_id",
+            "description": "Current stock levels",
+            "type": "transaction",
+            "attributes": [
+              {"name": "stock_id", "column_name": "stock_id",
+               "type": "BIGINT", "description": "PK"},
+              {"name": "product_id", "column_name": "product_id",
+               "type": "BIGINT", "description": "FK to products",
+               "foreign_key_to": "inventory.products.product_id"}
+            ]
+          }
+        ]
+      }
+    ],
+    "metric_views": {}
+  }
+}

@@ -1,0 +1,229 @@
+{
+  "business_name": "megacorp",
+  "version": "v1",
+  "model_scope": "Enterprise Conceptual Model - ECM",
+  "industry": "Financial Services",
+  "domains": [
+    {
+      "name": "customer_management",
+      "division": "Retail Banking",
+      "description": "Customer lifecycle management for retail banking",
+      "database_name": "customer_management",
+      "products": [
+        {
+          "name": "customer",
+          "table_name": "customer",
+          "type": "Master",
+          "data_type": "Structured",
+          "description": "Core customer master record",
+          "primary_key": "customer_id",
+          "attributes": [
+            {"name": "customer_id", "column_name": "customer_id", "type": "BIGINT", "description": "Unique customer identifier", "foreign_key_to": ""},
+            {"name": "first_name", "column_name": "first_name", "type": "STRING", "description": "Customer first name", "foreign_key_to": ""},
+            {"name": "last_name", "column_name": "last_name", "type": "STRING", "description": "Customer last name", "foreign_key_to": ""},
+            {"name": "email", "column_name": "email", "type": "STRING", "description": "Primary email", "foreign_key_to": ""},
+            {"name": "phone", "column_name": "phone", "type": "STRING", "description": "Primary phone", "foreign_key_to": ""},
+            {"name": "date_of_birth", "column_name": "date_of_birth", "type": "DATE", "description": "Date of birth", "foreign_key_to": ""},
+            {"name": "ssn_hash", "column_name": "ssn_hash", "type": "STRING", "description": "Hashed SSN", "foreign_key_to": ""},
+            {"name": "segment_id", "column_name": "segment_id", "type": "BIGINT", "description": "Customer segment", "foreign_key_to": "customer_management.customer_segment.segment_id"},
+            {"name": "created_at", "column_name": "created_at", "type": "TIMESTAMP", "description": "Record creation time", "foreign_key_to": ""},
+            {"name": "updated_at", "column_name": "updated_at", "type": "TIMESTAMP", "description": "Last update time", "foreign_key_to": ""}
+          ]
+        },
+        {
+          "name": "customer_segment",
+          "table_name": "customer_segment",
+          "type": "Reference",
+          "data_type": "Structured",
+          "description": "Customer segmentation reference data",
+          "primary_key": "segment_id",
+          "attributes": [
+            {"name": "segment_id", "column_name": "segment_id", "type": "BIGINT", "description": "Segment identifier", "foreign_key_to": ""},
+            {"name": "segment_name", "column_name": "segment_name", "type": "STRING", "description": "Segment name", "foreign_key_to": ""},
+            {"name": "risk_tier", "column_name": "risk_tier", "type": "STRING", "description": "Risk tier classification", "foreign_key_to": ""}
+          ]
+        },
+        {
+          "name": "customer_address",
+          "table_name": "customer_address",
+          "type": "Master",
+          "data_type": "Structured",
+          "description": "Customer address records (one-to-many)",
+          "primary_key": "address_id",
+          "attributes": [
+            {"name": "address_id", "column_name": "address_id", "type": "BIGINT", "description": "Address identifier", "foreign_key_to": ""},
+            {"name": "customer_id", "column_name": "customer_id", "type": "BIGINT", "description": "Customer reference", "foreign_key_to": "customer_management.customer.customer_id"},
+            {"name": "address_type", "column_name": "address_type", "type": "STRING", "description": "Home/Business/Mailing", "foreign_key_to": ""},
+            {"name": "street", "column_name": "street", "type": "STRING", "description": "Street address", "foreign_key_to": ""},
+            {"name": "city", "column_name": "city", "type": "STRING", "description": "City", "foreign_key_to": ""},
+            {"name": "state", "column_name": "state", "type": "STRING", "description": "State/Province", "foreign_key_to": ""},
+            {"name": "postal_code", "column_name": "postal_code", "type": "STRING", "description": "Postal/ZIP code", "foreign_key_to": ""},
+            {"name": "country", "column_name": "country", "type": "STRING", "description": "Country code", "foreign_key_to": ""}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "accounts",
+      "division": "Retail Banking",
+      "description": "Bank account management",
+      "database_name": "accounts",
+      "products": [
+        {
+          "name": "account",
+          "table_name": "account",
+          "type": "Master",
+          "data_type": "Structured",
+          "description": "Bank account master",
+          "primary_key": "account_id",
+          "attributes": [
+            {"name": "account_id", "column_name": "account_id", "type": "BIGINT", "description": "Account identifier", "foreign_key_to": ""},
+            {"name": "customer_id", "column_name": "customer_id", "type": "BIGINT", "description": "Account holder", "foreign_key_to": "customer_management.customer.customer_id"},
+            {"name": "account_type_id", "column_name": "account_type_id", "type": "BIGINT", "description": "Account type", "foreign_key_to": "accounts.account_type.account_type_id"},
+            {"name": "account_number", "column_name": "account_number", "type": "STRING", "description": "Account number", "foreign_key_to": ""},
+            {"name": "balance", "column_name": "balance", "type": "DECIMAL(18,2)", "description": "Current balance", "foreign_key_to": ""},
+            {"name": "currency", "column_name": "currency", "type": "STRING", "description": "Currency code", "foreign_key_to": ""},
+            {"name": "status", "column_name": "status", "type": "STRING", "description": "Account status", "foreign_key_to": ""},
+            {"name": "opened_date", "column_name": "opened_date", "type": "DATE", "description": "Opening date", "foreign_key_to": ""},
+            {"name": "branch_id", "column_name": "branch_id", "type": "BIGINT", "description": "Home branch", "foreign_key_to": "operations.branch.branch_id"}
+          ]
+        },
+        {
+          "name": "account_type",
+          "table_name": "account_type",
+          "type": "Reference",
+          "data_type": "Structured",
+          "description": "Account type reference data",
+          "primary_key": "account_type_id",
+          "attributes": [
+            {"name": "account_type_id", "column_name": "account_type_id", "type": "BIGINT", "description": "Type identifier", "foreign_key_to": ""},
+            {"name": "type_name", "column_name": "type_name", "type": "STRING", "description": "Type name", "foreign_key_to": ""},
+            {"name": "interest_rate", "column_name": "interest_rate", "type": "DECIMAL(5,4)", "description": "Base interest rate", "foreign_key_to": ""}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "transactions",
+      "division": "Retail Banking",
+      "description": "Financial transaction processing",
+      "database_name": "transactions",
+      "products": [
+        {
+          "name": "transaction",
+          "table_name": "transaction",
+          "type": "Transactional",
+          "data_type": "Structured",
+          "description": "Financial transactions",
+          "primary_key": "transaction_id",
+          "attributes": [
+            {"name": "transaction_id", "column_name": "transaction_id", "type": "BIGINT", "description": "Transaction identifier", "foreign_key_to": ""},
+            {"name": "account_id", "column_name": "account_id", "type": "BIGINT", "description": "Source account", "foreign_key_to": "accounts.account.account_id"},
+            {"name": "transaction_type", "column_name": "transaction_type", "type": "STRING", "description": "Debit/Credit/Transfer", "foreign_key_to": ""},
+            {"name": "amount", "column_name": "amount", "type": "DECIMAL(18,2)", "description": "Transaction amount", "foreign_key_to": ""},
+            {"name": "currency", "column_name": "currency", "type": "STRING", "description": "Currency code", "foreign_key_to": ""},
+            {"name": "transaction_date", "column_name": "transaction_date", "type": "TIMESTAMP", "description": "Transaction timestamp", "foreign_key_to": ""},
+            {"name": "description", "column_name": "description", "type": "STRING", "description": "Transaction description", "foreign_key_to": ""},
+            {"name": "merchant_id", "column_name": "merchant_id", "type": "BIGINT", "description": "Merchant reference", "foreign_key_to": "transactions.merchant.merchant_id"}
+          ]
+        },
+        {
+          "name": "merchant",
+          "table_name": "merchant",
+          "type": "Reference",
+          "data_type": "Structured",
+          "description": "Merchant reference data",
+          "primary_key": "merchant_id",
+          "attributes": [
+            {"name": "merchant_id", "column_name": "merchant_id", "type": "BIGINT", "description": "Merchant identifier", "foreign_key_to": ""},
+            {"name": "merchant_name", "column_name": "merchant_name", "type": "STRING", "description": "Merchant name", "foreign_key_to": ""},
+            {"name": "category_code", "column_name": "category_code", "type": "STRING", "description": "MCC code", "foreign_key_to": ""},
+            {"name": "country", "column_name": "country", "type": "STRING", "description": "Country", "foreign_key_to": ""}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "lending",
+      "division": "Lending",
+      "description": "Loan origination and servicing",
+      "database_name": "lending",
+      "products": [
+        {
+          "name": "loan",
+          "table_name": "loan",
+          "type": "Master",
+          "data_type": "Structured",
+          "description": "Loan accounts",
+          "primary_key": "loan_id",
+          "attributes": [
+            {"name": "loan_id", "column_name": "loan_id", "type": "BIGINT", "description": "Loan identifier", "foreign_key_to": ""},
+            {"name": "customer_id", "column_name": "customer_id", "type": "BIGINT", "description": "Borrower", "foreign_key_to": "customer_management.customer.customer_id"},
+            {"name": "loan_type", "column_name": "loan_type", "type": "STRING", "description": "Mortgage/Personal/Auto", "foreign_key_to": ""},
+            {"name": "principal", "column_name": "principal", "type": "DECIMAL(18,2)", "description": "Principal amount", "foreign_key_to": ""},
+            {"name": "interest_rate", "column_name": "interest_rate", "type": "DECIMAL(5,4)", "description": "Interest rate", "foreign_key_to": ""},
+            {"name": "term_months", "column_name": "term_months", "type": "INT", "description": "Loan term", "foreign_key_to": ""},
+            {"name": "status", "column_name": "status", "type": "STRING", "description": "Loan status", "foreign_key_to": ""},
+            {"name": "origination_date", "column_name": "origination_date", "type": "DATE", "description": "Origination date", "foreign_key_to": ""}
+          ]
+        },
+        {
+          "name": "loan_payment",
+          "table_name": "loan_payment",
+          "type": "Transactional",
+          "data_type": "Structured",
+          "description": "Loan payment records",
+          "primary_key": "payment_id",
+          "attributes": [
+            {"name": "payment_id", "column_name": "payment_id", "type": "BIGINT", "description": "Payment identifier", "foreign_key_to": ""},
+            {"name": "loan_id", "column_name": "loan_id", "type": "BIGINT", "description": "Loan reference", "foreign_key_to": "lending.loan.loan_id"},
+            {"name": "payment_date", "column_name": "payment_date", "type": "DATE", "description": "Payment date", "foreign_key_to": ""},
+            {"name": "amount", "column_name": "amount", "type": "DECIMAL(18,2)", "description": "Payment amount", "foreign_key_to": ""},
+            {"name": "principal_portion", "column_name": "principal_portion", "type": "DECIMAL(18,2)", "description": "Principal portion", "foreign_key_to": ""},
+            {"name": "interest_portion", "column_name": "interest_portion", "type": "DECIMAL(18,2)", "description": "Interest portion", "foreign_key_to": ""}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "operations",
+      "division": "Operations",
+      "description": "Branch and operational data",
+      "database_name": "operations",
+      "products": [
+        {
+          "name": "branch",
+          "table_name": "branch",
+          "type": "Reference",
+          "data_type": "Structured",
+          "description": "Bank branch locations",
+          "primary_key": "branch_id",
+          "attributes": [
+            {"name": "branch_id", "column_name": "branch_id", "type": "BIGINT", "description": "Branch identifier", "foreign_key_to": ""},
+            {"name": "branch_name", "column_name": "branch_name", "type": "STRING", "description": "Branch name", "foreign_key_to": ""},
+            {"name": "address", "column_name": "address", "type": "STRING", "description": "Branch address", "foreign_key_to": ""},
+            {"name": "city", "column_name": "city", "type": "STRING", "description": "City", "foreign_key_to": ""},
+            {"name": "state", "column_name": "state", "type": "STRING", "description": "State", "foreign_key_to": ""},
+            {"name": "region", "column_name": "region", "type": "STRING", "description": "Region", "foreign_key_to": ""}
+          ]
+        },
+        {
+          "name": "employee",
+          "table_name": "employee",
+          "type": "Master",
+          "data_type": "Structured",
+          "description": "Bank employees",
+          "primary_key": "employee_id",
+          "attributes": [
+            {"name": "employee_id", "column_name": "employee_id", "type": "BIGINT", "description": "Employee identifier", "foreign_key_to": ""},
+            {"name": "first_name", "column_name": "first_name", "type": "STRING", "description": "First name", "foreign_key_to": ""},
+            {"name": "last_name", "column_name": "last_name", "type": "STRING", "description": "Last name", "foreign_key_to": ""},
+            {"name": "branch_id", "column_name": "branch_id", "type": "BIGINT", "description": "Home branch", "foreign_key_to": "operations.branch.branch_id"},
+            {"name": "role", "column_name": "role", "type": "STRING", "description": "Job role", "foreign_key_to": ""},
+            {"name": "hire_date", "column_name": "hire_date", "type": "DATE", "description": "Hire date", "foreign_key_to": ""}
+          ]
+        }
+      ]
+    }
+  ]
+}

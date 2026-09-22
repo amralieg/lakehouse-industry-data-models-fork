@@ -1,0 +1,29 @@
+{
+    "business_context": {
+        "business_information": {
+            "business": "Contoso Retail",
+            "description": "Contoso Retail operates a network of hypermarkets and supermarkets across multiple regions, offering a broad assortment of grocery, apparel, and electronics products. The business runs omnichannel retail experiences and sources a significant share of products from local suppliers. It serves hundreds of thousands of customers daily across its store estate.",
+            "core_business_processes": "",
+            "orgnaization_divisions": "operations, business, corporate",
+            "data_domains": "",
+            "common_business_jargons": "",
+            "operational_systems_of_records": "",
+            "industry_governing_body": ""
+        },
+        "model_conventions": {
+            "data_classification_levels": "restricted=restricted, confidential=confidential, internal=Internal, public=public",
+            "data_asset_naming_convention": "snake_case",
+            "primary_key_suffix": "_id",
+            "foreign_key_suffix": "",
+            "schema_prefix": "ctr_",
+            "tag_prefix": "ctr_",
+            "table_id_type": "BIGINT",
+            "boolean_format": "Boolean",
+            "date_format": "yyyy-MM-dd",
+            "timestamp_format": "yyyy-MM-ddTHH:mm:ss.SSSXXX",
+            "add_house_keeping_columns": "No",
+            "add_history_tracking_columns": "No"
+        },
+        "vibe_modeling_instructions": ""
+    }
+}

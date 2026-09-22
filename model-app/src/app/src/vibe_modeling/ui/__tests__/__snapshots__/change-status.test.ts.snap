@@ -1,0 +1,38 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`change-status lib > freezes the status->repr contract 1`] = `
+{
+  "deleted": {
+    "badge": "bg-destructive/15 text-destructive border-destructive/40",
+    "dot": "bg-muted-foreground/50",
+    "icon": "Trash2",
+    "label": "Removed in this version",
+    "row": "opacity-50 line-through",
+    "tone": "text-destructive",
+  },
+  "modified": {
+    "badge": "bg-warning/15 text-warning border-warning/40",
+    "dot": "bg-warning",
+    "icon": "Pencil",
+    "label": "Changed from previous version",
+    "row": "bg-warning/5",
+    "tone": "text-warning",
+  },
+  "new": {
+    "badge": "bg-success/15 text-success border-success/40",
+    "dot": "bg-success",
+    "icon": "Plus",
+    "label": "New in this version",
+    "row": "bg-success/5",
+    "tone": "text-success",
+  },
+  "unchanged": {
+    "badge": "",
+    "dot": "bg-muted-foreground/50",
+    "icon": null,
+    "label": "",
+    "row": "",
+    "tone": "text-muted-foreground",
+  },
+}
+`;

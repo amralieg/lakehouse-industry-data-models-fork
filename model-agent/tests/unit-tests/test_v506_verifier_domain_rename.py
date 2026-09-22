@@ -32,7 +32,7 @@ _TREE = ast.parse(_SRC)
 _FT = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
 
 # --- load the REAL module-level extractors the verdict depends on ---
-_EXTRACTORS = ["_v337_extract_domain_rename", "_v337_extract_domain_merge"]
+_EXTRACTORS = ["_v337_extract_domain_rename", "_v337_extract_domain_merge", "_v337_extract_bulk_move"]
 _G = {"re": re}
 for _n in _TREE.body:
     if isinstance(_n, _FT) and getattr(_n, "name", None) in _EXTRACTORS:

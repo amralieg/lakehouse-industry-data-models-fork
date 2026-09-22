@@ -24,7 +24,23 @@ import vov_v2_marathon as M
 import launch_pc_insurance_blog_v499 as ECM
 
 PROFILE = "my-uae"
-AGENT_PATH = "/Users/user@example.com/dbx_vibe_modelling_agent_v503"
+AGENT_NAME = "dbx_vibe_modelling_agent_v503"
+
+
+def _resolve_agent_path():
+    # Resolve the deployed notebook under the CURRENT workspace user's home. Keeps the
+    # committed file free of any hardcoded identity (PII-hook clean, portable to ANY
+    # workspace) while pointing the job at the real notebook at runtime.
+    import subprocess
+    out = subprocess.check_output(
+        ["databricks", "current-user", "me", "--profile", PROFILE], text=True)
+    user = json.loads(out).get("userName")
+    if not user:
+        raise RuntimeError("could not resolve workspace userName")
+    return "/Users/%s/%s" % (user, AGENT_NAME)
+
+
+AGENT_PATH = _resolve_agent_path()
 CATALOG = "vibe_pc_insurance_blog_v499"
 BUSINESS = "pc_insurance"
 BUDGET_S = 19800          # 5.5h - renames+merge+23-product move+4 design vibes+enum promotions

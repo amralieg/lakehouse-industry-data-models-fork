@@ -1,0 +1,28 @@
+{
+  "pinned_release": "v0.8.0",
+  "pinned_agent_version": "4.9.9",
+  "notebook_file": "vibe_modelling_agent_v4.9.9.ipynb",
+  "supported_releases": [
+    "v0.7.0",
+    "v0.7.1",
+    "v0.7.2",
+    "v0.7.3",
+    "v0.7.4",
+    "v0.7.5",
+    "v0.7.6",
+    "v0.7.7",
+    "v0.8.0"
+  ],
+  "pinned_tag": "v0.8.0",
+  "supported_tags": [
+    "v0.7.0",
+    "v0.7.1",
+    "v0.7.2",
+    "v0.7.3",
+    "v0.7.4",
+    "v0.7.5",
+    "v0.7.6",
+    "v0.7.7",
+    "v0.8.0"
+  ]
+}

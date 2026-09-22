@@ -1,0 +1,412 @@
+{
+  "agent_version": "0.7.1",
+  "model_requirements": {
+    "business_name": "Advertising",
+    "description": "Advertising and Marketing is a dynamic industry delivering creative campaigns, media planning and buying, public relations, data-driven analytics, and brand strategy to help organizations reach and engage their target audiences.",
+    "operation": "new base model",
+    "data_model_scopes": "Expanded Coverage Model - ECM",
+    "org_divisions": "Operations, Business and Corporate",
+    "org_divisions_value": "operations, business, corporate",
+    "deployment_catalog": "advertising_ecm",
+    "cataloging_style": "one_catalog",
+    "generate_samples": "0",
+    "model_conventions": {
+      "data_classification_levels": "restricted=restricted, confidential=confidential, internal=Internal, public=public",
+      "data_asset_naming_convention": "snake_case",
+      "primary_key_suffix": "_id",
+      "foreign_key_suffix": "",
+      "schema_prefix": "",
+      "schema_suffix": "",
+      "tag_prefix": "dbx_",
+      "tag_suffix": "",
+      "catalog_prefix": "",
+      "catalog_suffix": "",
+      "table_id_type": "BIGINT",
+      "boolean_format": "Boolean (True/False)",
+      "date_format": "yyyy-MM-dd",
+      "timestamp_format": "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
+      "add_house_keeping_columns": "No",
+      "add_history_tracking_columns": "No"
+    },
+    "vibe_session_id": "5862025805566066695"
+  },
+  "_vibe_session_metadata": {
+    "generated_from_version": "v1_ecm",
+    "target_model_version": "2",
+    "start_time": "2026-05-08T00:30:01.869131",
+    "end_time": "2026-05-08T02:27:55.896591",
+    "duration_hours": 1.97,
+    "status": "unknown",
+    "confidence_score": 0,
+    "summary": "",
+    "issues_addressed": [],
+    "issues_addressed_llm_raw": [],
+    "issues_not_addressed": [],
+    "issues_not_addressed_llm_raw": [],
+    "vibe_metadata_verifier": "vibe-metadata-honest@v0.9.8",
+    "data_modeler_notes": "",
+    "model_stats_at_generation": {
+      "domain_count": 13,
+      "product_count": 262,
+      "attribute_count": 9284,
+      "fk_count": 1544,
+      "unlinked_id_count": 26,
+      "siloed_count": 0,
+      "llm_fk_skip_count": 0
+    },
+    "issue_counts": {
+      "error": 3,
+      "warning": 85,
+      "info": 118,
+      "warning_raw": 111
+    },
+    "progression": {
+      "version_trend": "baseline",
+      "confidence_delta": 0,
+      "warnings_delta": 0,
+      "errors_delta": 0,
+      "unlinked_delta": 0,
+      "previous_version": "unknown",
+      "previous_confidence": 0,
+      "previous_warnings": 0,
+      "previous_errors": 0,
+      "previous_unlinked": 0
+    },
+    "version_history": [
+      {
+        "version": "v1_ecm",
+        "confidence": 0,
+        "errors": 3,
+        "warnings": 85,
+        "unlinked": 26,
+        "trend": "baseline",
+        "products": 262,
+        "fks": 1544
+      }
+    ],
+    "ai_usage": {
+      "total_ai_calls": 824,
+      "estimated_input_tokens": 10039097,
+      "estimated_output_tokens": 2551047,
+      "total_input_chars": 40156389,
+      "total_output_chars": 10204191,
+      "estimated_total_cost_usd": 174.8743,
+      "per_model_cost_usd": {
+        "claude-opus-4-6": {
+          "calls": 362,
+          "input_tokens": 4185573,
+          "output_tokens": 937740,
+          "price_in_usd_per_1m": 15.0,
+          "price_out_usd_per_1m": 75.0,
+          "cost_usd": 133.1141
+        },
+        "gpt-oss-120b": {
+          "calls": 1,
+          "input_tokens": 11959,
+          "output_tokens": 255,
+          "price_in_usd_per_1m": 3.0,
+          "price_out_usd_per_1m": 15.0,
+          "cost_usd": 0.0397
+        },
+        "claude-sonnet-4-5": {
+          "calls": 389,
+          "input_tokens": 4811027,
+          "output_tokens": 1276405,
+          "price_in_usd_per_1m": 3.0,
+          "price_out_usd_per_1m": 15.0,
+          "cost_usd": 33.5792
+        },
+        "claude-sonnet-4-6": {
+          "calls": 72,
+          "input_tokens": 1030536,
+          "output_tokens": 336647,
+          "price_in_usd_per_1m": 3.0,
+          "price_out_usd_per_1m": 15.0,
+          "cost_usd": 8.1413
+        }
+      },
+      "demoted_models": {
+        "databricks-claude-sonnet-4-6": {
+          "old_order": 20,
+          "new_order": 31,
+          "cumulative_failures": 3
+        }
+      },
+      "cumulative_failures": {
+        "databricks-claude-sonnet-4-6": 16
+      }
+    }
+  },
+  "model": {
+    "name": "Advertising",
+    "description": "Advertising and Marketing is a dynamic industry delivering creative campaigns, media planning and buying, public relations, data-driven analytics, and brand strategy to help organizations reach and engage their target audiences.",
+    "version": "v1_ecm",
+    "type": "business",
+    "domains": [
+      {
+        "name": "campaign",
+        "division": "operations",
+        "description": "Core operational domain governing the end-to-end advertising campaign lifecycle \u2014 from strategy and planning through trafficking, activation, and delivery. Serves as the SSOT for campaign identity, flight dates, objectives, KPIs, targeting parameters, budget allocation, pacing rules, and execution status across all channels and formats.",
+        "database_name": "campaign",
+        "references": "IAB Tech Lab Campaign Taxonomy",
+        "tags": "",
+        "products": [
+          {
+            "name": "campaign",
+            "table_name": "campaign",
+            "primary_key": "campaign_id",
+            "subdomain": "campaign_planning",
+            "description": "Master record for an advertising campaign \u2014 the authoritative SSOT for campaign identity, objectives, KPIs, flight dates, status, and high-level strategy. Captures campaign name, advertiser/client reference, campaign type (brand awareness, direct response, performance, retention, seasonal, always-on), campaign status (draft, approved, active, paused, completed, cancelled), start and end dates, campaign objective, primary KPI, secondary KPIs, target ROAS, target CPA, target CPM, target CTR, overall budget ceiling, currency, campaign tier, IAB category, campaign brief reference, approval status, approved by, approved date, go-live date, and audit timestamps. Serves as the root entity for all downstream campaign execution, trafficking, and performance data.",
+            "type": "Master",
+            "division": "",
+            "function": "",
+            "data_type": "master_data",
+            "source_domains": "",
+            "association_edges": "",
+            "reference": "Google Campaign Manager 360 Campaign Entity",
+            "tags": "",
+            "attributes": [
+              {
+                "name": "campaign_id",
+                "column_name": "campaign_id",
+                "type": "BIGINT",
+                "business_glossary_term": "Campaign Identifier (ID)",
+                "description": "Unique identifier for the advertising campaign. Primary key.",
+                "value_regex": "",
+                "tags": "primary_key",
+                "foreign_key_to": "",
+                "references": "IAB Digital Advertising Standards"
+              },
+              {
+                "name": "advertiser_id",
+                "column_name": "advertiser_id",
+                "type": "BIGINT",
+                "business_glossary_term": "Advertiser Identifier (ID)",
+                "description": "Reference to the advertiser or client who owns this campaign.",
+                "value_regex": "",
+                "tags": "",
+                "foreign_key_to": "client.advertiser.advertiser_id",
+                "references": "IAB Digital Advertising Standards"
+              },
+              {
+                "name": "brand_profile_id",
+                "column_name": "brand_profile_id",
+                "type": "BIGINT",
+                "business_glossary_term": "Brand Profile Id (Foreign Key)",
+                "description": "Foreign key linking to brand.brand_profile. Business justification: Every advertising campaign executes a brand strategy and must comply with brand guidelines, tone, safety requirements, and use approved assets. Campaign planning, creative development, and trafficking",
+                "value_regex": "",
+                "tags": "",
+                "foreign_key_to": "brand.brand_profile.brand_profile_id",
+                "references": "Internal - LLM Generated Cross-Domain Link"
+              },
+              {
+                "name": "client_brand_id",
+                "column_name": "client_brand_id",
+                "type": "BIGINT",
+                "business_glossary_term": "Client Brand Id (Foreign Key)",
+                "description": "Foreign key linking to client.client_brand. Business justification: Campaigns are executed for specific client brands\u2014fundamental relationship for brand-level performance reporting, budget tracking, share-of-voice analysis, and brand portfolio management. Domain exper",
+                "value_regex": "",
+                "tags": "",
+                "foreign_key_to": "client.client_brand.client_brand_id",
+                "references": "Internal - LLM Generated Cross-Domain Link"
+              }
+            ]
+          },
+          {
+            "name": "flight",
+            "table_name": "flight",
+            "primary_key": "flight_id",
+            "subdomain": "campaign_planning",
+            "description": "Represents a discrete time-bounded execution window within a campaign \u2014 a campaign flight (also called a campaign burst or wave). Captures flight name, parent campaign reference, flight start date, flight end date, flight status, flight budget allocation, flight objective override, pacing type (even, front-loaded, back-loaded, custom), pacing goal, daypart restrictions, flight priority, channel mix for this flight, and notes. Enables multi-flight campaign structures where a single campaign runs in sequential or overlapping bursts with distinct budgets and targeting parameters. Aligns with Mediaocean Prisma flight-level planning constructs.",
+            "type": "Master",
+            "division": "",
+            "function": "",
+            "data_type": "master_data",
+            "source_domains": "",
+            "association_edges": "",
+            "reference": "Mediaocean Prisma Flight",
+            "tags": "",
+            "attributes": [
+              {
+                "name": "flight_id",
+                "column_name": "flight_id",
+                "type": "BIGINT",
+                "business_glossary_term": "Flight Identifier (ID)",
+                "description": "Unique identifier for the campaign flight. Primary key.",
+                "value_regex": "",
+                "tags": "primary_key",
+                "foreign_key_to": "",
+                "references": "IAB Digital Advertising Guidelines"
+              },
+              {
+                "name": "brand_profile_id",
+                "column_name": "brand_profile_id",
+                "type": "BIGINT",
+                "business_glossary_term": "Brand Profile Id (Foreign Key)",
+                "description": "Foreign key linking to brand.brand_profile. Business justification: Flights are tactical execution windows within campaigns that deliver brand messaging. Creative rotation, audience targeting, and channel mix decisions require brand guideline compliance and brand safe",
+                "value_regex": "",
+                "tags": "",
+                "foreign_key_to": "brand.brand_profile.brand_profile_id",
+                "references": "Internal - LLM Generated Cross-Domain Link"
+              },
+              {
+                "name": "campaign_id",
+                "column_name": "campaign_id",
+                "type": "BIGINT",
+                "business_glossary_term": "Campaign Identifier (ID)",
+                "description": "Reference to the parent campaign under which this flight executes. Links this flight to its overarching campaign strategy.",
+                "value_regex": "",
+                "tags": "",
+                "foreign_key_to": "campaign.campaign.campaign_id",
+                "references": "Mediaocean Prisma Campaign Structure"
+              },
+              {
+                "name": "supplier_id",
+                "column_name": "supplier_id",
+                "type": "BIGINT",
+                "business_glossary_term": "Supplier Id (Foreign Key)",
+                "description": "Foreign key linking to vendor.supplier. Business justification: Flights may contract flight-specific suppliers for verification, brand safety, or measurement services. Required for flight-level vendor cost allocation, reconciliation, and performance evaluation in ",
+                "value_regex": "",
+                "tags": "",
+                "foreign_key_to": "vendor.supplier.supplier_id",
+                "references": "Internal - LLM Generated Cross-Domain Link"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "client",
+        "division": "business",
+        "description": "Authoritative SSOT for all advertiser identity, account hierarchy, and relationship data. Manages client profiles, brand portfolios, account teams, contact information, business segments, relationship history, and CRM records for both direct advertisers and agency-managed accounts. Supports Account Management and Client Services.",
+        "database_name": "client",
+        "references": "4As Client Management Standards / Salesforce CRM Account Model",
+        "tags": "",
+        "products": [
+          {
+            "name": "advertiser",
+            "table_name": "advertiser",
+            "primary_key": "advertiser_id",
+            "subdomain": "account_management",
+            "description": "Master record for every advertiser (direct client or agency-managed brand) that the agency serves. Captures authoritative identity including legal entity name, trading name, industry vertical (IAB taxonomy), business segment, holding company affiliation, CRM account ID (Salesforce), ERP customer number (SAP), tax identifiers (VAT/EIN), incorporation jurisdiction, credit terms, payment terms, preferred currency, account status (prospect, active, dormant, churned), account tier, and all engagement preferences (preferred communication channels, reporting cadence, invoice delivery method, language preference, time zone, approval workflow preferences, GDPR/CCPA data sharing consent flags). Also stores structured address records (registered office, billing address, shipping address, regional offices) with address type, full postal details, country (ISO 3166), geocoordinates, and validation status. This is the SSOT for advertiser identity, commercial configuration, engagement preferences, and physical/mailing addresses across the entire data model.",
+            "type": "Master",
+            "division": "",
+            "function": "",
+            "data_type": "master_data",
+            "source_domains": "",
+            "association_edges": "",
+            "reference": "Salesforce CRM Account (Sales Cloud)",
+            "tags": "",
+            "attributes": [
+              {
+                "name": "advertiser_id",
+                "column_name": "advertiser_id",
+                "type": "BIGINT",
+                "business_glossary_term": "Advertiser ID",
+                "description": "Unique surrogate identifier for the advertiser record in the Silver Layer lakehouse. Primary key for the advertiser master data product. Role: MASTER_PARTY.",
+                "value_regex": "",
+                "tags": "primary_key",
+                "foreign_key_to": "",
+                "references": "IAB Tech Lab Data Standards"
+              },
+              {
+                "name": "client_segment_id",
+                "column_name": "client_segment_id",
+                "type": "BIGINT",
+                "business_glossary_term": "Client Segment Id (Foreign Key)",
+                "description": "Foreign key linking to client.client_segment. Business justification: Advertisers are classified into strategic business segments. The advertiser table currently has 'business_segment' as a STRING field, which should be normalized to a FK reference to the client_segment",
+                "value_regex": "",
+                "tags": "",
+                "foreign_key_to": "client.client_segment.client_segment_id",
+                "references": "Internal - LLM Generated Cross-Domain Link"
+              },
+              {
+                "name": "account_status",
+                "column_name": "account_status",
+                "type": "STRING",
+                "business_glossary_term": "Account Status",
+                "description": "Current lifecycle status of the advertiser account. Drives workflow routing, reporting segmentation, and CRM pipeline management. 'prospect' = pre-contract; 'active' = live campaigns; 'dormant' = no recent activity; 'churned' = relationship ended; 'suspended' = temporarily on hold.",
+                "value_regex": "prospect|active|dormant|churned|suspended",
+                "tags": "",
+                "foreign_key_to": "",
+                "references": "Salesforce CRM Sales Cloud; IAB Tech Lab"
+              },
+              {
+                "name": "account_tier",
+                "column_name": "account_tier",
+                "type": "STRING",
+                "business_glossary_term": "Account Tier",
+                "description": "Commercial tier classification of the advertiser based on revenue contribution, strategic importance, and engagement level. Determines service level, dedicated account team assignment, and reporting cadence. Aligns with agency tiering models used in account management.",
+                "value_regex": "platinum|gold|silver|bronze",
+                "tags": "",
+                "foreign_key_to": "",
+                "references": "4As Account Management Standards; ANA"
+              }
+            ]
+          },
+          {
+            "name": "advertiser_hierarchy",
+            "table_name": "advertiser_hierarchy",
+            "primary_key": "advertiser_hierarchy_id",
+            "subdomain": "account_management",
+            "description": "Defines the parent-child organizational hierarchy among advertiser entities \u2014 holding company, subsidiary, brand, and sub-brand relationships. Supports multi-level account trees for large conglomerates (e.g., WPP, Publicis clients) where billing, reporting, and campaign attribution must roll up through corporate structures. Tracks hierarchy type (holding, subsidiary, brand portfolio), effective dates, and consolidation flags.",
+            "type": "Master",
+            "division": "",
+            "function": "",
+            "data_type": "master_data",
+            "source_domains": "",
+            "association_edges": "",
+            "reference": "Salesforce Account Hierarchy",
+            "tags": "",
+            "attributes": [
+              {
+                "name": "advertiser_hierarchy_id",
+                "column_name": "advertiser_hierarchy_id",
+                "type": "BIGINT",
+                "business_glossary_term": "Advertiser Hierarchy ID",
+                "description": "Unique surrogate identifier for each advertiser hierarchy relationship record in the silver layer. Serves as the primary key for this entity.",
+                "value_regex": "",
+                "tags": "primary_key",
+                "foreign_key_to": "",
+                "references": "IAB Tech Lab Data Standards"
+              },
+              {
+                "name": "child_advertiser_id",
+                "column_name": "child_advertiser_id",
+                "type": "BIGINT",
+                "business_glossary_term": "Child Advertiser ID",
+                "description": "Identifier of the child advertiser entity in the hierarchy (e.g., subsidiary, brand, or sub-brand). References the advertiser entity that sits one level below the parent in the corporate tree.",
+                "value_regex": "",
+                "tags": "",
+                "foreign_key_to": "client.advertiser.advertiser_id",
+                "references": "IAB Tech Lab Data Standards; Salesforce CRM Account Hierarchy"
+              },
+              {
+                "name": "parent_advertiser_id",
+                "column_name": "parent_advertiser_id",
+                "type": "BIGINT",
+                "business_glossary_term": "Parent Advertiser ID",
+                "description": "Identifier of the parent advertiser entity in the hierarchy (e.g., holding company or parent subsidiary). References the advertiser entity that sits one level above the child in the corporate tree.",
+                "value_regex": "",
+                "tags": "",
+                "foreign_key_to": "client.advertiser.advertiser_id",
+                "references": "IAB Tech Lab Data Standards; Salesforce CRM Account Hierarchy"
+              },
+              {
+                "name": "primary_root_advertiser_id",
+                "column_name": "primary_root_advertiser_id",
+                "type": "BIGINT",
+                "business_glossary_term": "Root Advertiser ID",
+                "description": "Identifier of the ultimate holding company or top-level entity in the advertiser corporate tree. Enables direct roll-up to the conglomerate level for consolidated billing, SOV analysis, and enterprise reporting without traversing the full hierarchy path.",
+                "value_regex": "",
+                "tags": "",
+                "foreign_key_to": "client.advertiser.advertiser_id",
+                "references": "IAB Tech Lab Data Standards; Salesforce CRM Account Hierarchy"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

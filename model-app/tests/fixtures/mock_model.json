@@ -1,0 +1,121 @@
+{
+  "business_name": "test_corp",
+  "version": "v1",
+  "model_scope": "Minimum Viable Model - MVM",
+  "industry": "Retail",
+  "domains": [
+    {
+      "name": "sales",
+      "division": "Commercial",
+      "description": "Core sales domain covering transactions and customers",
+      "database_name": "sales",
+      "products": [
+        {
+          "product": "customer",
+          "type": "Master",
+          "data_type": "Structured",
+          "description": "Customer master data including demographics and contact information",
+          "primary_key": "customer_id",
+          "attributes": [
+            {
+              "attribute": "customer_id",
+              "type": "BIGINT",
+              "description": "Unique customer identifier",
+              "tags": "pii",
+              "foreign_key_to": ""
+            },
+            {
+              "attribute": "customer_name",
+              "type": "STRING",
+              "description": "Full name of the customer",
+              "tags": "pii",
+              "foreign_key_to": ""
+            },
+            {
+              "attribute": "email",
+              "type": "STRING",
+              "description": "Primary email address",
+              "tags": "pii",
+              "foreign_key_to": ""
+            },
+            {
+              "attribute": "segment_id",
+              "type": "BIGINT",
+              "description": "Reference to customer segment",
+              "tags": "",
+              "foreign_key_to": "sales.customer_segment.segment_id"
+            }
+          ]
+        },
+        {
+          "product": "customer_segment",
+          "type": "Reference",
+          "data_type": "Structured",
+          "description": "Customer segmentation reference data",
+          "primary_key": "segment_id",
+          "attributes": [
+            {
+              "attribute": "segment_id",
+              "type": "BIGINT",
+              "description": "Unique segment identifier",
+              "tags": "",
+              "foreign_key_to": ""
+            },
+            {
+              "attribute": "segment_name",
+              "type": "STRING",
+              "description": "Name of the customer segment",
+              "tags": "",
+              "foreign_key_to": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "inventory",
+      "division": "Operations",
+      "description": "Inventory and product management domain",
+      "database_name": "inventory",
+      "products": [
+        {
+          "product": "product_catalog",
+          "type": "Master",
+          "data_type": "Structured",
+          "description": "Product master catalog with pricing and categorization",
+          "primary_key": "product_id",
+          "attributes": [
+            {
+              "attribute": "product_id",
+              "type": "BIGINT",
+              "description": "Unique product identifier",
+              "tags": "",
+              "foreign_key_to": ""
+            },
+            {
+              "attribute": "product_name",
+              "type": "STRING",
+              "description": "Product display name",
+              "tags": "",
+              "foreign_key_to": ""
+            },
+            {
+              "attribute": "unit_price",
+              "type": "DECIMAL(10,2)",
+              "description": "Standard unit price",
+              "tags": "",
+              "foreign_key_to": ""
+            },
+            {
+              "attribute": "category_code",
+              "type": "STRING",
+              "description": "Product category classification code",
+              "tags": "",
+              "foreign_key_to": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

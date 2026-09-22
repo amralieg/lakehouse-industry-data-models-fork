@@ -24,7 +24,7 @@ import vov_v2_marathon as M
 import launch_pc_insurance_blog_v499 as ECM
 
 PROFILE = "my-uae"
-AGENT_NAME = "dbx_vibe_modelling_agent_v504"
+AGENT_NAME = "dbx_vibe_modelling_agent_v505"
 
 
 def _resolve_agent_path():

@@ -126,6 +126,23 @@ def test_v505_format_yaml_empty_is_noop():
     assert ns["_emit_mv_format_yaml"]({}, 6) == []
 
 
+def test_v511_format_type_whitelist():
+    """Regression: an unknown ColumnFormat type (e.g. LLM-emitted 'string') makes the whole metric
+    view INVALID. The emitter must drop the cosmetic format block for unknown/absent types and keep
+    valid ones (currency/number/percentage/date/date_time/boolean/byte, case-insensitive)."""
+    ns = _load_emitters()
+    f = ns["_emit_mv_format_yaml"]
+    assert f({"type": "string"}, 6) == [], "invalid 'string' type must drop the format block, not break the view"
+    assert f({"decimal_places": {"type": "all"}}, 6) == [], "format with no type -> dropped"
+    assert f({"type": "text"}, 6) == []
+    # valid types still emit
+    for t in ("currency", "number", "percentage", "date", "date_time", "boolean", "byte"):
+        assert f({"type": t}, 6)[:1] == ["      format:"], f"valid type {t} must emit"
+        assert f({"type": t}, 6)[1] == "        type: " + t
+    # capitalized normalized to lowercase
+    assert f({"type": "Currency"}, 6)[1] == "        type: currency"
+
+
 def test_v505_window_yaml_time_intelligence():
     ns = _load_emitters()
     lines = ns["_emit_mv_window_yaml"](

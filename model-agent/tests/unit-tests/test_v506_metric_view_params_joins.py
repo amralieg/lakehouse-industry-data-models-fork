@@ -18,7 +18,7 @@ def _all_source():
 
 def _load(fns):
     src = _all_source()
-    ns = {}
+    ns = {"re": re}  # the notebook has `re` imported globally; provide it to the isolated exec
     for fn in fns:
         m = re.search(r"\ndef " + fn + r"\(.*?\n(?=def |# v5|\Z)", src, re.S)
         assert m, f"v5.0.6: emitter {fn} not found"
@@ -58,17 +58,37 @@ def test_v506_prompt_teaches_deeper_patterns():
 
 def test_v506_parameters_yaml():
     ns = _load(["_emit_mv_parameters_yaml"])
+    # v5.1.0 v510-mv-param-string-quote: STRING default gets normalized to the SQL literal "'USD'"
     out = ns["_emit_mv_parameters_yaml"]([{"name": "p_target_currency", "data_type": "string", "default": "'USD'"}])
     assert out == [
         "  parameters:",
         "    - name: p_target_currency",
         "      data_type: STRING",
-        "      default: 'USD'",
+        "      default: \"'USD'\"",
     ]
     assert ns["_emit_mv_parameters_yaml"](None) == []
     assert ns["_emit_mv_parameters_yaml"]([]) == []
     # a param with no name is skipped
     assert ns["_emit_mv_parameters_yaml"]([{"data_type": "STRING"}]) == []
+
+
+def test_v510_string_param_default_sql_quoted():
+    """Regression: UC rejects an UNQUOTED string default (METRIC_VIEW_INVALID_VIEW_DEFINITION).
+    The emitter must SQL-quote STRING defaults and leave numeric/boolean verbatim."""
+    ns = _load(["_emit_mv_parameters_yaml"])
+    f = ns["_emit_mv_parameters_yaml"]
+    # bare string -> SQL-quoted YAML scalar "'OPERATED'"
+    assert f([{"name": "p_leg_status", "data_type": "STRING", "default": "OPERATED"}])[-1] == "      default: \"'OPERATED'\""
+    # already SQL-quoted -> normalized, not double-wrapped
+    assert f([{"name": "p_cur", "data_type": "STRING", "default": "'USD'"}])[-1] == "      default: \"'USD'\""
+    # numeric type -> verbatim
+    assert f([{"name": "p_min", "data_type": "INT", "default": 15}])[-1] == "      default: 15"
+    # no data_type but numeric-looking -> verbatim
+    assert f([{"name": "p_x", "default": "42"}])[-1] == "      default: 42"
+    # no data_type, non-numeric -> quoted as string
+    assert f([{"name": "p_y", "default": "ACTIVE"}])[-1] == "      default: \"'ACTIVE'\""
+    # embedded apostrophe -> SQL-escaped (doubled)
+    assert f([{"name": "p_z", "data_type": "STRING", "default": "O'Hare"}])[-1] == "      default: \"'O''Hare'\""
 
 
 # ---------------- behavioral: nested-join emitter (correct UC syntax) ----------------

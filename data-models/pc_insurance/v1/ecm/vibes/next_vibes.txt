@@ -1,0 +1,86 @@
+**Model Quality Score: 77.19/100**
+
+**Static Analysis Findings (7 actionable):**
+  - [SA:unlinked_fk] Column riskexposure.property_risk.primary_building_id looks like an FK but has no foreign_key_to reference
+  - [SA:unlinked_fk] Column riskexposure.vehicle.auto_risk_id looks like an FK but has no foreign_key_to reference
+  - [SA:fk_cycle] Circular FK dependency detected: riskexposure.driver -> riskexposure.auto_risk -> riskexposure.driver
+  - [SA:fk_cycle] Circular FK dependency detected: riskexposure.location -> riskexposure.property_risk -> riskexposure.location
+  - [SA:fk_cycle] Circular FK dependency detected: party.role -> premium.commission -> premium.premium_transaction -> coverage.coverage_transaction...
+  - [SA:cross_domain_duplicate] Potential SSOT violation: 'billing.billing_transaction' and 'coverage.coverage_transaction' have the same entity name 'transaction' in different domains. One should be the SSOT owner, the other should reference via FK.
+  - [SA:cross_domain_duplicate] Potential SSOT violation: 'coverage.coverage_transaction' and 'premium.premium_transaction' have the same entity name 'transaction' in different domains. One should be the SSOT owner, the other should reference via FK.
+
+**PRIORITY 1 — connect_table: shared.calendar** — add column parent_calendar_id (BIGINT) with FK to shared.calendar.calendar_id — Calendar table is ISOLATED with zero inbound and zero outbound FKs; needs self-reference for fiscal hierarchy or connection to another table
+**PRIORITY 2 — rename_attribute: claimfinancials.claimfinancials_accounting_period** — rename column prior_period_claimfinancials_accounting_period_id to prior_accounting_period_id because redundant domain prefix violates naming conventions and exceeds reasonable length
+**PRIORITY 3 — rename_attribute: policy.policy_producer_policy** — rename column producers_producer_policy_id to producer_policy_id because redundant domain prefix on FK column
+**PRIORITY 4 — rename_product: producers.producers_producer** — rename to producer because redundant domain prefix in product name violates naming conventions
+**PRIORITY 5 — rename_product: producers.producers_producer_policy** — rename to producer_policy because redundant domain prefix in product name violates naming conventions
+**PRIORITY 6 — rename_attribute: claims.claim_exposure** — rename column adjuster_id to assigned_adjuster_id because claim_exposure needs clearer semantic distinction from adjuster_assignment table
+**PRIORITY 7 — connect_table: coverage.shared_limit_group** — add column policy_term_id (BIGINT) with FK to policy.term.term_id — Shared limit groups must be scoped to a policy term for proper temporal context
+**PRIORITY 8 — connect_table: producers.producer_tier** — add column distribution_channel_id (BIGINT) with FK to producers.distribution_channel.distribution_channel_id — Producer tiers should vary by distribution channel for proper commission tiering
+**PRIORITY 9 — connect_table: policy.policy_type** — add column line_of_business_id (BIGINT) with FK to shared.line_of_business.line_of_business_id — Policy types must link to LOB for proper classification and reporting
+**PRIORITY 10 — connect_table: policy.document_template** — add column line_of_business_id (BIGINT) with FK to shared.line_of_business.line_of_business_id — Document templates are LOB-specific and need this linkage
+**PRIORITY 11 — connect_table: billing.notice_template** — add column line_of_business_id (BIGINT) with FK to shared.line_of_business.line_of_business_id — Notice templates vary by LOB for regulatory compliance
+**PRIORITY 12 — connect_table: coverage.rating_rule_set** — add column line_of_business_id (BIGINT) with FK to shared.line_of_business.line_of_business_id — Rating rule sets are LOB-specific and require this classification
+**PRIORITY 13 — connect_table: riskexposure.vehicle** — add column insured_risk_id (BIGINT) with FK to riskexposure.insured_risk.insured_risk_id — Vehicle is a subtype of insured_risk per user vibes but missing the supertype FK
+**PRIORITY 14 — connect_table: riskexposure.driver** — add column insured_risk_id (BIGINT) with FK to riskexposure.insured_risk.insured_risk_id — Driver should link to insured_risk supertype for consistent risk hierarchy
+**PRIORITY 15 — connect_table: riskexposure.building** — add column insured_risk_id (BIGINT) with FK to riskexposure.insured_risk.insured_risk_id — Building is a subtype of insured_risk per user vibes but missing direct supertype FK
+**PRIORITY 16 — connect_table: riskexposure.location** — add column insured_risk_id (BIGINT) with FK to riskexposure.insured_risk.insured_risk_id — Location should link to insured_risk supertype for property risk hierarchy
+**PRIORITY 17 — remove_fk: billing.account** — remove FK on column submission_id because billing accounts are created post-bind and should not reference pre-bind submissions directly
+**PRIORITY 18 — connect_table: claims.loss_event** — add column geography_id (BIGINT) with FK to catastrophegeography.geography.geography_id — Loss events need geographic context for CAT aggregation and territory analysis
+**PRIORITY 19 — connect_table: claims.loss_event** — add column peril_id (BIGINT) with FK to catastrophegeography.catastrophegeography_peril.catastrophegeography_peril_id — Loss events should capture the peril type causing the loss
+**PRIORITY 20 — rename_product: catastrophegeography.catastrophegeography_peril** — rename to peril because redundant domain prefix in product name violates naming conventions
+**PRIORITY 21 — rename_attribute: claimfinancials.claimfinancials_bordereaux_line** — rename column claimfinancials_bordereaux_line_id to bordereaux_line_id because redundant domain prefix on PK column
+**PRIORITY 22 — move_product: coverage.uw_guideline** — move to underwriting because underwriting guidelines belong in the underwriting domain per business context
+**PRIORITY 23 — connect_table: underwriting.uw_guideline** — add column effective_date (DATE) with FK to shared.calendar.calendar_id — UW guidelines need temporal validity for version control
+**PRIORITY 24 — connect_table: party.segment** — add column effective_date (DATE) with FK to shared.calendar.calendar_id — Party segments change over time and need effective dating per user vibes
+**PRIORITY 25 — connect_table: party.role** — add column expiration_date (DATE) with FK to shared.calendar.calendar_id — User vibes require Party Role to have effective and expiration dates
+**PRIORITY 26 — connect_table: claimfinancials.ibnr_estimate** — add column claim_exposure_id (BIGINT) with FK to claims.claim_exposure.claim_exposure_id — IBNR estimates should optionally link to claim exposure for development tracking
+**PRIORITY 27 — connect_table: premium.rule** — add column coverage_type_id (BIGINT) with FK to coverage.coverage_type.coverage_type_id — Premium rules are coverage-type specific and need this linkage
+**PRIORITY 28 — connect_table: premium.minimum_earned_premium** — add column line_of_business_id (BIGINT) with FK to shared.line_of_business.line_of_business_id — Minimum earned premium rules vary by LOB
+**PRIORITY 29 — connect_table: reinsurance.ri_agreement** — add column effective_date (DATE) with FK to shared.calendar.calendar_id — RI agreements need calendar linkage for temporal analysis
+**PRIORITY 30 — connect_table: reinsurance.treaty** — add column effective_date (DATE) with FK to shared.calendar.calendar_id — Treaties need calendar linkage for temporal analysis
+**PRIORITY 31 — connect_table: billing.payment_plan** — add column policy_type_id (BIGINT) with FK to policy.policy_type.policy_type_id — Payment plans vary by policy type and need this classification
+**PRIORITY 32 — connect_table: producers.distribution_channel** — add column parent_channel_id (BIGINT) with FK to producers.distribution_channel.distribution_channel_id — Distribution channels have hierarchies that need self-reference
+**PRIORITY 33 — connect_table: coverage.coverage_peril** — add column coverage_id (BIGINT) with FK to coverage.coverage.coverage_id — Coverage_peril only links to peril_link but needs direct coverage FK for proper junction
+**PRIORITY 34 — remove_fk: claims.fnol** — remove FK on column claim_id because FNOL creates the claim; circular reference where FNOL references claim it creates is illogical
+**PRIORITY 35 — connect_table: claimfinancials.loss_triangle** — add column coverage_type_id (BIGINT) with FK to coverage.coverage_type.coverage_type_id — Loss triangles are developed by coverage type for actuarial analysis
+**PRIORITY 36 — connect_table: claimfinancials.statutory_reserve_filing** — add column line_of_business_id (BIGINT) with FK to shared.line_of_business.line_of_business_id — Statutory filings are LOB-specific for regulatory reporting
+**PRIORITY 37 — connect_table: premium.premium_accounting_period** — add column calendar_id (BIGINT) with FK to shared.calendar.calendar_id — Premium accounting periods should link to shared calendar for consistency
+**PRIORITY 38 — rename_attribute: premium.premium_accounting_period** — rename column parent_period_id to parent_accounting_period_id because FK column name should include entity context
+**PRIORITY 39 — connect_table: policy.line** — add column coverage_id (BIGINT) with FK to coverage.coverage.coverage_id — Policy lines should link to coverages for proper premium allocation
+**PRIORITY 40 — connect_table: riskexposure.risk_characteristic** — add column characteristic_type_code (VARCHAR) with FK to shared.classification_code.classification_code_id — Risk characteristics need classification for standardization
+**PRIORITY 41 — connect_table: coverage.eligibility** — add column line_of_business_id (BIGINT) with FK to shared.line_of_business.line_of_business_id — Eligibility rules are LOB-specific
+**PRIORITY 42 — connect_table: coverage.eligibility** — add column geography_id (BIGINT) with FK to catastrophegeography.geography.geography_id — Eligibility varies by geography for regulatory compliance
+**PRIORITY 43 — connect_table: claims.siu_referral** — add column claim_exposure_id (BIGINT) with FK to claims.claim_exposure.claim_exposure_id — SIU referrals often target specific claim exposures not just whole claims
+**PRIORITY 44 — connect_table: claims.litigation** — add column claim_exposure_id (BIGINT) with FK to claims.claim_exposure.claim_exposure_id — Litigation is typically per coverage exposure not just per claim
+**PRIORITY 45 — connect_table: billing.escrow_account** — add column policy_term_id (BIGINT) with FK to policy.term.term_id — Escrow accounts should link to policy term for proper temporal scoping
+**PRIORITY 46 — connect_table: producers.contingent_commission** — add column commission_schedule_id (BIGINT) with FK to producers.commission_schedule.commission_schedule_id — Contingent commissions are governed by commission schedules
+**PRIORITY 47 — connect_table: producers.errors_omissions_policy** — add column effective_date (DATE) with FK to shared.calendar.calendar_id — E&O policies need temporal validity tracking
+**PRIORITY 48 — connect_table: catastrophegeography.territory** — add column effective_date (DATE) with FK to shared.calendar.calendar_id — Territory definitions change over time and need effective dating
+**PRIORITY 49 — connect_table: reinsurance.schedule_f_entry** — add column accounting_period_id (BIGINT) with FK to claimfinancials.claimfinancials_accounting_period.claimfinancials_accounting_period_id — Schedule F entries are period-specific for statutory reporting
+**PRIORITY 50 — connect_table: coverage.quote_option** — add column line_of_business_id (BIGINT) with FK to shared.line_of_business.line_of_business_id — Quote options should be classified by LOB
+**PRIORITY 51 — connect_table: party.household** — add column effective_date (DATE) with FK to shared.calendar.calendar_id — Household compositions change over time and need effective dating
+**PRIORITY 52 — connect_table: party.relationship** — add column effective_date (DATE) with FK to shared.calendar.calendar_id — Party relationships change over time and need effective dating per user vibes
+**PRIORITY 53 — connect_table: claimfinancials.payee** — add column party_role_id (BIGINT) with FK to party.role.role_id — Payees should link to party role to identify their capacity per user vibes
+
+Other known issues from static analysis (10):
+  - Table coverage.submission_status_history has 3 FK columns pointing to party.party (changed_by_party_id, party_id, referred_to_underwriter_party_id) (generic/unlabeled: party_id) — rename generic columns to describe their business role (e.g., inspector_employee_id, approver_employee_id; origin_plan_id, amendment_plan_id)
+  - Table premium.policy_fee has 2 FK columns pointing to premium.premium_transaction (premium_transaction_id, source_transaction_id) (generic/unlabeled: premium_transaction_id) — rename generic columns to describe their business role (e.g., inspector_employee_id, approver_employee_id; origin_plan_id, amendment_plan_id)
+  - Table premium.bearing_coverage has 2 FK columns pointing to premium.premium_transaction (primary_premium_transaction_id, premium_transaction_id) (generic/unlabeled: premium_transaction_id) — rename generic columns to describe their business role (e.g., inspector_employee_id, approver_employee_id; origin_plan_id, amendment_plan_id)
+  - Table claims.salvage_disposition has 3 FK columns pointing to party.party (party_id, salvage_party_id, salvage_subrogation_target_party_id) (generic/unlabeled: party_id) — rename generic columns to describe their business role (e.g., inspector_employee_id, approver_employee_id; origin_plan_id, amendment_plan_id)
+  - Table claimfinancials.claim_payment has 2 FK columns pointing to party.party (party_id, payee_party_id) (generic/unlabeled: party_id) — rename generic columns to describe their business role (e.g., inspector_employee_id, approver_employee_id; origin_plan_id, amendment_plan_id)
+  - 6 attribute(s) contain banned boilerplate phrases (Fortune N, multinational, enterprise-wide, cross-company, group reporting). Clean descriptions.
+  - 52 attribute(s) match person-data patterns but lack pii_ tags
+  - 17 non-PK attributes redundantly prefixed with their product name
+  - 3 attribute(s) have pipe-enum value_regex with >8 values — consider creating a reference product instead
+  - 1 table(s) have no subdomain tag - every table MUST carry a subdomain grouping (e.g., underwriting.uw_guideline)
+
+Deterministic score: 77.19/100 (LLM assessment: 72/100)
+
+## MISSED VIBES (carried from the previous run — apply these THIS run; user directives first)
+
+- Establish the overall scope and lifecycle spine of the enterprise P&C reference model. (target: *) [missed: orchestrator status=failed]
+- Model policy lifecycle via Policy, Policy Term, and Policy Transaction with effective dating. (target: Policy, Policy Term, Policy Transaction) [missed: orchestrator status=failed]
+- Model Insured Risk as a supertype with Property Risk and Auto Risk subtypes for extensibility. (target: Insured Risk, Property Risk, Location, Building, Auto Risk, Vehicle, Driver) [missed: orchestrator status=failed]
+- Model Catastrophe Event, Zone, and a Geography hierarchy for aggregation of insured locations. (target: Catastrophe Event, Zone, Geography) [missed: orchestrator status=failed]
+- Require explicit grain statements in the description of every fact-like table with the specified grains. (target: Policy, Policy Term, Coverage, Premium Transaction, Claim, Claim Exposure, Claim Financial) [missed: orchestrator status=partial]

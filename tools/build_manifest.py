@@ -29,6 +29,7 @@ import argparse
 import concurrent.futures as cf
 import csv
 import gzip
+import html
 import json
 import os
 import re
@@ -41,12 +42,16 @@ from pathlib import Path
 
 MODEL_PATH_RE = re.compile(r"^data-models/([a-z0-9_]+)/(v\d+)/(ecm|mvm)/model\.json$")
 INDEX_ROW_RE = re.compile(r"^\|\s*\[([^\]]+)\]\(\./data-models/([a-z0-9_]+)/\)\s*\|")
+# The index groups industries under collapsible <details><summary><b>Section</b></summary>
+# blocks; older revisions used "### Section" headings. Both are recognised so the
+# manifest keeps building whichever markup the README uses.
+SECTION_SUMMARY_RE = re.compile(r"<summary>\s*(?:<b>)?\s*(.*?)\s*(?:</b>)?\s*</summary>", re.IGNORECASE)
 LS_TREE_RE = re.compile(r"^\d+\s+blob\s+(\S+)\t(.+)$")
 LS_TREE_LONG_RE = re.compile(r"^\d+\s+blob\s+(\S+)\s+(\d+)\t(.+)$")
 
 EXPECTED_SECTIONS = 8
-EXPECTED_INDUSTRIES = 40
-EXPECTED_MODELS = 108
+EXPECTED_INDUSTRIES = 41
+EXPECTED_MODELS = 112
 
 CANONICAL_SOURCE_SLUG = "databricks-industry-solutions/lakehouse-industry-data-models"
 
@@ -162,6 +167,11 @@ def parse_readme_sections(readme: Path) -> tuple[list[dict], dict[str, dict]]:
     for line in body.splitlines():
         if line.startswith("### "):
             current = {"name": line[4:].strip(), "industries": []}
+            sections.append(current)
+            continue
+        summary = SECTION_SUMMARY_RE.search(line)
+        if summary:
+            current = {"name": html.unescape(summary.group(1)).strip(), "industries": []}
             sections.append(current)
             continue
         match = INDEX_ROW_RE.match(line)

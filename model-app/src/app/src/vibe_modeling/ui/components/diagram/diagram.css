@@ -1,0 +1,82 @@
+/*
+ * Dark mode overrides for React Flow Controls and MiniMap.
+ * Fixes white box rendering in dark themes.
+ */
+
+/* Controls panel — always white background with black icons */
+.react-flow__controls {
+  background: var(--diagram-controls-bg) !important;
+  border: 1px solid var(--diagram-controls-border) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+  overflow: hidden;
+}
+
+.react-flow__controls button {
+  background: var(--diagram-controls-bg) !important;
+  color: var(--diagram-controls-icon) !important;
+  border: none !important;
+  border-bottom: 1px solid var(--diagram-controls-divider) !important;
+  width: 28px;
+  height: 28px;
+  padding: 4px;
+}
+
+.react-flow__controls button:hover {
+  background: var(--diagram-controls-hover) !important;
+}
+
+.react-flow__controls button:last-child {
+  border-bottom: none !important;
+}
+
+.react-flow__controls button svg {
+  fill: var(--diagram-controls-icon) !important;
+}
+
+.react-flow__controls button svg path,
+.react-flow__controls button svg line,
+.react-flow__controls button svg polyline,
+.react-flow__controls button svg rect {
+  fill: var(--diagram-controls-icon) !important;
+  stroke: var(--diagram-controls-icon) !important;
+}
+
+/* MiniMap */
+.react-flow__minimap {
+  background: hsl(var(--card)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.react-flow__minimap-mask {
+  fill: rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Hide the default handle dots — crow's feet markers replace them visually */
+.react-flow__handle {
+  opacity: 0 !important;
+  width: 1px !important;
+  height: 1px !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  pointer-events: none;
+}
+
+/* Edge interaction — pointer cursor on edges */
+.react-flow__edge {
+  cursor: pointer;
+}
+
+/* Disable React Flow's default selected edge styling — we control color via inline style */
+.react-flow__edge.selected path {
+  stroke: unset;
+}
+
+/* Attribution removal (pro options) */
+.react-flow__attribution {
+  display: none;
+}

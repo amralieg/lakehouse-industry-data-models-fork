@@ -1,0 +1,34 @@
+{
+  "_meta": {
+    "captured_at": "2026-05-18",
+    "source": "agent_source_code",
+    "source_notebook": "src/app/vendored/agent/vibe_modelling_agent_v0.7.1.ipynb",
+    "capture_reason": "Canonical emit shape for the Subdomain Allocation stage_succeeded event. Verbatim from agent emit call.",
+    "verbatim_emit_call": "_vw_orch.emit_step(stage_name=\"Subdomain Allocation\", step_name=\"Allocate Subdomains\", progress_increment=1.0, message=..., status=\"stage_succeeded\", result_json={\"unique_subdomains\": <int>, \"subdomains_by_domain\": <dict>})",
+    "parser_predicate_primary": "stage_name == \"Subdomain Allocation\" AND status == \"stage_succeeded\"",
+    "parser_predicate_hardening": "result_json[\"subdomains_by_domain\"] is a non-empty dict",
+    "step_name_note": "Agent v0.7.0 emits step_name=\"Allocating Subdomains\" from the inner per-domain loop AND step_name=\"Allocate Subdomains\" from the outer orchestrator. Parser keys on (stage, status), ignoring step_name."
+  },
+  "stage_name": "Subdomain Allocation",
+  "step_name": "Allocate Subdomains",
+  "status": "stage_succeeded",
+  "progress_increment": 1.0,
+  "message": "Allocated to 4 unique subdomains",
+  "result_json": {
+    "unique_subdomains": 4,
+    "subdomains_by_domain": {
+      "party": {
+        "identity": ["individual", "organization"],
+        "engagement": ["loyalty_enrollment"]
+      },
+      "billing": {
+        "invoicing": ["invoice", "invoice_line"],
+        "settlement": ["payment"]
+      }
+    }
+  },
+  "result_json_schema": {
+    "unique_subdomains": "int — total count of distinct subdomain labels across all domains",
+    "subdomains_by_domain": "dict — {<domain_name>: {<subdomain_name>: [<product_name>, ...]}}"
+  }
+}

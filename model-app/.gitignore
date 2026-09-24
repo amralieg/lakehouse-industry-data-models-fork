@@ -1,0 +1,46 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+.venv/
+# Ignore .claude contents but keep the dir traversable so shared skills track
+.claude/*
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/**
+.databricks/
+# Personal dev-loop scripts — diagnostic toolkit, git workflow,
+# recovery scripts. See docs/scripts.md for the layout.
+localscripts/
+
+# Node/vitest caches if tests are accidentally run from repo root
+node_modules/
+.tanstack/
+
+# Environment variables (local only)
+.env
+
+# Minted SP secret for local UI smoke (holds a live OAuth secret)
+scripts/smoke/.sp_smoke_env
+
+# Editor / IDE (local only)
+.vscode/
+
+# macOS
+.DS_Store
+
+# Local Python version (pyenv); project uses Databricks runtime
+.python-version
+
+# uv lockfile (project uses pyenv, not uv)
+uv.lock
+
+# Local Serena / MCP dev config (per-machine, never shared)
+.mcp.json
+.serena/
+
+# Parallel dev worktrees live inside the repo (under one LSP root) but are
+# never committed; pyrightconfig excludes them so the LSP stays quiet on them.
+.worktrees/

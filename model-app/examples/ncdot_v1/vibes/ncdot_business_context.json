@@ -1,0 +1,30 @@
+{
+    "business_context": {
+        "business_information": {
+            "business": "NCDOT",
+            "description": "The North Carolina Department of Transportation (NCDOT) is a statewide public agency responsible for planning, building, managing, and maintaining North Carolina's multimodal transportation infrastructure.   NCDOT oversees and maintains the highways, rail systems, aviation facilities, ferries, and public transportation networks.  NCDOT provides essential citizen facing services - including driver licensing, vehicle registration, and regulatory oversight through the Division of Motor Vehicles.  NCDOT's mission extends into emergency response, statewide mobility strategy, environmental stewardship, and long range transportation planning.     Typical domains include: highway, rail, ferry, aviation, licensing, hr, itf, doh, dmv, dch",
+            "industry_alignment": "Government/Public Sector",
+            "core_business_processes": "Roadway construction, planning and projects, asset management including roadway maintenance, drivers and vehicle services, ferry sailings and maintenance, regulation and licensing of aviation, regulation of railway, emergency response and road incidents affecting traffic.",
+            "orgnaization_divisions": "operations, business, corporate",
+            "data_domains": "",
+            "common_business_jargons": "doh = Department of Highways, dmv = Department of Motor Vehicles",
+            "operational_systems_of_records": "SAP, DCH, Beacon, DB2 Mainframe, SharePoint, Web Applications",
+            "industry_governing_body": "PCI, OWASP, NC Legislature"
+        },
+        "model_conventions": {
+            "data_classification_levels": "restricted=restricted, confidential=confidential, internal=Internal, public=public",
+            "data_asset_naming_convention": "snake_case",
+            "primary_key_suffix": "_id",
+            "foreign_key_suffix": "",
+            "schema_prefix": "",
+            "tag_prefix": "ncdot_",
+            "table_id_type": "BIGINT",
+            "boolean_format": "Boolean",
+            "date_format": "yyyy-MM-dd",
+            "timestamp_format": "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
+            "add_house_keeping_columns": "No",
+            "add_history_tracking_columns": "No"
+        },
+        "vibe_modeling_instructions": ""
+    }
+}

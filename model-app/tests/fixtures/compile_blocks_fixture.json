@@ -1,0 +1,91 @@
+{
+  "$comment": "FROZEN parity contract for compile blocks. Edit BE+FE expectations together. priority is the RAW stored VibeInputPriority enum (high/medium/low per Task 11), never a display label. Keep all text in the BMP so Python len() == JS .length. _block_body: lstrip('\\n') + rstrip(' \\t\\r\\n') on BE; /^\\n+/ + /[ \\t\\r\\n]+$/ on FE.",
+  "cases": [
+    {
+      "name": "short_bullet_stays_collapsed",
+      "inputs": [
+        { "priority": "high", "anchorPath": ["Model-wide"],
+          "text": "Use snake_case   everywhere" }
+      ],
+      "expected_markdown": "## Model-wide\n- (high) Use snake_case everywhere"
+    },
+    {
+      "name": "long_single_paragraph_no_newline_is_rich",
+      "$comment": "159 chars, no newline -> rich by the >150 rule. Verbatim body, single trailing fence newline.",
+      "inputs": [
+        { "priority": "medium", "anchorPath": ["Model-wide"],
+          "text": "Customers are the central entity of this model and every downstream domain references the customer identifier, so treat customer identity as the canonical join key." }
+      ],
+      "expected_markdown": "## Model-wide\n\n> Priority: medium\n\nCustomers are the central entity of this model and every downstream domain references the customer identifier, so treat customer identity as the canonical join key.\n"
+    },
+    {
+      "name": "model_wide_rich_multiline_block_preserved",
+      "inputs": [
+        { "priority": "high", "anchorPath": ["Model-wide"],
+          "text": "# Billing area\n\nCustomers are billed monthly. Two sub-flows:\n\n- **Subscriptions** — recurring, see `billing_account`\n- **One-off** — invoiced on `invoice_id`" }
+      ],
+      "expected_markdown": "## Model-wide\n\n> Priority: high\n\n# Billing area\n\nCustomers are billed monthly. Two sub-flows:\n\n- **Subscriptions** — recurring, see `billing_account`\n- **One-off** — invoiced on `invoice_id`\n"
+    },
+    {
+      "name": "leading_newline_and_leading_spaces_strip_pin",
+      "$comment": "Leading newline IS stripped; leading spaces on first content line are PRESERVED; trailing space+newline run is stripped. Locks the _block_body pair (sec 7.1). Rich by the embedded newline.",
+      "inputs": [
+        { "priority": "low", "anchorPath": ["Model-wide"],
+          "text": "\n   indented first line keeps its spaces\nsecond line   \n" }
+      ],
+      "expected_markdown": "## Model-wide\n\n> Priority: low\n\n   indented first line keeps its spaces\nsecond line\n"
+    },
+    {
+      "name": "whitespace_only_with_newline_empty_body_branch",
+      "$comment": "Rich by the \\n rule, body normalizes to empty -> empty-body branch (sec 2). Exactly one trailing newline, NO stacked blanks.",
+      "inputs": [
+        { "priority": "high", "anchorPath": ["Model-wide"], "text": "\n" }
+      ],
+      "expected_markdown": "## Model-wide\n\n> Priority: high\n"
+    },
+    {
+      "name": "mix_short_and_rich_under_multiple_sections",
+      "$comment": "Model-wide block first; then ## Domain: Sales. Within Sales the sort key is _oneline(text).lower(): 'keep order ids stable' < 'sales narrative ...' so the short bullet precedes the rich block. Rich block fenced both sides.",
+      "inputs": [
+        { "priority": "high",   "anchorPath": ["Model-wide"],
+          "text": "# Overview\n\nModel-wide narrative." },
+        { "priority": "medium", "anchorPath": ["Domain: Sales"],
+          "text": "keep order ids stable" },
+        { "priority": "high",   "anchorPath": ["Domain: Sales"],
+          "text": "Sales narrative that runs well past one hundred and fifty characters so it trips the rich detector and renders as a preserved multi-paragraph block under the Sales header." }
+      ],
+      "expected_markdown": "## Model-wide\n\n> Priority: high\n\n# Overview\n\nModel-wide narrative.\n\n## Domain: Sales\n- (medium) keep order ids stable\n\n> Priority: high\n\nSales narrative that runs well past one hundred and fifty characters so it trips the rich detector and renders as a preserved multi-paragraph block under the Sales header.\n"
+    },
+    {
+      "name": "doc_ends_with_short_bullet_after_rich_block",
+      "$comment": "REQUIRED case: last entry is a SHORT bullet following a rich block. Verifies (a) the rich block's trailing fence blank IS present internally, AND (b) the doc gets NO spurious final newline (short-ending). Sort within Sales: 'a short' < 'rich narrative ...'? No -- 'a short trailing rule' < 'rich ...' lexically, so the short would sort first. To force short-LAST we put them in different sections: rich under Domain: Accounting (sorts before Sales), short under Domain: Sales (sorts last). Model-wide is empty here.",
+      "inputs": [
+        { "priority": "high",   "anchorPath": ["Domain: Accounting"],
+          "text": "Accounting narrative long enough to exceed the one hundred and fifty character threshold so that it is detected as rich and rendered as a fenced markdown block." },
+        { "priority": "medium", "anchorPath": ["Domain: Sales"],
+          "text": "trailing short rule" }
+      ],
+      "expected_markdown": "## Domain: Accounting\n\n> Priority: high\n\nAccounting narrative long enough to exceed the one hundred and fifty character threshold so that it is detected as rich and rendered as a fenced markdown block.\n\n## Domain: Sales\n- (medium) trailing short rule"
+    },
+    {
+      "name": "ordering_stability_reversed_input_order_same_output",
+      "$comment": "Same two Sales inputs as a forward case, submitted reversed. Output MUST equal the forward output (ordering is by sort key, not input order). Forward output pinned here; the BE/FE tests feed BOTH orders and assert each equals this string.",
+      "inputs": [
+        { "priority": "high",   "anchorPath": ["Domain: Sales"], "text": "rule two" },
+        { "priority": "low",    "anchorPath": ["Domain: Sales"], "text": "rule one" }
+      ],
+      "expected_markdown": "## Domain: Sales\n- (low) rule one\n- (high) rule two"
+    },
+    {
+      "name": "mixed_element_type_siblings_under_one_parent",
+      "$comment": "Siblings of DIFFERENT element types under one Domain. Ordering is by the TYPE-PREFIXED section-path label (lowercased, element-wise) on BOTH sides, NOT the bare element names. Bare names here are ordered OPPOSITE to the prefixed labels (sub 'aardvark' < rel 'a.b…' < prod 'zebra' by bare name; but prefixed product<relationship<subdomain), so a bare-name sort would mis-order and this case would catch it. Domain-direct input sorts first (shortest path is a prefix). Pinned order: domain-direct, Product: zebra, Relationship: a.b→c.d, Subdomain: aardvark.",
+      "inputs": [
+        { "priority": "high",   "anchorPath": ["Domain: D", "Subdomain: aardvark"], "text": "subdomain rule" },
+        { "priority": "low",    "anchorPath": ["Domain: D", "Relationship: a.b→c.d"], "text": "relationship rule" },
+        { "priority": "medium", "anchorPath": ["Domain: D", "Product: zebra"], "text": "product rule" },
+        { "priority": "high",   "anchorPath": ["Domain: D"], "text": "domain direct rule" }
+      ],
+      "expected_markdown": "## Domain: D\n- (high) domain direct rule\n#### Product: zebra\n- (medium) product rule\n##### Relationship: a.b→c.d\n- (low) relationship rule\n### Subdomain: aardvark\n- (high) subdomain rule"
+    }
+  ]
+}

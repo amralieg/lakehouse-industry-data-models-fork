@@ -1,0 +1,278 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Model Foundry type — Archivo (UI face) + IBM Plex Mono (code/logs/IDs),
+ * loaded from Google Fonts CDN. */
+@import url("https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
+@custom-variant dark (&:is(.dark *));
+
+/* Model Foundry identity — baked as the default palette.
+ * Neutrals: cool graphite (metals need a cold ground; warm neutrals go sepia
+ *   under copper/gold). Cards/popovers stay near-pure so a card sits forward
+ *   of the page without a shadow.
+ * Action: violet — the hottest colour in the temper sequence; clears
+ *   destructive red and reads engineered rather than corporate.
+ * Identity accent (--tertiary/--ring): immersion gold — restricted to marks,
+ *   focus rings, active rules. Never a button fill.
+ * Semantics from the same metallurgy: verdigris / copper / steel / brick.
+ * Shape: 2px radius — sharper, reads engineered.
+ * The --diagram-* palette below is a separate ERD track, left unchanged. */
+:root {
+  --background: oklch(0.974 0.004 265);
+  --foreground: oklch(0.255 0.013 268);
+  --card: oklch(0.994 0.003 265);
+  --card-foreground: oklch(0.255 0.013 268);
+  --popover: oklch(0.996 0.002 265);
+  --popover-foreground: oklch(0.255 0.013 268);
+  --primary: oklch(0.455 0.152 296);
+  --primary-foreground: oklch(0.990 0 0);
+  --secondary: oklch(0.948 0.006 265);
+  --secondary-foreground: oklch(0.255 0.013 268);
+  --muted: oklch(0.948 0.006 265);
+  --muted-foreground: oklch(0.508 0.016 265);
+  --accent: oklch(0.936 0.008 265);
+  --accent-foreground: oklch(0.255 0.013 268);
+  --tertiary: oklch(0.705 0.125 88);
+  --tertiary-foreground: oklch(0.255 0.013 268);
+  --destructive: oklch(0.495 0.175 22);
+  --destructive-foreground: oklch(0.990 0 0);
+  --success: oklch(0.498 0.088 168);
+  --warning: oklch(0.528 0.132 52);
+  --info: oklch(0.505 0.095 252);
+  --border: oklch(0.884 0.009 265);
+  --input: oklch(0.852 0.011 265);
+  --ring: oklch(0.705 0.125 88);
+  /* Chart palette — the temper ramp in order. */
+  --chart-1: oklch(0.455 0.152 296);
+  --chart-2: oklch(0.705 0.125 88);
+  --chart-3: oklch(0.498 0.088 168);
+  --chart-4: oklch(0.528 0.132 52);
+  --chart-5: oklch(0.505 0.095 252);
+  /* 2px radius — derived sizes set explicitly in @theme inline. */
+  --radius: 2px;
+  /* Sidebar follows the graphite neutrals. */
+  --sidebar: var(--muted);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--foreground);
+  --sidebar-primary-foreground: var(--background);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+
+  /* Type tokens (also mirrored in @theme inline for Tailwind utilities). */
+  --font-sans: "Archivo", "Helvetica Neue", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* Layout tokens (global). */
+  --space-12: 48px;
+  --content-max: 1200px;
+  --masthead-h: 48px;
+  --nav-w: 240px;
+  --nav-w-collapsed: 56px;
+  --gutter: 24px;
+  --chip-tint: 10%;
+  --review-need: color-mix(in srgb, var(--muted-foreground) 48%, transparent);
+  --review-none: var(--muted);
+
+  /* Diagram palette — rich node/edge/domain colors for the ER diagram and
+   * ontology graph. These sit outside the primary/secondary/tertiary system
+   * because the diagram needs a wide categorical palette. SVG/canvas layers
+   * read these via getComputedStyle; React components read them via the
+   * diagram-colors helper. */
+  --diagram-product-master: #3b82f6;
+  --diagram-product-transactional: #10b981;
+  --diagram-product-reference: #f59e0b;
+  --diagram-product-association: #8b5cf6;
+  --diagram-product-default: #6b7280;
+  --diagram-domain-1: #3b82f6;
+  --diagram-domain-2: #10b981;
+  --diagram-domain-3: #f59e0b;
+  --diagram-domain-4: #8b5cf6;
+  --diagram-domain-5: #ec4899;
+  --diagram-domain-6: #14b8a6;
+  --diagram-domain-7: #f97316;
+  --diagram-domain-8: #6366f1;
+  --diagram-domain-9: #eab308;
+  --diagram-domain-10: #a855f7;
+  --diagram-domain-11: #06b6d4;
+  --diagram-domain-12: #f43f5e;
+  --diagram-domain-external: #9ca3af;
+  --diagram-edge: #64748b;
+  --diagram-edge-selected: #3b82f6;
+  --diagram-edge-intra: #94a3b8;
+  --diagram-edge-cross: #a855f7;
+  --diagram-edge-highlight: #e94560;
+  --diagram-selection: #ef4444;
+  --diagram-cross-domain-highlight: #eab308;
+  --diagram-handle-fk-bg: #60a5fa;
+  --diagram-handle-fk-border: #3b82f6;
+  --diagram-handle-pk-bg: #fbbf24;
+  --diagram-handle-pk-border: #f59e0b;
+  --diagram-node-stroke-selected: #ffffff;
+  --diagram-pk-icon: #f59e0b;
+  --diagram-fk-icon: #3b82f6;
+  --diagram-controls-bg: #ffffff;
+  --diagram-controls-border: #d1d5db;
+  --diagram-controls-icon: #1f2937;
+  --diagram-controls-divider: #e5e7eb;
+  --diagram-controls-hover: #f3f4f6;
+}
+
+.dark {
+  /* Model Foundry identity — dark. The temper palette holds on ink: metals
+   * lift, graphite deepens. Violet reaches ~6:1 on the dark ground. */
+  --background: oklch(0.215 0.010 268);
+  --foreground: oklch(0.918 0.005 265);
+  --card: oklch(0.252 0.011 268);
+  --card-foreground: oklch(0.918 0.005 265);
+  --popover: oklch(0.272 0.011 268);
+  --popover-foreground: oklch(0.918 0.005 265);
+  --primary: oklch(0.690 0.145 296);
+  --primary-foreground: oklch(0.185 0.010 268);
+  --secondary: oklch(0.278 0.011 268);
+  --secondary-foreground: oklch(0.918 0.005 265);
+  --muted: oklch(0.278 0.011 268);
+  --muted-foreground: oklch(0.715 0.014 265);
+  --accent: oklch(0.296 0.012 268);
+  --accent-foreground: oklch(0.918 0.005 265);
+  --tertiary: oklch(0.768 0.125 88);
+  --tertiary-foreground: oklch(0.200 0.010 268);
+  --destructive: oklch(0.690 0.170 24);
+  --destructive-foreground: oklch(0.185 0.010 268);
+  --success: oklch(0.695 0.105 168);
+  --warning: oklch(0.755 0.130 62);
+  --info: oklch(0.700 0.105 252);
+  --border: oklch(0.345 0.013 268);
+  --input: oklch(0.385 0.015 268);
+  --ring: oklch(0.768 0.125 88);
+  --chart-1: oklch(0.690 0.145 296);
+  --chart-2: oklch(0.768 0.125 88);
+  --chart-3: oklch(0.695 0.105 168);
+  --chart-4: oklch(0.755 0.130 62);
+  --chart-5: oklch(0.700 0.105 252);
+  /* Weaker chip ground in dark — ink and tint both lift. */
+  --chip-tint: 6%;
+  --sidebar: var(--muted);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--foreground);
+  --sidebar-primary-foreground: var(--background);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+
+  /* Diagram palette — identical hues to light mode; the diagram uses the same
+   * categorical colors across themes for cross-mode coherence. */
+  --diagram-product-master: #3b82f6;
+  --diagram-product-transactional: #10b981;
+  --diagram-product-reference: #f59e0b;
+  --diagram-product-association: #8b5cf6;
+  --diagram-product-default: #6b7280;
+  --diagram-domain-1: #3b82f6;
+  --diagram-domain-2: #10b981;
+  --diagram-domain-3: #f59e0b;
+  --diagram-domain-4: #8b5cf6;
+  --diagram-domain-5: #ec4899;
+  --diagram-domain-6: #14b8a6;
+  --diagram-domain-7: #f97316;
+  --diagram-domain-8: #6366f1;
+  --diagram-domain-9: #eab308;
+  --diagram-domain-10: #a855f7;
+  --diagram-domain-11: #06b6d4;
+  --diagram-domain-12: #f43f5e;
+  --diagram-domain-external: #9ca3af;
+  --diagram-edge: #64748b;
+  --diagram-edge-selected: #3b82f6;
+  --diagram-edge-intra: #94a3b8;
+  --diagram-edge-cross: #a855f7;
+  --diagram-edge-highlight: #e94560;
+  --diagram-selection: #ef4444;
+  --diagram-cross-domain-highlight: #eab308;
+  --diagram-handle-fk-bg: #60a5fa;
+  --diagram-handle-fk-border: #3b82f6;
+  --diagram-handle-pk-bg: #fbbf24;
+  --diagram-handle-pk-border: #f59e0b;
+  --diagram-node-stroke-selected: #ffffff;
+  --diagram-pk-icon: #f59e0b;
+  --diagram-fk-icon: #3b82f6;
+  --diagram-controls-bg: #ffffff;
+  --diagram-controls-border: #d1d5db;
+  --diagram-controls-icon: #1f2937;
+  --diagram-controls-divider: #e5e7eb;
+  --diagram-controls-hover: #f3f4f6;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-tertiary: var(--tertiary);
+  --color-tertiary-foreground: var(--tertiary-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  /* Foundry radii — set explicitly (the DuBois calc()s went 0/negative at
+   * --radius:2px). sm=1px, md=2px, lg=3px, xl=4px. */
+  --radius-sm: 1px;
+  --radius-md: 2px;
+  --radius-lg: 3px;
+  --radius-xl: 4px;
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  /* Typography — Archivo as the UI face, IBM Plex Mono for code/logs/IDs. */
+  --font-sans: "Archivo", "Helvetica Neue", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    font-family: var(--font-sans);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    @apply bg-background text-foreground;
+  }
+  code, kbd, pre, samp {
+    font-family: var(--font-mono);
+  }
+}
+
+:root {
+  --sidebar-background: 0 0% 97%;
+}
+
+.dark {
+  --sidebar-background: 220 10% 13%;
+}

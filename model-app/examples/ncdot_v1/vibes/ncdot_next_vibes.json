@@ -1,0 +1,110 @@
+{
+    "business_context": {
+        "business_information": {
+            "business": "Ncdot",
+            "description": "The North Carolina Department of Transportation (NCDOT) is a statewide public agency responsible for planning, building, managing, and maintaining North Carolina's multimodal transportation infrastructure.   NCDOT oversees and maintains the highways, rail systems, aviation facilities, ferries, and public transportation networks.  NCDOT provides essential citizen facing services - including driver licensing, vehicle registration, and regulatory oversight through the Division of Motor Vehicles.  NCDOT's mission extends into emergency response, statewide mobility strategy, environmental stewardship, and long range transportation planning.     Typical domains include: highway, rail, ferry, aviation, licensing, hr, itf, doh, dmv, dch",
+            "industry_alignment": "Government/Public Sector",
+            "core_business_processes": "Roadway construction, planning and projects, asset management including roadway maintenance, drivers and vehicle services, ferry sailings and maintenance, regulation and licensing of aviation, regulation of railway, emergency response and road incidents affecting traffic.",
+            "orgnaization_divisions": "operations, business, corporate",
+            "data_domains": "",
+            "common_business_jargons": "doh = Department of Highways, dmv = Department of Motor Vehicles",
+            "operational_systems_of_records": "SAP, DCH, Beacon, DB2 Mainframe, SharePoint, Web Applications",
+            "industry_governing_body": "PCI, OWASP, NC Legislature"
+        },
+        "model_conventions": {
+            "data_classification_levels": "restricted=restricted, confidential=confidential, internal=Internal, public=public",
+            "data_asset_naming_convention": "snake_case",
+            "primary_key_suffix": "_id",
+            "foreign_key_suffix": "",
+            "schema_prefix": "",
+            "tag_prefix": "ncdot_",
+            "table_id_type": "BIGINT",
+            "boolean_format": "Boolean",
+            "date_format": "yyyy-MM-dd",
+            "timestamp_format": "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
+            "add_house_keeping_columns": "No",
+            "add_history_tracking_columns": "No",
+            "_classification_mapping": {
+                "restricted": "restricted",
+                "confidential": "confidential",
+                "internal": "Internal",
+                "public": "public"
+            }
+        },
+        "vibe_modeling_instructions": "REMEDIATION MODE \u2014 fix the existing Ncdot model WITHOUT restructuring it. --- MUST DO --- The following steps address issues found by static analysis and MUST be completed. MUST DO STEP 1 \u2014 INVESTIGATE AND RESOLVE ALL UNLINKED _ID COLUMNS: There are 36 columns ending with _id that have no FK relationship. For EACH unlinked column, follow this decision process IN ORDER: (1) Is this column actually a foreign key? If it is an external system identifier (e.g., gps_tracker_id, legacy_system_id, external_reference_id), it is NOT a FK \u2014 rename it to remove the _id suffix (e.g., gps_tracker_code) and KEEP it. (2) If it IS a valid FK, does a matching parent table ALREADY EXIST in the model? The FK column MUST END WITH the target table's PK (e.g., driver_employee_id ends with employee_id, so it links to the employee table). If a match exists, LINK it. (3) If no existing table matches but the entity is a genuine business concept referenced by MULTIPLE tables, CREATE the missing parent table in the appropriate domain. (4) If the column appears hallucinated (makes no business sense for this table), DROP it. DO NOT blindly create tables for every unlinked column \u2014 most can be resolved by linking to existing tables or by recognizing they are not real FKs. COMPLETE LIST OF UNLINKED COLUMNS: asset.location.atlas_location_id, asset.location.tims_location_id, dmv.appointment.rescheduled_from_appointment_id, ferry.group_reservation.organization_tax_id, finance.audit_trail.approver_id, finance.audit_trail.entity_id, finance.audit_trail.user_id, finance.bank_account.house_bank_id, finance.journal_entry.interface_batch_id, finance.journal_entry.reversed_entry_id, finance.payment.gateway_transaction_id, finance.payment.processor_transaction_id, finance.payment.source_system_transaction_id, gis.feature.global_id, gis.feature.object_id, gis.feature.parent_feature_id, gis.geocode_request.batch_id, gis.project_boundary.superseded_by_boundary_id, hr.benefit_enrollment.carrier_member_id, hr.department.sap_org_unit_id, hr.performance_review.source_system_record_id, hr.position.beacon_position_id, hr.position.sap_position_id, procurement.agency.federal_employer_id, procurement.vendor.federal_tax_id, procurement.vendor.state_tax_id, project.risk.source_record_id, project.work_package.hicams_id, rail.operator.federal_employer_id, rail.work_zone.railroad_crossing_id, safety.incident.source_record_id, traffic.toll_account.business_tax_id, traffic.toll_transaction.account_id, traffic.toll_transaction.batch_id, transit.direction.gtfs_direction_id, transit.direction.opposite_direction_id. MUST DO STEP 2 \u2014 CONNECT DISCONNECTED TABLES: 3 tables have no relationships at all \u2014 they are completely isolated from the rest of the model. Each disconnected table should be linked to at least one related table. COMPLETE LIST: ferry.route, finance.audit_session, traffic.toll_account. MUST DO STEP 3 \u2014 DEDUPLICATE TABLES: The following table names appear in multiple domains and MAY represent the same business concept \u2014 review their attributes and descriptions; if they serve the same function, merge into a single source of truth and preserve all relationships pointing to the surviving table: route, maintenance_schedule, block. MUST DO STEP 4 \u2014 BREAK CIRCULAR DEPENDENCIES: The model contains 5 circular foreign key dependencies where tables reference each other in loops. Remove the least important FK in each cycle to break the loop. Top cycles: Circular FK dependency detected: highway.construction_activity -> ferry.terminal -> grant.award -> grant.application...; Circular FK dependency detected: dmv.registration -> dmv.fee -> finance.payment -> finance.accounts_payable_invoice...; Circular FK dependency detected: highway.construction_activity -> maintenance.crew_assignment -> ferry.sailing_schedule -> maintenance.maintenance_schedule...; Circular FK dependency detected: dmv.registration -> dmv.fee -> finance.payment -> finance.accounts_payable_invoice...; Circular FK dependency detected: maintenance.maintenance_schedule -> maintenance.work_order -> safety.crash_report -> aviation.aircraft.... MUST DO STEP 5 \u2014 REMOVE PRODUCT PREFIX FROM ATTRIBUTES: 13 attribute(s) have their product name as redundant prefix. The table already provides context. COMPLETE LIST OF RENAMES: environmental.sample.sample_matrix -> matrix; environmental.sample.sample_purpose -> purpose; environmental.sample.sample_volume -> volume; environmental.sample.sample_weight_grams -> weight_grams; highway.route.route_prefix -> prefix; highway.route.route_suffix -> suffix; maintenance.route.route_direction -> direction; rightofway.route.route_direction -> direction; transit.service.service_area -> area; transit.service.service_end_date -> end_date; transit.service.service_hours_end -> hours_end; transit.service.service_hours_start -> hours_start; transit.service.service_start_date -> start_date. MUST DO STEP 6 \u2014 FIX SNAKE_CASE NAMING: 1 name(s) are not valid snake_case. All table names, attribute names, and domain names must use lowercase snake_case (e.g., my_table, not MyTable or my-table). MUST DO STEP 7 \u2014 ADD MISSING PK ATTRIBUTES: 2 table(s) declare a primary key that doesn't exist in their attributes list. COMPLETE LIST: dmv.license_type (missing PK: ), dmv.vehicle_class (missing PK: ). MUST DO STEP 8 \u2014 FIX FK COLUMN NAME TO END WITH TARGET PK: 11 FK column(s) have names that don't end with the target table's PK. FK columns MUST END WITH the target PK (e.g., driver_employee_id ends with employee_id \u2192 valid; billing_address_id ends with address_id \u2192 valid). When the target table name differs from the FK prefix (e.g., order.customer_id \u2192 order_customer), rename the FK to end with the target PK (order_customer_id). The FK-suffix rule takes precedence over the no-product-prefix rule for FK columns. TOP MISMATCHES: asset.depreciation.original_entry_id -> depreciation; asset.inspection.type_id -> inspection_type; highway.service_request.duplicate_of_request_id -> service_request; hr.leave_request.original_request_id -> leave_request; hr.time_entry.original_entry_id -> time_entry; planning.plan.status_id -> plan_status; project.funding.source_id -> funding_source; project.project_budget.line_id -> budget_line; safety.incident.type_id -> incident_type; traffic.toll_transaction.original_transaction_id -> toll_transaction; transit.stop.parent_station_id -> stop. ABSOLUTE CONSTRAINTS: Do NOT drop any domains. Do NOT create many-to-many association or junction tables. Do NOT remove tables unless they are exact semantic duplicates. Do NOT rename domains."
+    },
+    "_next_vibe_metadata": {
+        "generated_from_version": "v1",
+        "status": "needs_work",
+        "confidence_score": 71,
+        "summary": "The Ncdot model has 2 errors and 58 warnings (MUST DO) plus optional quality improvements.",
+        "issues_addressed": [
+            "unlinked_fk",
+            "siloed_table",
+            "duplicate_name",
+            "fk_cycle",
+            "product_prefix_on_attribute",
+            "product_not_snake_case",
+            "attribute_not_snake_case",
+            "domain_not_snake_case",
+            "pk_attribute_missing",
+            "fk_name_target_mismatch"
+        ],
+        "issues_not_addressed": [
+            "missing_tags",
+            "self_referencing_fk",
+            "pk_naming_convention",
+            "fk_resolution_skipped",
+            "semantic_duplicate_review",
+            "domain_fit_review",
+            "naming_consistency_review"
+        ],
+        "data_modeler_notes": "Focus on MUST DO steps first \u2014 broken relationships, missing tables, and structural issues. Then consider the OPTIONAL steps for quality polish.",
+        "model_stats_at_generation": {
+            "domain_count": 20,
+            "product_count": 217,
+            "attribute_count": 13423,
+            "fk_count": 944,
+            "unlinked_id_count": 36,
+            "siloed_count": 3,
+            "llm_fk_skip_count": 7
+        },
+        "issue_counts": {
+            "error": 2,
+            "warning": 19,
+            "info": 12102,
+            "warning_raw": 58
+        },
+        "progression": {
+            "version_trend": "baseline",
+            "confidence_delta": 0,
+            "warnings_delta": 0,
+            "errors_delta": 0,
+            "unlinked_delta": 0,
+            "previous_version": "unknown",
+            "previous_confidence": 0,
+            "previous_warnings": 0,
+            "previous_errors": 0,
+            "previous_unlinked": 0
+        },
+        "version_history": [
+            {
+                "version": "v1",
+                "confidence": 71,
+                "errors": 2,
+                "warnings": 19,
+                "unlinked": 36,
+                "trend": "baseline",
+                "products": 217,
+                "fks": 944
+            }
+        ],
+        "ai_usage": {
+            "total_ai_calls": 1032,
+            "estimated_input_tokens": 8838132,
+            "estimated_output_tokens": 2529395,
+            "total_input_chars": 35352528,
+            "total_output_chars": 10117580
+        }
+    }
+}

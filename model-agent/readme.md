@@ -202,6 +202,7 @@ The agent enforces a large catalog of rules across 20 rule groups. The structura
 | **Graph topology** | DAG enforcement; cycle detection; zero siloed tables; each domain connected |
 | **Product design** | M:N junctions require real evidence; Silver-layer only; no analytics products |
 | **Sample data** | exact record counts; valid FK references; realistic, regex-compliant values |
+| **Descriptions** | every domain, table, and attribute description ≤ 256 characters and ending on a complete word, so it stays concise and never truncates mid-word within Unity Catalog comment limits |
 
 ### The agentic loop: generate, validate, retry differently
 

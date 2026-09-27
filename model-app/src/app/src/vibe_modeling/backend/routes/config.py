@@ -32,6 +32,8 @@ from ..models import (
     GithubConfigIn,
     GithubConfigOut,
     MetamodelCatalogIn,
+    SourceAuthConfigIn,
+    SourceAuthConfigOut,
     WarehouseOut,
 )
 from ..job_launcher import setup_agent_job
@@ -147,6 +149,81 @@ def update_github_config(
     )
 
 
+def _source_auth_out(cfg, config, ws) -> SourceAuthConfigOut:
+    """Assemble the SourceAuthConfigOut for the current ``AgentConfig`` row.
+
+    Surfaces the persisted mode + non-secret ids + secret scope/key REFERENCES
+    (never secret values) and computes the effective mode + degrade reason by
+    resolving the transport the way a real read would (the secret read is
+    short-TTL cached). Resolution never leaks scope/key/secret material into
+    ``error``."""
+    from ..sources.github import build_source_connector
+
+    caps = build_source_connector(cfg, config, ws).capabilities()
+    return SourceAuthConfigOut(
+        auth_mode=cfg.source_auth_mode,
+        github_app_id=cfg.source_github_app_id,
+        github_app_installation_id=cfg.source_github_app_installation_id,
+        github_app_secret_scope=cfg.source_github_app_secret_scope,
+        github_app_secret_key=cfg.source_github_app_secret_key,
+        token_secret_scope=cfg.source_token_secret_scope,
+        token_secret_key=cfg.source_token_secret_key,
+        effective_mode=caps.auth_mode,
+        error=caps.auth_error,
+    )
+
+
+@router.get(
+    "/config/source-auth",
+    response_model=SourceAuthConfigOut,
+    operation_id="getSourceAuthConfig",
+)
+def get_source_auth_config(
+    session: Dependencies.Session,
+    config: Dependencies.Config,
+    ws: Dependencies.Client,
+):
+    """Get the installation's source READ-auth config (0.7.1).
+
+    Reads the ``source_*`` columns off the AgentConfig singleton. Secret values
+    are never returned — only the mode, the non-secret App ids, and the secret
+    scope/key REFERENCES, plus the computed effective mode + degrade error."""
+    cfg = _get_or_create_agent_config(session, config)
+    return _source_auth_out(cfg, config, ws)
+
+
+@router.put(
+    "/config/source-auth",
+    response_model=SourceAuthConfigOut,
+    operation_id="updateSourceAuthConfig",
+)
+def update_source_auth_config(
+    data: SourceAuthConfigIn,
+    session: Dependencies.Session,
+    config: Dependencies.Config,
+    ws: Dependencies.Client,
+    _role: Dependencies.BusinessAdminOnly,
+):
+    """Update the installation's source READ-auth config (admin only).
+
+    Round-trips all fields so a partial save never NULLs a sibling reference
+    (same rule the publish form follows). Secret material never crosses this
+    boundary — only scope/key references are persisted."""
+    cfg = _get_or_create_agent_config(session, config)
+    cfg.source_auth_mode = data.auth_mode
+    cfg.source_github_app_id = data.github_app_id
+    cfg.source_github_app_installation_id = data.github_app_installation_id
+    cfg.source_github_app_secret_scope = data.github_app_secret_scope
+    cfg.source_github_app_secret_key = data.github_app_secret_key
+    cfg.source_token_secret_scope = data.token_secret_scope
+    cfg.source_token_secret_key = data.token_secret_key
+    cfg.updated_at = datetime.now(timezone.utc)
+    session.add(cfg)
+    session.commit()
+    session.refresh(cfg)
+    return _source_auth_out(cfg, config, ws)
+
+
 @router.get(
     "/config/agent/supported-version",
     response_model=dict,
@@ -168,20 +245,20 @@ def get_supported_agent_version():
     }
 
 
-def _fetch_upstream_agent_identity(config) -> tuple[str | None, str | None]:
+def _fetch_upstream_agent_identity(config, cfg, ws) -> tuple[str | None, str | None]:
     """Live-read the canonical upstream agent notebook, returning
     ``(release_version, agent_marker)``.
 
     Module-level seam: the endpoint calls this by name so tests monkeypatch it
     rather than hitting GitHub. Builds the connector with the DEFAULT repo
-    (``databricks-industry-solutions/lakehouse-industry-data-models`` @ ``main``),
-    authenticated as the deployment's GitHub App when its creds are configured on
-    ``AppConfig`` (else anonymous), and reads the notebook via the repo-root
-    fetch path.
+    (``databricks-industry-solutions/lakehouse-industry-data-models`` @ ``main``)
+    using the installation's resolved source read-auth (App / token / anonymous,
+    env fallback when unconfigured); any referenced secret is read via the app
+    service principal ``ws``. Reads the notebook via the repo-root fetch path.
     """
-    from ..sources.github import build_github_connector
+    from ..sources.github import build_source_connector
 
-    connector = build_github_connector(app_credentials=config.github_app_credentials)
+    connector = build_source_connector(cfg, config, ws)
     return fetch_upstream_agent_identity(connector)
 
 
@@ -198,6 +275,7 @@ def _same_release(a: str | None, b: str | None) -> bool:
 def get_agent_compat(
     session: Dependencies.Session,
     config: Dependencies.Config,
+    ws: Dependencies.Client,
 ) -> AgentCompatOut:
     """Upstream agent-availability monitor (Surface 2).
 
@@ -233,7 +311,7 @@ def get_agent_compat(
 
     if stale:
         try:
-            release, marker = _fetch_upstream_agent_identity(config)
+            release, marker = _fetch_upstream_agent_identity(config, cfg, ws)
             if release is None and marker is None:
                 # A successful fetch that yields NO markers (empty body, or the
                 # upstream notebook renamed/moved its version constants) must not

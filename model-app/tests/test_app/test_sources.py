@@ -513,10 +513,10 @@ def patched_routes(monkeypatch, fake_repo_http):
     """Make the route build a connector backed by the fake HTTP."""
     from vibe_modeling.backend.routes import sources as sources_routes
 
-    def _fake_build(repo_owner="", repo_name="", **_):  # noqa: ARG001
+    def _fake_build(cfg=None, app_config=None, ws=None, *, repo_owner="", repo_name="", **_):  # noqa: ARG001
         return GithubSourceConnector(http=fake_repo_http)
 
-    monkeypatch.setattr(sources_routes, "build_github_connector", _fake_build)
+    monkeypatch.setattr(sources_routes, "build_source_connector", _fake_build)
     return fake_repo_http
 
 

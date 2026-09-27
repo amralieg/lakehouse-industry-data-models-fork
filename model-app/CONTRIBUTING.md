@@ -13,10 +13,11 @@ with [`apx`](https://github.com/databricks-solutions/apx).
 
 Prerequisites:
 
-- **Python 3.11** (a virtualenv via `pyenv`, `venv`, or `uv` is fine)
-- **[uv](https://github.com/astral-sh/uv)** for Python dependency management
-- **[Bun](https://bun.sh) 1.2+** for the frontend
-- **[apx](https://github.com/databricks-solutions/apx)** to drive the dev loop and build
+- **Python 3.11+** (a virtualenv via `pyenv`, `venv`, or `uv` is fine)
+- **[uv](https://github.com/astral-sh/uv)** (latest) for Python dependency management
+- **[Bun](https://bun.sh) 1.2+** for the frontend build and dev server
+- **Node.js 20.19+ (LTS 20 or 22) and npm** — required for the `npx tsc` / `npx vitest` checks below. The frontend *build* uses Bun, but the documented type-check and unit-test commands run through `npx`; you can skip Node.js if you run the checks via `apx dev check` (Bun) instead.
+- **[apx](https://github.com/databricks-solutions/apx)** (latest) to drive the dev loop and build
 
 Install dependencies:
 

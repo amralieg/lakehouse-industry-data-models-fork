@@ -57,15 +57,17 @@ If your identity lacks grant authority on the catalog, `install/install.sh` **lo
 
 | Tool | Min version | Purpose |
 |------|-------------|---------|
-| **Databricks CLI** | 0.230.0 | Bundle deploy, app lifecycle, current-user lookup — [install](https://docs.databricks.com/aws/en/dev-tools/cli/install) |
-| **Python** | 3.11 | Runs `provision_lakebase.py` and `grant_catalog.py` |
-| **apx** | — | Builds the app artifacts (`apx build`, driven by the bundle artifacts hook); orchestrates bun + uv |
-| **Bun** | 1.2 | Frontend build (via `apx build`) |
-| **uv** | — | Python build for the wheel artifact (via `apx build`) |
-| **jq** | — | `install.sh` parses CLI JSON output (SP UUID, current user, app status) |
-| **git** | — | Clone the repo |
+| **Databricks CLI** | 0.230.0+ | Bundle deploy, app lifecycle, current-user lookup — [install](https://docs.databricks.com/aws/en/dev-tools/cli/install) |
+| **Python** | 3.11+ | Runs `provision_lakebase.py` and `grant_catalog.py` |
+| **apx** | latest | Builds the app artifacts (`apx build`, driven by the bundle artifacts hook); orchestrates bun + uv — [apx](https://github.com/databricks-solutions/apx) |
+| **Bun** | 1.2+ | Frontend build (via `apx build`) — [bun.sh](https://bun.sh) |
+| **uv** | latest | Python build for the wheel artifact (via `apx build`) — [uv](https://github.com/astral-sh/uv) |
+| **jq** | 1.6+ | `install.sh` parses CLI JSON output (SP UUID, current user, app status) |
+| **git** | latest | Clone the repo |
 
-`install.sh` aborts at step `[0/5]` if any of `databricks`, `python`, `jq`, `apx`, `uv`, or `bun` is missing from PATH.
+`install.sh` verifies these at step `[0/5]`: it aborts if any of `databricks`, `python`, `jq`, `apx`, `uv`, or `bun` is missing from PATH, and warns (does not block) if the Databricks CLI or Python is below its minimum.
+
+> **Node.js is not required to install.** The frontend is built with Bun (via `apx build`), so a fresh install needs only the tools above. Node.js and npm are needed only to *develop* the frontend — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Install the Python packages the install scripts import:
 
@@ -252,9 +254,13 @@ When upgrading a deployment that already holds data:
      python -m vibe_modeling.backend.migrations.backfill_vibe_inputs
    ```
 
+## Authenticating source reads (recommended)
+
+Browsing, previewing, and downloading models from the public industry-model repo (and the upstream-agent monitor) read GitHub over HTTP. Unauthenticated reads are capped at 60 requests/hour per egress IP, and on Databricks Apps that IP is shared, so anonymous browsing hits the limit almost immediately and downloads fail. Configure a read credential (a GitHub App, recommended, or a personal access token) from **Settings → Sources → Source read access** to raise the limit to 5,000/hour. The secret material lives in a Databricks secret scope and the app service principal needs READ on that scope. See [`docs/github-app-source-auth.md`](docs/github-app-source-auth.md) for all three modes and the required grant.
+
 ## Enabling publish-to-GitHub (optional)
 
-The app can publish a model version to a GitHub repository as a pull request. This feature is **optional and off by default** - it is not needed for the core install, and browsing/importing the public industry-model repo does not use it (those reads are unauthenticated public HTTP).
+The app can publish a model version to a GitHub repository as a pull request. This feature is **optional and off by default** - it is not needed for the core install. Publishing is separate from source reads (above): it runs on behalf of the acting user through a Unity Catalog HTTP connection, and the read path never uses that connection.
 
 Publish runs on behalf of the acting user through a Unity Catalog HTTP connection named `github_pr`. That connection uses per-user OAuth (U2M), which is interactive, so it **cannot be created by `install/install.sh`, Terraform, or SQL** - you create it once by hand in Catalog Explorer. Because the bundle's default (`dev`) target declares no app resources, a fresh install deploys cleanly on any workspace whether or not `github_pr` exists.
 

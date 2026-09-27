@@ -21,6 +21,7 @@ from . import (
     v_0_6_6,
     v_0_7_0,
     v_0_7_1,
+    v_0_7_2,
 )
 from .registry import (
     INSTALL_POLICY,
@@ -46,6 +47,7 @@ MIGRATIONS.append(v_0_6_4.MIGRATION)
 MIGRATIONS.append(v_0_6_6.MIGRATION)
 MIGRATIONS.append(v_0_7_0.MIGRATION)
 MIGRATIONS.append(v_0_7_1.MIGRATION)
+MIGRATIONS.append(v_0_7_2.MIGRATION)
 
 
 __all__ = [

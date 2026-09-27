@@ -169,10 +169,10 @@ def repo_http():
 def patched(monkeypatch, repo_http):
     from vibe_modeling.backend.routes import sources as sources_routes
 
-    def _fake_build(repo_owner="", repo_name="", **_):  # noqa: ARG001
+    def _fake_build(cfg=None, app_config=None, ws=None, *, repo_owner="", repo_name="", **_):  # noqa: ARG001
         return GithubSourceConnector(http=repo_http)
 
-    monkeypatch.setattr(sources_routes, "build_github_connector", _fake_build)
+    monkeypatch.setattr(sources_routes, "build_source_connector", _fake_build)
     return repo_http
 
 
@@ -552,6 +552,8 @@ def test_fix7_build_github_connector_signature_has_no_ref():
         "repo_name",
         "app_credentials",
         "http",
+        "auth_mode",
+        "auth_error",
     }
 
 

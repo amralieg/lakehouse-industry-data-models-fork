@@ -69,6 +69,11 @@ def test_no_op_when_table_absent():
     assert not inspect(engine).has_table("agent_config")
 
 
-def test_registered_as_latest_migration():
+def test_registered_in_migration_chain():
+    # v_0_7_1 is no longer the tail — v_0_7_2 (source read-auth) follows it.
+    # Assert it is registered and precedes the current latest.
     assert MIGRATION.version == "0.7.1"
-    assert runtime_migrations.MIGRATIONS[-1].version == "0.7.1"
+    versions = [m.version for m in runtime_migrations.MIGRATIONS]
+    assert "0.7.1" in versions
+    assert versions[-1] == "0.7.2"
+    assert versions.index("0.7.1") < versions.index("0.7.2")

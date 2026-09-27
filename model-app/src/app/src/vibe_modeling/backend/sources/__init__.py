@@ -34,14 +34,17 @@ from .base import (
 )
 from .github import (
     BaselineResolution,
+    BearerTokenTransport,
     GithubAppCredentials,
     GithubAppTransport,
     GithubSourceConnector,
     UcConnectionTransport,
     build_github_connector,
+    build_source_connector,
     find_latest_same_scope_version,
     model_id_to_relpath,
     parse_model_statistics,
+    resolve_source_transport,
 )
 
 __all__ = [
@@ -60,9 +63,12 @@ __all__ = [
     "TargetKind",
     "GithubAppCredentials",
     "GithubAppTransport",
+    "BearerTokenTransport",
     "GithubSourceConnector",
     "UcConnectionTransport",
     "build_github_connector",
+    "build_source_connector",
+    "resolve_source_transport",
     "BaselineResolution",
     "find_latest_same_scope_version",
     "model_id_to_relpath",

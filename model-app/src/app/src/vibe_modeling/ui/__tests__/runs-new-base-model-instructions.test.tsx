@@ -11,6 +11,13 @@
  * Catalog dropdown opens (no re-seed from business.description).
  *  4. After typing into Business Context, the value survives a re-render
  *     triggered by the catalog picker query completing.
+ *
+ * Run Instructions seeded from business.business_vibes — the base-run form
+ * pre-fills Run Instructions from the business's long description (editable,
+ * dirty-flag guarded, mirroring Business Context):
+ *  5. Pre-populated with business_vibes on mount.
+ *  6. Submitting without editing sends business_vibes as vibe_instructions.
+ *  7. After editing, the typed value survives a re-render (no re-seed).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
@@ -26,12 +33,14 @@ import {
 import { Suspense } from "react";
 
 const BUSINESS_DESCRIPTION = "Seeded 187-char retail blurb from industry pick.";
+const BUSINESS_VIBES = "Long-form vibes: prioritize omni-channel retail, keep PII minimal.";
 
 let businessHook: () => unknown = () => ({
   data: {
     id: "biz-1",
     name: "Retail Co",
     description: BUSINESS_DESCRIPTION,
+    business_vibes: BUSINESS_VIBES,
   },
 });
 let versionsHook: () => unknown = () => ({ data: [] });
@@ -74,6 +83,7 @@ beforeEach(() => {
       id: "biz-1",
       name: "Retail Co",
       description: BUSINESS_DESCRIPTION,
+      business_vibes: BUSINESS_VIBES,
     },
   });
   versionsHook = () => ({ data: [] });
@@ -270,5 +280,80 @@ describe("Fix M — Business Context textarea value preserved across re-renders"
       const contextTextarea = screen.queryByDisplayValue(BUSINESS_DESCRIPTION);
       expect(contextTextarea).not.toBeNull();
     });
+  });
+});
+
+describe("Run Instructions seeded from business.business_vibes", () => {
+  it("pre-populates the Run Instructions textarea with business_vibes on mount", async () => {
+    await renderRunsNew("?businessId=biz-1&operationType=new-base-model");
+
+    await waitFor(() => {
+      const textarea = screen.getByPlaceholderText(
+        /Per-run constraints|per-run instructions/i,
+      ) as HTMLTextAreaElement;
+      expect(textarea.value).toBe(BUSINESS_VIBES);
+    });
+  });
+
+  it("submits business_vibes as vibe_instructions when the field is not edited", async () => {
+    await renderRunsNew("?businessId=biz-1&operationType=new-base-model");
+
+    await waitFor(() => {
+      const textarea = screen.getByPlaceholderText(
+        /Per-run constraints|per-run instructions/i,
+      ) as HTMLTextAreaElement;
+      expect(textarea.value).toBe(BUSINESS_VIBES);
+    });
+
+    // Launch without touching the pre-filled Run Instructions.
+    const startBtn = screen.getByRole("button", { name: /^Start Run$/i });
+    await act(async () => {
+      fireEvent.click(startBtn);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: /^Launch$/i })).not.toBeNull();
+    });
+    const launchBtn = screen.getByRole("button", { name: /^Launch$/i });
+    await act(async () => {
+      fireEvent.click(launchBtn);
+    });
+
+    await waitFor(() => {
+      expect(createRunMock).toHaveBeenCalledWith(
+        expect.objectContaining({ business_id: "biz-1" }),
+        expect.objectContaining({ vibe_instructions: BUSINESS_VIBES }),
+      );
+    });
+  });
+
+  it("preserves the user's typed Run Instructions across a re-render (dirty flag stops re-seed)", async () => {
+    await renderRunsNew("?businessId=biz-1&operationType=new-base-model");
+
+    await waitFor(() => {
+      const textarea = screen.getByPlaceholderText(
+        /Per-run constraints|per-run instructions/i,
+      ) as HTMLTextAreaElement;
+      expect(textarea.value).toBe(BUSINESS_VIBES);
+    });
+
+    const textarea = screen.getByPlaceholderText(
+      /Per-run constraints|per-run instructions/i,
+    ) as HTMLTextAreaElement;
+
+    // User clears the seeded vibes and types their own instructions.
+    const customText = "Only the Finance domain, no PII columns.";
+    fireEvent.change(textarea, { target: { value: customText } });
+    expect(textarea.value).toBe(customText);
+
+    // A re-render triggered by the catalog picker query must not re-seed
+    // the field back to business_vibes.
+    const catalogPicker = screen.getByTestId("catalog-picker");
+    await act(async () => {
+      fireEvent.change(catalogPicker, { target: { value: "new_catalog" } });
+    });
+
+    expect(textarea.value).toBe(customText);
+    expect(textarea.value).not.toBe(BUSINESS_VIBES);
   });
 });

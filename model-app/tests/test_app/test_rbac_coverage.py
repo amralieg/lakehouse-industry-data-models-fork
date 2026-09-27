@@ -191,6 +191,9 @@ _READ_ONLY_ROUTES: set[tuple[str, str]] = {
     ("GET", "/api/config/agent"),
     # GitHub config (read is open; the PUT is AdminOnly)
     ("GET", "/api/config/github"),
+    # Source read-auth config (0.7.1) — read is open (never returns secret
+    # values); the PUT is BusinessAdminOnly.
+    ("GET", "/api/config/source-auth"),
     # Source explorer (Wave 1, Track C) — read-only browse of an external
     # catalog (GitHub today). No mutation in this story; publish/write lands
     # in a later wave behind the UC connection.

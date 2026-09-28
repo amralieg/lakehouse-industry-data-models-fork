@@ -92,7 +92,7 @@ MIGRATIONS = [
     ("agent_config", "upstream_agent_version", "TEXT"),
     ("agent_config", "upstream_checked_at", "TIMESTAMP"),
     ("agent_config", "upstream_check_error", "TEXT"),
-    # v_0_7_2: source READ-auth config on the agent_config singleton. All
+    # v_0_7_3: source READ-auth config on the agent_config singleton. All
     # defaulted to '' (unconfigured → env → anonymous). Secret material lives
     # in a Databricks secret scope; only the scope/key REFERENCES land here.
     ("agent_config", "source_auth_mode", "VARCHAR DEFAULT ''"),

@@ -1,4 +1,4 @@
-"""Migration 0.7.2 — persist the source READ-auth config on ``agent_config``.
+"""Migration 0.7.3 — persist the source READ-auth config on ``agent_config``.
 
 Adds seven defaulted string columns to ``agent_config`` (the singleton row) so
 source browse / preview / download and the upstream-agent monitor can select a
@@ -141,7 +141,7 @@ def apply(engine: Engine) -> None:
 
 
 MIGRATION = Migration(
-    version="0.7.2",
+    version="0.7.3",
     apply=apply,
     description=(
         "Add defaulted agent_config.source_auth_mode + source_github_app_id + "

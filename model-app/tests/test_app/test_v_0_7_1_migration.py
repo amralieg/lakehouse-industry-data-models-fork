@@ -70,10 +70,10 @@ def test_no_op_when_table_absent():
 
 
 def test_registered_in_migration_chain():
-    # v_0_7_1 is no longer the tail — v_0_7_2 (source read-auth) follows it.
+    # v_0_7_1 is no longer the tail — v_0_7_3 (source read-auth) follows it.
     # Assert it is registered and precedes the current latest.
     assert MIGRATION.version == "0.7.1"
     versions = [m.version for m in runtime_migrations.MIGRATIONS]
     assert "0.7.1" in versions
-    assert versions[-1] == "0.7.2"
-    assert versions.index("0.7.1") < versions.index("0.7.2")
+    assert versions[-1] == "0.7.3"
+    assert versions.index("0.7.1") < versions.index("0.7.3")

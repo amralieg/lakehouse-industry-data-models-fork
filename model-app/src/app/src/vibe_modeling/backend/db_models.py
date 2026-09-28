@@ -151,6 +151,21 @@ class AgentConfig(SQLModel, table=True):
     github_connection_name: str = Field(default="")
     github_secret_scope: str = Field(default="")
     github_secret_key: str = Field(default="")
+    # Source READ-auth config (0.7.1). Distinct from the publish fields above:
+    # this drives how source browse / preview / download and the upstream-agent
+    # monitor authenticate their reads of the public industry-models repo.
+    # ``source_auth_mode`` is one of '' | 'github_app' | 'token' | 'anonymous'.
+    # '' (unconfigured) falls back to the deployment env creds, then anonymous.
+    # Secret material (App PEM, PAT) lives in a Databricks secret scope,
+    # referenced by scope/key here — it never lands in this row. The App id /
+    # installation id are non-secret. See sources/github.resolve_source_transport.
+    source_auth_mode: str = Field(default="")
+    source_github_app_id: str = Field(default="")
+    source_github_app_installation_id: str = Field(default="")
+    source_github_app_secret_scope: str = Field(default="")
+    source_github_app_secret_key: str = Field(default="")
+    source_token_secret_scope: str = Field(default="")
+    source_token_secret_key: str = Field(default="")
     # Upstream agent-release monitor cache (Surface 2). The agent-compat health
     # surface live-reads the canonical repo notebook's __RELEASE_VERSION__ +
     # __AGENT_VERSION__ and caches the result here for 7 days so the Settings

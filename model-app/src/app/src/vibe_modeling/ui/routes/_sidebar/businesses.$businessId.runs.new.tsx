@@ -237,6 +237,17 @@ function NewRunForm() {
   const inputIds = baseInputs.map((vi) => vi.id);
   const includedInputIds = new Set(inputIds);
   const [vibeInstructions, setVibeInstructions] = useState("");
+  // Run Instructions seeds from `business.business_vibes` (the long
+  // description) on first render, mirroring the businessContext pattern
+  // above. The backend fallback injects `business_vibes` when this field is
+  // empty, so pre-filling makes that injected text visible and editable. The
+  // dirty flag stops any re-render from clobbering what the user typed.
+  const [vibeInstructionsDirty, setVibeInstructionsDirty] = useState(false);
+  useEffect(() => {
+    if (!vibeInstructionsDirty && business?.business_vibes) {
+      setVibeInstructions(business.business_vibes);
+    }
+  }, [business?.business_vibes, vibeInstructionsDirty]);
   const [generateSamples, setGenerateSamples] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -698,7 +709,10 @@ function NewRunForm() {
                 </label>
                 <MarkdownEditor
                   value={vibeInstructions}
-                  onChange={setVibeInstructions}
+                  onChange={(v) => {
+                    setVibeInstructions(v);
+                    setVibeInstructionsDirty(true);
+                  }}
                   placeholder="Per-run constraints, scope tweaks, or guidance the agent reads after the business description. Leave empty for default behaviour."
                   rows={4}
                 />

@@ -368,6 +368,39 @@ class GithubConfigOut(BaseModel):
     secret_scope: str
     secret_key: str
 
+# --- Source read-auth config (0.7.1) ---
+
+class SourceAuthConfigIn(BaseModel):
+    """Installation source READ-auth config. Distinct from the publish config
+    above. Secret material (App PEM, PAT) is never carried here: the row keeps
+    only the secret scope/key REFERENCES. PUT round-trips all fields so a
+    partial save never NULLs a sibling reference."""
+    auth_mode: str = ""  # '' | 'github_app' | 'token' | 'anonymous'
+    github_app_id: str = ""
+    github_app_installation_id: str = ""
+    github_app_secret_scope: str = ""
+    github_app_secret_key: str = ""
+    token_secret_scope: str = ""
+    token_secret_key: str = ""
+
+class SourceAuthConfigOut(BaseModel):
+    """The persisted source read-auth config plus the computed effective mode.
+
+    Returns the mode + non-secret ids + secret scope/key REFERENCES; it NEVER
+    returns secret values. ``effective_mode`` is the transport the resolver
+    would actually select right now ('github_app' | 'token' | 'anonymous'), and
+    ``error`` carries the leak-free degrade reason when resolution fell back to
+    anonymous (else None)."""
+    auth_mode: str
+    github_app_id: str
+    github_app_installation_id: str
+    github_app_secret_scope: str
+    github_app_secret_key: str
+    token_secret_scope: str
+    token_secret_key: str
+    effective_mode: str
+    error: Optional[str] = None
+
 # --- Business ---
 
 class BusinessIn(BaseModel):

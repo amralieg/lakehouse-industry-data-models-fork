@@ -832,3 +832,41 @@ class TestCatalogSchemaWarningResponseShape:
         assert body["catalog"] == "my_catalog"
         assert isinstance(body["schema_count"], int)
         assert isinstance(body["schemas"], list)
+
+
+class TestSourceCapabilitiesShape:
+    """Wire contract for getSourceCapabilities. The 0.7.1 read-auth work
+    widened ``auth_mode`` (adds 'token') and added ``auth_error``; lock both
+    onto the response shape so a silent drop is caught."""
+
+    EXPECTED_KEYS = {
+        "source_kind", "target_kinds", "discovery_mode",
+        "materialization_timing", "provides_sectors", "read_only",
+        "auth_mode", "auth_error",
+    }
+
+    def test_capabilities_shape(self, client):
+        resp = client.get("/api/sources/capabilities")
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        _assert_keys(body, self.EXPECTED_KEYS, "SourceCapabilities")
+        # Unconfigured test AppConfig (no env App creds) → anonymous, clean.
+        assert body["auth_mode"] in {"github_app", "token", "anonymous"}
+        assert body["auth_mode"] == "anonymous"
+        assert body["auth_error"] is None
+
+
+class TestSourceAuthConfigShape:
+    """Wire contract for getSourceAuthConfig — references + effective mode,
+    never a secret value."""
+
+    EXPECTED_KEYS = {
+        "auth_mode", "github_app_id", "github_app_installation_id",
+        "github_app_secret_scope", "github_app_secret_key",
+        "token_secret_scope", "token_secret_key", "effective_mode", "error",
+    }
+
+    def test_source_auth_config_shape(self, client):
+        resp = client.get("/api/config/source-auth")
+        assert resp.status_code == 200, resp.text
+        _assert_keys(resp.json(), self.EXPECTED_KEYS, "SourceAuthConfigOut")

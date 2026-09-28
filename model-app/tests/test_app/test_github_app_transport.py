@@ -370,7 +370,7 @@ def test_explicit_http_override_wins_over_app_creds():
 def test_capabilities_route_reports_github_app(client, monkeypatch):
     import vibe_modeling.backend.routes.sources as routes_sources
 
-    def _fake_connector(session, config):  # noqa: ARG001
+    def _fake_connector(session, config, ws):  # noqa: ARG001
         return build_github_connector(
             repo_owner="o", repo_name="r", app_credentials=CREDS
         )
@@ -384,7 +384,7 @@ def test_capabilities_route_reports_github_app(client, monkeypatch):
 def test_capabilities_route_reports_anonymous_without_creds(client, monkeypatch):
     import vibe_modeling.backend.routes.sources as routes_sources
 
-    def _fake_connector(session, config):  # noqa: ARG001
+    def _fake_connector(session, config, ws):  # noqa: ARG001
         return build_github_connector(repo_owner="o", repo_name="r")
 
     monkeypatch.setattr(routes_sources, "_connector", _fake_connector)
@@ -403,7 +403,7 @@ def test_route_maps_permission_error_to_http_403(client, monkeypatch):
             raise SourcePermissionError("GitHub denied access (403) for '_repo'.")
 
     monkeypatch.setattr(
-        routes_sources, "_connector", lambda session, config: _DenyingConnector()
+        routes_sources, "_connector", lambda session, config, ws: _DenyingConnector()
     )
     resp = client.get("/api/sources/sectors")
     assert resp.status_code == 403
@@ -436,69 +436,86 @@ def test_app_config_credentials_none_unless_all_three_set():
         assert AppConfig(**kwargs).github_app_credentials is None
 
 
-def test_download_connector_forwards_app_credentials(monkeypatch):
-    """``industry_download._connector`` forwards the deployment App credentials
-    + the github_repo pointers to ``build_github_connector`` (one convergent
-    construction, mirroring routes.sources._connector)."""
+def test_download_connector_delegates_to_build_source_connector(monkeypatch):
+    """``industry_download._connector`` delegates to ``build_source_connector``
+    (0.7.1), threading the loaded AgentConfig, the AppConfig, the app SP ``ws``,
+    and the github_repo pointers. The resolver — not this call site — owns env
+    fallback, so no ``app_credentials=`` is passed (resolution #9)."""
     import vibe_modeling.backend.services.industry_download as dl
 
     captured: dict = {}
 
-    def _spy(repo_owner="", repo_name="", **kwargs):
-        captured.update(kwargs)
-        captured["repo_owner"] = repo_owner
-        captured["repo_name"] = repo_name
+    def _spy(cfg, app_config, ws, *, repo_owner="", repo_name="", **kwargs):
+        captured.update(
+            cfg=cfg, app_config=app_config, ws=ws,
+            repo_owner=repo_owner, repo_name=repo_name, extra=kwargs,
+        )
         return GithubSourceConnector(repo_owner=repo_owner or "o", repo_name=repo_name or "r")
 
-    monkeypatch.setattr(dl, "build_github_connector", _spy)
+    monkeypatch.setattr(dl, "build_source_connector", _spy)
 
     class _Cfg:
         github_repo_owner = "acme"
         github_repo_name = "models"
 
+    cfg = _Cfg()
     monkeypatch.setattr(
         "vibe_modeling.backend.routes._helpers._get_or_create_agent_config",
-        lambda session, config: _Cfg(),
+        lambda session, config: cfg,
     )
 
     class _AppConfig:
         github_app_credentials = CREDS
 
-    dl._connector(session=None, config=_AppConfig())
-    assert captured["app_credentials"] is CREDS
+    app_config = _AppConfig()
+    sentinel_ws = object()
+    dl._connector(session=None, config=app_config, ws=sentinel_ws)
+    assert captured["cfg"] is cfg
+    assert captured["app_config"] is app_config
+    assert captured["ws"] is sentinel_ws
     assert captured["repo_owner"] == "acme"
     assert captured["repo_name"] == "models"
+    # Resolution #9: the call site never passes app_credentials.
+    assert "app_credentials" not in captured["extra"]
 
 
-def test_routes_connector_forwards_app_credentials(monkeypatch):
-    """``routes.sources._connector`` forwards ``config.github_app_credentials``
-    + the github_repo pointers into ``build_github_connector`` (the same
-    convergent construction as the download helper)."""
+def test_routes_connector_delegates_to_build_source_connector(monkeypatch):
+    """``routes.sources._connector`` delegates to ``build_source_connector``
+    (0.7.1), threading the AgentConfig, AppConfig, app SP ``ws``, and repo
+    pointers — the same convergent construction as the download helper. The
+    resolver owns env fallback; no ``app_credentials=`` at the call site."""
     import vibe_modeling.backend.routes.sources as routes_sources
 
     captured: dict = {}
 
-    def _spy(repo_owner="", repo_name="", **kwargs):
-        captured.update(kwargs)
-        captured["repo_owner"] = repo_owner
-        captured["repo_name"] = repo_name
+    def _spy(cfg, app_config, ws, *, repo_owner="", repo_name="", **kwargs):
+        captured.update(
+            cfg=cfg, app_config=app_config, ws=ws,
+            repo_owner=repo_owner, repo_name=repo_name, extra=kwargs,
+        )
         return GithubSourceConnector(repo_owner=repo_owner or "o", repo_name=repo_name or "r")
 
-    monkeypatch.setattr(routes_sources, "build_github_connector", _spy)
+    monkeypatch.setattr(routes_sources, "build_source_connector", _spy)
 
     class _Cfg:
         github_repo_owner = "acme"
         github_repo_name = "models"
 
-    monkeypatch.setattr(routes_sources, "_get_or_create_agent_config", lambda session, config: _Cfg())
+    cfg = _Cfg()
+    monkeypatch.setattr(routes_sources, "_get_or_create_agent_config", lambda session, config: cfg)
 
     class _AppConfig:
         github_app_credentials = CREDS
 
-    routes_sources._connector(session=None, config=_AppConfig())
-    assert captured["app_credentials"] is CREDS
+    app_config = _AppConfig()
+    sentinel_ws = object()
+    routes_sources._connector(session=None, config=app_config, ws=sentinel_ws)
+    assert captured["cfg"] is cfg
+    assert captured["app_config"] is app_config
+    assert captured["ws"] is sentinel_ws
     assert captured["repo_owner"] == "acme"
     assert captured["repo_name"] == "models"
+    assert "app_credentials" not in captured["extra"]
 
 
 def test_download_industry_model_maps_permission_error_to_http_403(monkeypatch):
@@ -512,7 +529,7 @@ def test_download_industry_model_maps_permission_error_to_http_403(monkeypatch):
         def fetch_model_json(self, industry_id, model_id):
             raise SourcePermissionError("GitHub denied access (403) for '...'.")
 
-    monkeypatch.setattr(dl, "build_github_connector", lambda *a, **k: _DenyingConnector())
+    monkeypatch.setattr(dl, "build_source_connector", lambda *a, **k: _DenyingConnector())
     monkeypatch.setattr(
         "vibe_modeling.backend.routes._helpers._get_or_create_agent_config",
         lambda session, config: type("C", (), {"github_repo_owner": "", "github_repo_name": ""})(),

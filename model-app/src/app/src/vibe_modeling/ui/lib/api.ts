@@ -19,13 +19,22 @@ export interface AgentCompatChange {
     tag: string;
 }
 export interface AgentCompatOut {
+    check_error?: string | null;
+    checked_at?: string | null;
     has_breaking_change: boolean;
+    install_offered?: boolean;
     known_breaking_changes?: AgentCompatChange[];
     latest_known_upstream: string;
+    latest_upstream_marker?: string | null;
+    latest_upstream_release?: string | null;
     newer_available: boolean;
+    pinned_agent_marker?: string;
+    pinned_release?: string;
     pinned_version: string;
     repo_compare_url?: string;
     repo_url?: string;
+    update_app_required?: boolean;
+    verdict?: string;
 }
 export interface AgentConfigIn {
     collect_vibe_run_statistics?: boolean;
@@ -978,8 +987,29 @@ export interface SectorOut {
     short_name: string;
     updated_at: string;
 }
+export interface SourceAuthConfigIn {
+    auth_mode?: string;
+    github_app_id?: string;
+    github_app_installation_id?: string;
+    github_app_secret_key?: string;
+    github_app_secret_scope?: string;
+    token_secret_key?: string;
+    token_secret_scope?: string;
+}
+export interface SourceAuthConfigOut {
+    auth_mode: string;
+    effective_mode: string;
+    error?: string | null;
+    github_app_id: string;
+    github_app_installation_id: string;
+    github_app_secret_key: string;
+    github_app_secret_scope: string;
+    token_secret_key: string;
+    token_secret_scope: string;
+}
 export interface SourceCapabilities {
-    auth_mode?: "github_app" | "anonymous";
+    auth_error?: string | null;
+    auth_mode?: "github_app" | "token" | "anonymous";
     discovery_mode: DiscoveryMode;
     materialization_timing: MaterializationTiming;
     provides_sectors: boolean;
@@ -6936,6 +6966,123 @@ export function useImportOobVersions(options?: {
 }) {
     return useMutation({
         mutationFn: (vars)=>importOobVersions(vars.params),
+        ...options?.mutation
+    });
+}
+export const getSourceAuthConfig = async (options?: RequestInit): Promise<{
+    data: SourceAuthConfigOut;
+}> =>{
+    const res = await fetch("/api/config/source-auth", {
+        ...options,
+        method: "GET"
+    });
+    if (!res.ok) {
+        const body = await res.text();
+        let parsed: unknown;
+        try {
+            parsed = JSON.parse(body);
+        } catch  {
+            parsed = body;
+        }
+        throw new ApiError(res.status, res.statusText, parsed);
+    }
+    return {
+        data: await res.json()
+    };
+};
+export const getSourceAuthConfigKey = ()=>{
+    return [
+        "/api/config/source-auth"
+    ] as const;
+};
+export function useGetSourceAuthConfig<TData = {
+    data: SourceAuthConfigOut;
+}>(options?: {
+    query?: Omit<UseQueryOptions<{
+        data: SourceAuthConfigOut;
+    }, ApiError, TData>, "queryKey" | "queryFn">;
+}) {
+    return useQuery({
+        queryKey: getSourceAuthConfigKey(),
+        queryFn: ()=>getSourceAuthConfig(),
+        ...options?.query
+    });
+}
+export function useGetSourceAuthConfigSuspense<TData = {
+    data: SourceAuthConfigOut;
+}>(options?: {
+    query?: Omit<UseSuspenseQueryOptions<{
+        data: SourceAuthConfigOut;
+    }, ApiError, TData>, "queryKey" | "queryFn">;
+}) {
+    return useSuspenseQuery({
+        queryKey: getSourceAuthConfigKey(),
+        queryFn: ()=>getSourceAuthConfig(),
+        ...options?.query
+    });
+}
+export interface UpdateSourceAuthConfigParams {
+    "X-Forwarded-Host"?: string | null;
+    "X-Forwarded-Preferred-Username"?: string | null;
+    "X-Forwarded-User"?: string | null;
+    "X-Forwarded-Email"?: string | null;
+    "X-Request-Id"?: string | null;
+    "X-Forwarded-Access-Token"?: string | null;
+}
+export const updateSourceAuthConfig = async (data: SourceAuthConfigIn, params?: UpdateSourceAuthConfigParams, options?: RequestInit): Promise<{
+    data: SourceAuthConfigOut;
+}> =>{
+    const res = await fetch("/api/config/source-auth", {
+        ...options,
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json",
+            ...(params?.["X-Forwarded-Host"] != null && {
+                "X-Forwarded-Host": params["X-Forwarded-Host"]
+            }),
+            ...(params?.["X-Forwarded-Preferred-Username"] != null && {
+                "X-Forwarded-Preferred-Username": params["X-Forwarded-Preferred-Username"]
+            }),
+            ...(params?.["X-Forwarded-User"] != null && {
+                "X-Forwarded-User": params["X-Forwarded-User"]
+            }),
+            ...(params?.["X-Forwarded-Email"] != null && {
+                "X-Forwarded-Email": params["X-Forwarded-Email"]
+            }),
+            ...(params?.["X-Request-Id"] != null && {
+                "X-Request-Id": params["X-Request-Id"]
+            }),
+            ...(params?.["X-Forwarded-Access-Token"] != null && {
+                "X-Forwarded-Access-Token": params["X-Forwarded-Access-Token"]
+            }),
+            ...options?.headers
+        },
+        body: JSON.stringify(data)
+    });
+    if (!res.ok) {
+        const body = await res.text();
+        let parsed: unknown;
+        try {
+            parsed = JSON.parse(body);
+        } catch  {
+            parsed = body;
+        }
+        throw new ApiError(res.status, res.statusText, parsed);
+    }
+    return {
+        data: await res.json()
+    };
+};
+export function useUpdateSourceAuthConfig(options?: {
+    mutation?: UseMutationOptions<{
+        data: SourceAuthConfigOut;
+    }, ApiError, {
+        params: UpdateSourceAuthConfigParams;
+        data: SourceAuthConfigIn;
+    }>;
+}) {
+    return useMutation({
+        mutationFn: (vars)=>updateSourceAuthConfig(vars.data, vars.params),
         ...options?.mutation
     });
 }

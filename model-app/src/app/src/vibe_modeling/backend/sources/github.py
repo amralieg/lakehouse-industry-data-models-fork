@@ -32,6 +32,7 @@ only reads public content.
 
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import threading
@@ -429,6 +430,121 @@ class GithubAppTransport:
         return jwt.encode(payload, self._creds.private_key_pem, algorithm="RS256")
 
 
+class BearerTokenTransport:
+    """A ``requests``-shaped GitHub transport authenticated with a bearer token.
+
+    The lightweight credentialed sibling of :class:`GithubAppTransport`: exposes
+    ``get(url, timeout=...)`` returning a ``requests``-shaped response, so the
+    connector's status-code + rate-limit logic runs unchanged. Reading *public*
+    content only needs *any* authenticated credential to reach the 5,000 req/hr
+    budget, so a plain personal access token is a far simpler customer path than
+    a full GitHub App.
+
+    No token minting: the token is used directly as ``Authorization: Bearer
+    <token>``. File reads go through the Contents API with the raw-bytes Accept
+    header (the shared :func:`_translate_github_url` rewrite), NOT
+    ``raw.githubusercontent.com`` (which does not honour a Bearer token
+    uniformly), so every read stays on the authenticated budget.
+    """
+
+    def __init__(self, token: str, session: Any | None = None):
+        self._token = token
+        # ``session`` is a ``requests``-like object exposing ``get``; defaults
+        # to the ``requests`` module. Injected in tests.
+        self._session = session if session is not None else requests
+
+    def get(self, url: str, timeout=None):  # noqa: ARG002 - timeout is the requests seam
+        return self._request(url)
+
+    def _request(self, url: str):
+        rel_path, extra_headers = _translate_github_url(url)
+        full_url = f"{_API_BASE}{rel_path}" if rel_path.startswith("/") else rel_path
+        headers = {
+            "Accept": _GITHUB_JSON_MEDIA_TYPE,
+            "Authorization": f"Bearer {self._token}",
+            "X-GitHub-Api-Version": _GITHUB_API_VERSION,
+            **extra_headers,
+        }
+        return self._session.get(full_url, headers=headers, timeout=_TIMEOUT)
+
+
+# --- Secret read (source read-auth) ----------------------------------------
+
+# Short-TTL cache for decoded secrets, keyed by (scope, key), guarded by a lock
+# (mirrors the installation-token cache above). ``getSourceCapabilities`` polls
+# the resolver on every source-explorer render, so without a cache a configured
+# read-auth mode would hit the Secrets API on every poll. Negative results
+# (NotFound / PermissionDenied) are cached briefly too so a misconfigured scope
+# can't hammer the API.
+_SECRET_CACHE_TTL_S = 60
+_SECRET_CACHE_NEG_TTL_S = 15
+
+
+@dataclass
+class _CachedSecret:
+    value: str | None
+    error: "SourcePermissionError | None"
+    expires_at: datetime
+
+
+_SECRET_CACHE: dict[tuple[str, str], _CachedSecret] = {}
+_SECRET_CACHE_LOCK = threading.Lock()
+
+# Generic, leak-free message for any secret-read failure. NEVER interpolate the
+# scope, key, or secret material into an error surfaced to the caller.
+_SECRET_READ_ERROR_MSG = (
+    "Could not read the configured source read-auth secret. Check that the "
+    "secret scope and key exist and that the app service principal has READ on "
+    "the scope."
+)
+
+
+def _read_secret(ws, scope: str, key: str) -> str:
+    """Read a Databricks secret and return its UTF-8 value.
+
+    ``ws.secrets.get_secret(scope, key)`` returns the value base64-encoded; we
+    decode it. Consults the module-level short-TTL cache before any Secrets API
+    call. ``NotFound`` / ``PermissionDenied`` map to :class:`SourcePermissionError`
+    with a generic message (never leaking the scope, key, or secret material),
+    and the negative result is cached briefly.
+    """
+    cache_key = (scope, key)
+    now = _utcnow()
+    with _SECRET_CACHE_LOCK:
+        cached = _SECRET_CACHE.get(cache_key)
+        if cached is not None and now < cached.expires_at:
+            if cached.error is not None:
+                raise cached.error
+            return cached.value or ""
+
+    try:
+        resp = ws.secrets.get_secret(scope, key)
+        raw = getattr(resp, "value", None)
+        # .strip(): a secret stored with a trailing newline (common with
+        # `databricks secrets put`) would otherwise corrupt an Authorization
+        # header. Leading/trailing only, so an RSA PEM's internal newlines survive.
+        decoded = (
+            base64.b64decode(raw).decode("utf-8", errors="replace") if raw else ""
+        ).strip()
+    except Exception as exc:
+        # Broad by design (mirrors _mint_token): ANY Secrets-API failure — missing
+        # scope/key, denied ACL, transient 5xx, network, malformed base64 — must
+        # degrade the browse path to anonymous+error, never 500. The message is a
+        # constant, so no scope/key/secret material leaks.
+        err = SourcePermissionError(_SECRET_READ_ERROR_MSG)
+        with _SECRET_CACHE_LOCK:
+            _SECRET_CACHE[cache_key] = _CachedSecret(
+                None, err, now + timedelta(seconds=_SECRET_CACHE_NEG_TTL_S)
+            )
+        raise err from exc
+
+    with _SECRET_CACHE_LOCK:
+        _SECRET_CACHE[cache_key] = _CachedSecret(
+            decoded, None, now + timedelta(seconds=_SECRET_CACHE_TTL_S)
+        )
+    return decoded
+
+
 class GithubSourceConnector(SourceConnector):
     """Browse + fetch against a public GitHub repo of data models.
 
@@ -445,6 +561,8 @@ class GithubSourceConnector(SourceConnector):
         ref: str = DEFAULT_REF,
         base_path: str = DEFAULT_BASE_PATH,
         http: Any | None = None,
+        auth_mode: str = "",
+        auth_error: str | None = None,
     ) -> None:
         self.repo_owner = repo_owner or DEFAULT_REPO_OWNER
         self.repo_name = repo_name or DEFAULT_REPO_NAME
@@ -453,6 +571,13 @@ class GithubSourceConnector(SourceConnector):
         # with `or`; only strip separators.
         self.base_path = (base_path or "").strip("/")
         self._http = http if http is not None else requests
+        # Resolver-supplied effective mode + degrade reason. When ``auth_mode``
+        # is set it wins over the transport-type inference in ``capabilities()``
+        # (they always agree, but the resolver also carries ``auth_error``,
+        # which the transport instance cannot). Empty ``auth_mode`` falls back
+        # to the isinstance ladder for callers that build the connector directly.
+        self._auth_mode = auth_mode
+        self._auth_error = auth_error
 
     # --- capabilities -----------------------------------------------------
 
@@ -472,12 +597,20 @@ class GithubSourceConnector(SourceConnector):
             materialization_timing=MaterializationTiming.AT_REST,
             provides_sectors=False,
             read_only=True,
-            auth_mode=(
-                "github_app"
-                if isinstance(self._http, GithubAppTransport)
-                else "anonymous"
-            ),
+            auth_mode=self._auth_mode or self._infer_auth_mode(),
+            auth_error=self._auth_error,
         )
+
+    def _infer_auth_mode(self) -> str:
+        """Effective auth mode from the transport instance when the resolver did
+        not supply one. Exhaustive ladder: a bearer-token transport is 'token',
+        a GitHub App transport is 'github_app', and everything else (anonymous
+        ``requests`` or the UC-connection transport) is 'anonymous'."""
+        if isinstance(self._http, BearerTokenTransport):
+            return "token"
+        if isinstance(self._http, GithubAppTransport):
+            return "github_app"
+        return "anonymous"
 
     # --- browse -----------------------------------------------------------
 
@@ -949,6 +1082,8 @@ def build_github_connector(
     *,
     app_credentials: GithubAppCredentials | None = None,
     http: Any | None = None,
+    auth_mode: str = "",
+    auth_error: str | None = None,
 ) -> GithubSourceConnector:
     """Build a connector, falling back to the default public repo.
 
@@ -976,4 +1111,126 @@ def build_github_connector(
         repo_owner=repo_owner or DEFAULT_REPO_OWNER,
         repo_name=repo_name or DEFAULT_REPO_NAME,
         http=transport,
+        auth_mode=auth_mode,
+        auth_error=auth_error,
+    )
+
+
+def resolve_source_transport(cfg, app_config, secret_reader):
+    """Resolve the source READ transport from the installation's config.
+
+    Returns ``(transport | None, effective_mode, error | None)``. ``transport
+    is None`` means anonymous. ``secret_reader`` is a callable ``(scope, key) ->
+    str`` that raises :class:`SourceError` when the secret can't be read (it owns
+    the leak-free error message).
+
+    Precedence, driven by ``cfg.source_auth_mode``:
+
+    1. ``github_app`` — read the PEM from the referenced secret; build a
+       :class:`GithubAppTransport`. Incomplete config or an unreadable secret →
+       ``(None, "anonymous", <error>)`` so browse degrades gracefully and the
+       banner shows why.
+    2. ``token`` — read the PAT → :class:`BearerTokenTransport`. Same degrade rule.
+    3. ``anonymous`` — explicit ``(None, "anonymous", None)`` (ignores env creds).
+    4. ``""`` (unconfigured) — env fallback: the deployment's
+       ``github_app_credentials`` when complete → :class:`GithubAppTransport`;
+       else ``(None, "anonymous", None)``.
+    5. anything else (unknown mode) — terminal ``(None, "anonymous", None)``.
+
+    This function is the SOLE owner of the env fallback; callers pass the
+    resolved transport straight to :func:`build_github_connector` and never
+    ``app_credentials=``.
+    """
+    mode = (getattr(cfg, "source_auth_mode", "") or "").strip()
+
+    if mode == "github_app":
+        app_id = (cfg.source_github_app_id or "").strip()
+        installation_id = (cfg.source_github_app_installation_id or "").strip()
+        scope = (cfg.source_github_app_secret_scope or "").strip()
+        key = (cfg.source_github_app_secret_key or "").strip()
+        if not (app_id and installation_id and scope and key):
+            return (
+                None,
+                "anonymous",
+                "Source read-auth is set to GitHub App but the configuration is "
+                "incomplete (App ID, installation ID, and the PEM secret "
+                "scope/key are all required). Falling back to anonymous.",
+            )
+        try:
+            pem = secret_reader(scope, key)
+        except SourceError as exc:
+            return (None, "anonymous", str(exc))
+        creds = GithubAppCredentials(
+            app_id=app_id, installation_id=installation_id, private_key_pem=pem
+        )
+        if not creds.complete:
+            return (
+                None,
+                "anonymous",
+                "Source read-auth is set to GitHub App but the referenced PEM "
+                "secret is empty. Falling back to anonymous.",
+            )
+        return (GithubAppTransport(creds), "github_app", None)
+
+    if mode == "token":
+        scope = (cfg.source_token_secret_scope or "").strip()
+        key = (cfg.source_token_secret_key or "").strip()
+        if not (scope and key):
+            return (
+                None,
+                "anonymous",
+                "Source read-auth is set to token but the PAT secret scope/key "
+                "are not both configured. Falling back to anonymous.",
+            )
+        try:
+            token = secret_reader(scope, key)
+        except SourceError as exc:
+            return (None, "anonymous", str(exc))
+        if not token:
+            return (
+                None,
+                "anonymous",
+                "Source read-auth is set to token but the referenced PAT secret "
+                "is empty. Falling back to anonymous.",
+            )
+        return (BearerTokenTransport(token), "token", None)
+
+    if mode == "anonymous":
+        return (None, "anonymous", None)
+
+    if mode == "":
+        creds = getattr(app_config, "github_app_credentials", None) if app_config is not None else None
+        if creds is not None and creds.complete:
+            return (GithubAppTransport(creds), "github_app", None)
+        return (None, "anonymous", None)
+
+    # Unknown mode (resolution #7): explicit terminal anonymous.
+    return (None, "anonymous", None)
+
+
+def build_source_connector(
+    cfg,
+    app_config,
+    ws,
+    *,
+    repo_owner: str = "",
+    repo_name: str = "",
+) -> GithubSourceConnector:
+    """Build a source connector with the installation's resolved read transport.
+
+    Single entry point for the source read path: runs
+    :func:`resolve_source_transport` (reading any referenced secret via
+    :func:`_read_secret` on the app-SP ``ws``) and hands the resolved transport
+    plus its effective mode + degrade reason to :func:`build_github_connector`.
+    The resolver owns env fallback, so this never passes ``app_credentials=``.
+    """
+    transport, effective_mode, error = resolve_source_transport(
+        cfg, app_config, lambda scope, key: _read_secret(ws, scope, key)
+    )
+    return build_github_connector(
+        repo_owner=repo_owner,
+        repo_name=repo_name,
+        http=transport,
+        auth_mode=effective_mode,
+        auth_error=error,
     )

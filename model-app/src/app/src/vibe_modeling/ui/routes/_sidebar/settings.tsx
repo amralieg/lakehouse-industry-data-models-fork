@@ -85,6 +85,9 @@ import {
   useGetGithubConfigSuspense,
   useUpdateGithubConfig,
   getGithubConfigKey,
+  useGetSourceAuthConfigSuspense,
+  useUpdateSourceAuthConfig,
+  getSourceAuthConfigKey,
   getAgentConfigKey,
   checkAgentNotebook,
   useGetUserPreferences,
@@ -988,6 +991,9 @@ export function SourcesSection() {
     <div className="space-y-4">
       <SourceAuthBanner />
       <Suspense fallback={<Skeleton className="h-64 w-full max-w-4xl" />}>
+        <SourceAuthConfigSection />
+      </Suspense>
+      <Suspense fallback={<Skeleton className="h-64 w-full max-w-4xl" />}>
         <GithubConfigSection />
       </Suspense>
     </div>
@@ -999,6 +1005,287 @@ export function SourcesSection() {
 // Catalog Explorer step that this form can't perform.
 const GITHUB_SETUP_GUIDE_URL =
   "https://github.com/databricks-industry-solutions/lakehouse-industry-data-models/blob/main/model-app/docs/github-integration-setup.md";
+
+// Setup guide for the three source READ-auth modes (0.7.1). Exported as the
+// public monorepo path by the export scrubber.
+const SOURCE_AUTH_DOC_URL =
+  "https://github.com/databricks-industry-solutions/lakehouse-industry-data-models/blob/main/model-app/docs/github-app-source-auth.md";
+
+export function SourceAuthConfigSection() {
+  const { data: result } = useGetSourceAuthConfigSuspense(selector());
+  const config = result;
+  const { mutateAsync: saveConfig } = useUpdateSourceAuthConfig();
+  const queryClient = useQueryClient();
+
+  const [authMode, setAuthMode] = useState("");
+  const [githubAppId, setGithubAppId] = useState("");
+  const [githubAppInstallationId, setGithubAppInstallationId] = useState("");
+  const [githubAppSecretScope, setGithubAppSecretScope] = useState("");
+  const [githubAppSecretKey, setGithubAppSecretKey] = useState("");
+  const [tokenSecretScope, setTokenSecretScope] = useState("");
+  const [tokenSecretKey, setTokenSecretKey] = useState("");
+  const [initialized, setInitialized] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  if (config && !initialized) {
+    setAuthMode(config.auth_mode ?? "");
+    setGithubAppId(config.github_app_id ?? "");
+    setGithubAppInstallationId(config.github_app_installation_id ?? "");
+    setGithubAppSecretScope(config.github_app_secret_scope ?? "");
+    setGithubAppSecretKey(config.github_app_secret_key ?? "");
+    setTokenSecretScope(config.token_secret_scope ?? "");
+    setTokenSecretKey(config.token_secret_key ?? "");
+    setInitialized(true);
+  }
+
+  const dirty =
+    initialized &&
+    (authMode !== (config?.auth_mode ?? "") ||
+      githubAppId !== (config?.github_app_id ?? "") ||
+      githubAppInstallationId !== (config?.github_app_installation_id ?? "") ||
+      githubAppSecretScope !== (config?.github_app_secret_scope ?? "") ||
+      githubAppSecretKey !== (config?.github_app_secret_key ?? "") ||
+      tokenSecretScope !== (config?.token_secret_scope ?? "") ||
+      tokenSecretKey !== (config?.token_secret_key ?? ""));
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setSaveError(null);
+    try {
+      // Round-trip ALL fields so switching modes never NULLs the sibling
+      // references (a PUT that omits a field clears it).
+      await saveConfig({
+        params: {},
+        data: {
+          auth_mode: authMode,
+          github_app_id: githubAppId,
+          github_app_installation_id: githubAppInstallationId,
+          github_app_secret_scope: githubAppSecretScope,
+          github_app_secret_key: githubAppSecretKey,
+          token_secret_scope: tokenSecretScope,
+          token_secret_key: tokenSecretKey,
+        },
+      });
+      await queryClient.invalidateQueries({ queryKey: getSourceAuthConfigKey() });
+      setInitialized(false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err: unknown) {
+      const anyErr = err as {
+        response?: { data?: { detail?: string } };
+        body?: { detail?: string };
+        message?: string;
+      };
+      const detail =
+        anyErr?.response?.data?.detail ||
+        anyErr?.body?.detail ||
+        anyErr?.message ||
+        "Save failed. Source read access requires admin access.";
+      setSaveError(detail);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card className="max-w-4xl">
+      <CardHeader>
+        <CardTitle>Source read access</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="mb-4 text-xs text-muted-foreground">
+          How the app authenticates when it reads models from the public
+          industry-model repo. Anonymous reads are capped at 60 requests/hour per
+          shared egress IP, so downloads fail; a GitHub App or a personal access
+          token raises the limit to 5,000/hour. Secret material lives in a
+          Databricks secret scope — only the scope/key references are stored
+          here. See the{" "}
+          <a
+            href={SOURCE_AUTH_DOC_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-foreground"
+          >
+            source read authentication guide
+          </a>
+          .
+        </p>
+
+        {config?.error && (
+          <div className="mb-4 flex items-start gap-2 rounded-md border border-warning/40 bg-warning/5 px-3 py-2 text-xs">
+            <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+            <span className="text-warning">
+              The saved read-auth config could not be applied (currently reading
+              as <span className="font-mono">{config.effective_mode}</span>):{" "}
+              {config.error}
+            </span>
+          </div>
+        )}
+
+        <form onSubmit={handleSave} className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Authentication mode</label>
+            <Select value={authMode} onValueChange={setAuthMode}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a mode..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="github_app">
+                  GitHub App (recommended)
+                </SelectItem>
+                <SelectItem value="token">Personal access token</SelectItem>
+                <SelectItem value="anonymous">Anonymous</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {authMode === "github_app" && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium" htmlFor="source-app-id">
+                    App ID
+                  </label>
+                  <Input
+                    id="source-app-id"
+                    value={githubAppId}
+                    onChange={(e) => setGithubAppId(e.target.value)}
+                    placeholder="e.g. 123456"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label
+                    className="text-sm font-medium"
+                    htmlFor="source-app-installation-id"
+                  >
+                    Installation ID
+                  </label>
+                  <Input
+                    id="source-app-installation-id"
+                    value={githubAppInstallationId}
+                    onChange={(e) => setGithubAppInstallationId(e.target.value)}
+                    placeholder="e.g. 99887766"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <label
+                    className="text-sm font-medium"
+                    htmlFor="source-app-secret-scope"
+                  >
+                    PEM secret scope
+                  </label>
+                  <Input
+                    id="source-app-secret-scope"
+                    value={githubAppSecretScope}
+                    onChange={(e) => setGithubAppSecretScope(e.target.value)}
+                    placeholder="e.g. vibe-modeling"
+                    className="font-mono"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label
+                    className="text-sm font-medium"
+                    htmlFor="source-app-secret-key"
+                  >
+                    PEM secret key
+                  </label>
+                  <Input
+                    id="source-app-secret-key"
+                    value={githubAppSecretKey}
+                    onChange={(e) => setGithubAppSecretKey(e.target.value)}
+                    placeholder="e.g. github_app_pem"
+                    className="font-mono"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Store the App's private key (PEM) in the secret scope above and
+                grant the app service principal READ on that scope.
+              </p>
+            </div>
+          )}
+
+          {authMode === "token" && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <label
+                    className="text-sm font-medium"
+                    htmlFor="source-token-secret-scope"
+                  >
+                    PAT secret scope
+                  </label>
+                  <Input
+                    id="source-token-secret-scope"
+                    value={tokenSecretScope}
+                    onChange={(e) => setTokenSecretScope(e.target.value)}
+                    placeholder="e.g. vibe-modeling"
+                    className="font-mono"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label
+                    className="text-sm font-medium"
+                    htmlFor="source-token-secret-key"
+                  >
+                    PAT secret key
+                  </label>
+                  <Input
+                    id="source-token-secret-key"
+                    value={tokenSecretKey}
+                    onChange={(e) => setTokenSecretKey(e.target.value)}
+                    placeholder="e.g. github_pat"
+                    className="font-mono"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Store the personal access token in the secret scope above and
+                grant the app service principal READ on that scope. A read-only
+                public-repo token is enough.
+              </p>
+            </div>
+          )}
+
+          {authMode === "anonymous" && (
+            <p className="text-xs text-muted-foreground">
+              Reads run unauthenticated and are capped at 60 requests/hour per
+              egress IP. Behind the shared Databricks Apps egress IP that budget
+              is exhausted quickly and downloads fail — use an authenticated mode
+              for anything beyond a quick trial.
+            </p>
+          )}
+
+          {saveError && (
+            <div className="rounded-md border border-red-500/30 bg-red-500/5 p-3 text-xs flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+              <span className="text-red-700 dark:text-red-300 whitespace-pre-wrap">
+                {saveError}
+              </span>
+            </div>
+          )}
+
+          {saved && (
+            <div className="flex items-center gap-2 text-sm text-green-600">
+              <Check className="h-4 w-4" />
+              Source read access saved
+            </div>
+          )}
+
+          <Button type="submit" disabled={saving || !dirty}>
+            <Save className="h-4 w-4 mr-2" />
+            {saving ? "Saving..." : saved ? "Saved!" : "Save Configuration"}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
 
 export function GithubConfigSection() {
   const { data: result } = useGetGithubConfigSuspense(selector());

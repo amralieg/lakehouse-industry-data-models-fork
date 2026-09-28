@@ -33,7 +33,7 @@ from ..sources import (
     SourcePermissionError,
     SourceRateLimitError,
     SourceSector,
-    build_github_connector,
+    build_source_connector,
     model_id_to_relpath,
     parse_model_statistics,
 )
@@ -69,19 +69,22 @@ class ModelPreviewOut(BaseModel):
     artifacts: list[ModelArtifact]
 
 
-def _connector(session, config) -> SourceConnector:
-    """Build the source connector from the installation's GitHub config.
+def _connector(session, config, ws) -> SourceConnector:
+    """Build the source connector from the installation's read-auth config.
 
-    Reads authenticate as the deployment's GitHub App (5,000 req/hr) when its
-    credentials are configured on ``AppConfig``; otherwise they fall back to
-    anonymous public browsing (60 req/hr). ``repo_owner`` / ``repo_name`` come
-    from the per-install ``AgentConfig`` row. Transport selection is centralised
-    in ``build_github_connector``."""
+    Read transport is resolved from the ``AgentConfig`` ``source_*`` columns
+    (GitHub App / token / anonymous), falling back to the deployment's GitHub
+    App env creds then anonymous when unconfigured. Any referenced secret is
+    read via the app service principal ``ws``. ``repo_owner`` / ``repo_name``
+    come from the per-install ``AgentConfig`` row. Transport selection is
+    centralised in ``build_source_connector``."""
     cfg = _get_or_create_agent_config(session, config)
-    return build_github_connector(
+    return build_source_connector(
+        cfg,
+        config,
+        ws,
         repo_owner=cfg.github_repo_owner,
         repo_name=cfg.github_repo_name,
-        app_credentials=config.github_app_credentials,
     )
 
 
@@ -108,12 +111,14 @@ def _guard(exc: SourceError) -> HTTPException:
 def get_source_capabilities(
     session: Dependencies.Session,
     config: Dependencies.Config,
+    ws: Dependencies.Client,
 ):
     """Declare what the configured source can provide — element kinds,
     discovery mode, materialization timing, whether it has a native
-    sector level, and the transport identity (``auth_mode``). Cheap (no
-    network)."""
-    return _connector(session, config).capabilities()
+    sector level, and the transport identity (``auth_mode`` + ``auth_error``).
+    Resolving the transport may read the configured secret (short-TTL cached),
+    but performs no GitHub network call."""
+    return _connector(session, config, ws).capabilities()
 
 
 @router.get(
@@ -124,11 +129,12 @@ def get_source_capabilities(
 def list_source_sectors(
     session: Dependencies.Session,
     config: Dependencies.Config,
+    ws: Dependencies.Client,
 ):
     """List the source's top-level sectors (a flat source returns one
     synthetic sector)."""
     try:
-        return _connector(session, config).list_sectors()
+        return _connector(session, config, ws).list_sectors()
     except SourceError as exc:
         raise _guard(exc) from exc
 
@@ -142,10 +148,11 @@ def list_source_industries(
     sector_id: str,
     session: Dependencies.Session,
     config: Dependencies.Config,
+    ws: Dependencies.Client,
 ):
     """List industries within a sector."""
     try:
-        return _connector(session, config).list_industries(sector_id)
+        return _connector(session, config, ws).list_industries(sector_id)
     except SourceError as exc:
         raise _guard(exc) from exc
 
@@ -159,10 +166,11 @@ def list_source_models(
     industry_id: str,
     session: Dependencies.Session,
     config: Dependencies.Config,
+    ws: Dependencies.Client,
 ):
     """List the models published under an industry."""
     try:
-        return _connector(session, config).list_models(industry_id)
+        return _connector(session, config, ws).list_models(industry_id)
     except SourceError as exc:
         raise _guard(exc) from exc
 
@@ -177,13 +185,14 @@ def get_source_model_preview(
     model_id: str,
     session: Dependencies.Session,
     config: Dependencies.Config,
+    ws: Dependencies.Client,
 ):
     """Preview a model: its README rendered as markdown, folder-derived
     scope/version, companion artifacts, and best-effort domain statistics
     parsed from the model's release notes. Does NOT fetch model.json - the
     scope + version come from the folder path, and the name from
     ``_humanize(industry_id)``."""
-    connector = _connector(session, config)
+    connector = _connector(session, config, ws)
     try:
         version, scope = model_id_to_relpath(model_id).split("/", 1)
     except SourceNotFoundError as exc:

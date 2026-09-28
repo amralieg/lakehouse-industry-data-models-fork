@@ -92,6 +92,16 @@ MIGRATIONS = [
     ("agent_config", "upstream_agent_version", "TEXT"),
     ("agent_config", "upstream_checked_at", "TIMESTAMP"),
     ("agent_config", "upstream_check_error", "TEXT"),
+    # v_0_7_3: source READ-auth config on the agent_config singleton. All
+    # defaulted to '' (unconfigured → env → anonymous). Secret material lives
+    # in a Databricks secret scope; only the scope/key REFERENCES land here.
+    ("agent_config", "source_auth_mode", "VARCHAR DEFAULT ''"),
+    ("agent_config", "source_github_app_id", "VARCHAR DEFAULT ''"),
+    ("agent_config", "source_github_app_installation_id", "VARCHAR DEFAULT ''"),
+    ("agent_config", "source_github_app_secret_scope", "VARCHAR DEFAULT ''"),
+    ("agent_config", "source_github_app_secret_key", "VARCHAR DEFAULT ''"),
+    ("agent_config", "source_token_secret_scope", "VARCHAR DEFAULT ''"),
+    ("agent_config", "source_token_secret_key", "VARCHAR DEFAULT ''"),
 ]
 
 WIDEN_TO_BIGINT = [

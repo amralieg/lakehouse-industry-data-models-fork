@@ -123,7 +123,7 @@ def _patch_upstream(monkeypatch, *, release, marker=None, raises=None):
 
     calls = {"n": 0}
 
-    def _fake(_config):
+    def _fake(_config, _cfg, _ws):
         calls["n"] += 1
         if raises is not None:
             raise raises

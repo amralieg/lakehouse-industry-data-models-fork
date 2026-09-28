@@ -112,14 +112,24 @@ class SourceCapabilities(BaseModel):
         description="True if the source has a native sector level; False if sectors are synthesised."
     )
     read_only: bool = Field(default=True, description="True while publish/write is not yet supported.")
-    auth_mode: Literal["github_app", "anonymous"] = Field(
+    auth_mode: Literal["github_app", "token", "anonymous"] = Field(
         default="anonymous",
         description=(
             "Transport identity the connector browses with. 'anonymous' means "
-            "unauthenticated (60 req/hr, rate-limited); 'github_app' means the "
-            "deployment's GitHub App installation token (5,000 req/hr). Resolved "
-            "per request: 'github_app' when the deployment has GitHub App "
-            "credentials configured, else 'anonymous'."
+            "unauthenticated (60 req/hr, rate-limited); 'token' means a personal "
+            "access token (5,000 req/hr); 'github_app' means a GitHub App "
+            "installation token (5,000 req/hr). Resolved per request from the "
+            "installation's source read-auth config, falling back to the "
+            "deployment's GitHub App env creds, then anonymous."
+        ),
+    )
+    auth_error: str | None = Field(
+        default=None,
+        description=(
+            "Human-readable reason the configured read-auth could not be applied "
+            "(e.g. incomplete config, or the referenced secret was unreadable), "
+            "when resolution degraded to anonymous. None when auth resolved "
+            "cleanly. Never contains secret material, scope, or key names."
         ),
     )
 

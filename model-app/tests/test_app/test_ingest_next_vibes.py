@@ -191,7 +191,7 @@ class TestDownloadNextVibesParity:
         from vibe_modeling.backend.services.industry_download import download_industry_model
 
         conn = _FakeConnector()
-        monkeypatch.setattr(industry_download, "build_github_connector", lambda *a, **k: conn)
+        monkeypatch.setattr(industry_download, "build_source_connector", lambda *a, **k: conn)
 
         with Session(engine) as session:
             sector = Sector(name="Retail", short_name="retail")

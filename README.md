@@ -6,7 +6,7 @@ This repository is a complete, Databricks-native **data-modeling system** built 
 
 **The agent is the point.** The 40 industries and 80 models in this repo were all produced by that one agent — they are a *demonstration gallery*, not the product. What matters is that you can point the agent at *your* business and get the same thing, in your terminology, in an afternoon.
 
-> **⚡ The 30-second version:** [`model-agent/`](./model-agent/) is the agent — a "vibe" in, a governed model out. [`model-genie-skills/`](./model-genie-skills/) is the process that forms a generated model onto your *real* data. [`model-viewer/`](./model-viewer/) is a Databricks App that renders any model as an interactive graph. Everything under [`data-models/`](./data-models/) is what the agent built when we ran it across 40 industries.
+> **⚡ The 30-second version:** [`model-agent/`](./model-agent/) is the agent — a "vibe" in, a governed model out. [`model-app/`](./model-app/) is **the app** — a Databricks App that drives the whole modeling lifecycle (describe → generate → vibe → compare → deploy), no notebook required. [`model-genie-skills/`](./model-genie-skills/) is the data-integration process that forms a generated model onto your *real* data. [`model-viewer/`](./model-viewer/) and [`model-installer/`](./model-installer/) are lightweight **tools** — render any model as an interactive graph, or deploy any single `model.json` into Unity Catalog. Everything under [`data-models/`](./data-models/) is what the agent built when we ran it across 40 industries.
 
 **[▶ Open the interactive gallery](https://databricks-industry-solutions.github.io/lakehouse-industry-data-models/)** — explore the agent's output as browsable ER graphs.
 
@@ -16,14 +16,15 @@ This repository is a complete, Databricks-native **data-modeling system** built 
 
 ## What's in this repo
 
-Four parts, agent first. The first three are the *system*; the fourth is what the system produced.
+Five parts, agent first. The first four are the *system*; the fifth is what the system produced.
 
 | # | Part | Folder | What it is |
 |---|---|---|---|
 | **1** | **The agent** | [`model-agent/`](./model-agent/) | **The core.** An LLM-powered, Databricks-native agent that turns a business description + natural-language "vibes" into a governed Silver-layer model deployed to Unity Catalog. Iterate in plain English; every vibe produces a new, validated, versioned model. |
-| **2** | **The process** | [`model-genie-skills/`](./model-genie-skills/) | The toolchain that takes a generated model and **forms it to a customer's real data** — a phase-gated **assess → build → validate → document** loop, one domain at a time. |
-| **3** | **The app + installer** | [`model-viewer/`](./model-viewer/) · [`model-installer/`](./model-installer/) | A **Databricks App** that renders any model as an interactive entity-relationship graph, and a notebook that deploys any model into Unity Catalog (optionally with referentially-correct sample data). |
-| **4** | **The example models** | [`data-models/`](./data-models/) | **The demonstration.** 40 industries × 2 flavours = 80 models the agent generated, published as browsable reference material. Proof of what the agent does at scale — [jump to the gallery ↓](#the-example-gallery--what-one-agent-produced). |
+| **2** | **The app** | [`model-app/`](./model-app/) | **The graphical front-end to the agent** — a Databricks App that drives the modeling lifecycle: describe a business, generate a base model, refine with natural-language vibes, compare versions, deploy to Unity Catalog — no notebook required. |
+| **3** | **Data Integration Process** | [`model-genie-skills/`](./model-genie-skills/) | The toolchain that takes a generated model and **forms it to a customer's real data** — a phase-gated **assess → build → validate → document** loop, one domain at a time. |
+| **4** | **The tools** | [`model-viewer/`](./model-viewer/) · [`model-installer/`](./model-installer/) | Lightweight accessories to the app: the **viewer tool** renders any `model.json` as an interactive ER graph; the **model installer tool** deploys any `model.json` into Unity Catalog (optionally with sample data) — a quick way to inspect or deploy a single model without the full app UI. |
+| **5** | **The example models** | [`data-models/`](./data-models/) | **The demonstration.** 40 industries × 2 flavours = 80 models the agent generated, published as browsable reference material. Proof of what the agent does at scale — [jump to the gallery ↓](#the-example-gallery--what-one-agent-produced). |
 
 ---
 
@@ -57,7 +58,25 @@ Under the hood it runs a multi-model ensemble across an eight-stage pipeline, wi
 
 ---
 
-## 2 · The process — from reference model to *your* real data
+## 2 · The app — drive the whole modeling lifecycle
+
+The **[`model-app/`](./model-app/)** is the graphical front-end to the agent: a **Databricks App** that drives the modeling lifecycle end to end, no notebook required. Describe a business, generate a base model, refine it with natural-language vibes, navigate what came out, compare versions, and deploy to Unity Catalog — all from one UI. The app covers **modeling and model deployment**; forming a model onto real data is a separate step (the [Data Integration Process](#3--data-integration-process--from-reference-model-to-your-real-data) below).
+
+![The Model App — landing page](./model-app/docs/images/app-landing.png)
+
+The loop the app drives:
+
+- **Describe / kickstart** — start from an industry template, an imported `model.json`, or a plain-English business description.
+- **Generate + vibe** — the agent produces a base model; refine it in natural language, one vibe at a time.
+- **Navigate** — explore the generated model as an interactive entity-relationship graph, by domain and by product.
+- **Version + compare** — every vibe produces a new version; diff any two to see exactly what changed and mark domains reviewed.
+- **Deploy** — publish the model to Unity Catalog.
+
+**→ Full details and install instructions: [`model-app/README.md`](./model-app/README.md).**
+
+---
+
+## 3 · Data Integration Process — from reference model to *your* real data
 
 A generated model describes *what good looks like* — a coherent, documented target shape. Getting there against a customer's real data is the next step, and that is what [**`model-genie-skills/`**](./model-genie-skills/) provides: a suite of **Genie Code skills** that form a generated model onto real data on Databricks, one domain at a time, through a disciplined, phase-gated loop with a human at the decision points.
 
@@ -76,9 +95,11 @@ Handoff between stations happens through **documents, not chat** — discovery r
 
 ---
 
-## 3 · The app — explore any model as an interactive graph
+## 4 · The tools — explore any model, deploy any model
 
-The fastest way to explore a model visually is the **model-viewer app**, a **Databricks App** that renders any `model.json` as an interactive entity-relationship graph with three navigable views.
+Two lightweight accessories to the app, for when you want to inspect or deploy a single model without the full app UI: the **viewer tool** renders any `model.json` as an interactive graph, and the **model installer tool** deploys any `model.json` into Unity Catalog.
+
+The fastest way to explore a model visually is the **viewer tool**, a **Databricks App** that renders any `model.json` as an interactive entity-relationship graph with three navigable views.
 
 **Install it** with the notebook [`model-viewer/model_viewer_app_installer.ipynb`](./model-viewer/model_viewer_app_installer.ipynb) — import it into your workspace and run all cells; it provisions the App and prints its URL. Then load any model by pasting a repo path, or by uploading a `model.json` directly.
 
@@ -266,10 +287,11 @@ Twenty-six industries are on `v1`; fourteen have a `v2` produced by a later agen
 
 ```
 ├── model-agent/          # 1 · The agent — vibe → governed model (the core)
-├── model-genie-skills/   # 2 · The process — form a model onto real data (assess→build→validate→document)
-├── model-viewer/         # 3a · The Databricks App — interactive ER graph viewer
-├── model-installer/      # 3b · Deploy any model into Unity Catalog (+ sample data)
-├── data-models/          # 4 · The example gallery — 40 industries × {ecm, mvm}, the agent's output
+├── model-app/            # 2 · The app — Databricks App front-end driving the modeling lifecycle
+├── model-genie-skills/   # 3 · Data Integration Process — form a model onto real data (assess→build→validate→document)
+├── model-viewer/         # 4a · The viewer tool — interactive ER graph viewer (Databricks App)
+├── model-installer/      # 4b · The model installer tool — deploy any model into Unity Catalog (+ sample data)
+├── data-models/          # 5 · The example gallery — 40 industries × {ecm, mvm}, the agent's output
 ├── docs/                 # GitHub Pages interactive gallery
 └── tools/                # Repo maintenance helpers (manifest build, viewer sync)
 ```
@@ -290,10 +312,13 @@ Each industry folder holds one or more version siblings; every model derives fro
 
 ## Known limitations
 
-- **Sample data is synthetic and opt-in.** Keys and foreign keys are correct by construction and gated before the write, so joins and demos behave, but the *values* are invented. Replace with real ingestion (see [the process](#2--the-process--from-reference-model-to-your-real-data)) before production.
+- **Sample data is synthetic and opt-in.** Keys and foreign keys are correct by construction and gated before the write, so joins and demos behave, but the *values* are invented. Replace with real ingestion (see [the Data Integration Process](#3--data-integration-process--from-reference-model-to-your-real-data)) before production.
 - **18 ECMs carry 34 cross-domain duplicate product names** (usually legitimate shared lookups). **All 40 MVMs are clean.**
 - **11 ECMs contain 15 siloed products** between them (legitimate top-level reference entities the agent chose not to link out from). **All 40 MVMs are silo-free.**
 - **Industry coverage is broad, not deep.** The ECMs aim for 70–80% of an enterprise's domain shape; the last 20–30% (org-specific extensions, third-party integrations) is a follow-up vibe-iteration the agent can take on.
+- **The modeling agent currently focuses on generating normalized silver-layer models.** Metric views are also generated from those, but that remains experimental.
+- **There is currently no direct way to import an existing environment into the tool.** The best workaround is to include a description of the current deployment as vibe instructions in one iteration.
+- **The code in this repo cannot migrate existing schemas to a new version — every deployment fully overwrites the previous one.** Migration should be handled by taking the generated DDL and processing it separately to produce a safe set of alteration DDL plus backfilling.
 
 ---
 

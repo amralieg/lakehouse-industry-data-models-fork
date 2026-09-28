@@ -57,7 +57,7 @@ from ..core._warehouse import get_warehouse_id
 from ..db_models import Business, ModelVersion, Run, Sector
 from ..import_model import detect_schema
 from ..model_sync import ModelSyncService, ingest_next_vibes
-from ..sources import build_github_connector
+from ..sources import build_source_connector
 from ..sources.github import SourceNotFoundError, model_id_to_relpath
 from .artifact_indexer import index_artifacts_at_path
 from .import_metamodel_writer import seed_metamodel_one
@@ -120,23 +120,26 @@ def _model_relpath(model_id: str) -> str:
         return model_id
 
 
-def _connector(session: Session, config):
+def _connector(session: Session, config, ws):
     """Build the GitHub source connector from the installation config.
 
     Mirrors :func:`routes.sources._connector` (one convergent construction, no
     divergence). Imported indirectly so tests can monkeypatch
-    ``build_github_connector`` on this module. Reads authenticate as the
-    deployment's GitHub App (5,000 req/hr) when its credentials are configured on
-    ``AppConfig``; anonymous (60 req/hr) otherwise. Transport selection is
-    centralised in ``build_github_connector``.
+    ``build_source_connector`` on this module. Read transport is resolved from
+    the ``AgentConfig`` ``source_*`` columns (GitHub App / token / anonymous),
+    falling back to the deployment's GitHub App env creds then anonymous when
+    unconfigured; any referenced secret is read via the app service principal
+    ``ws``. Transport selection is centralised in ``build_source_connector``.
     """
     from ..routes._helpers import _get_or_create_agent_config
 
     cfg = _get_or_create_agent_config(session, config)
-    return build_github_connector(
+    return build_source_connector(
+        cfg,
+        config,
+        ws,
         repo_owner=cfg.github_repo_owner,
         repo_name=cfg.github_repo_name,
-        app_credentials=config.github_app_credentials,
     )
 
 
@@ -234,7 +237,7 @@ def download_industry_model(
     warnings: list[str] = []
 
     # 1. Build connector + fetch the raw model.json.
-    connector = _connector(session, config)
+    connector = _connector(session, config, ws)
     from ..sources import SourceError, SourceNotFoundError, SourcePermissionError
 
     try:

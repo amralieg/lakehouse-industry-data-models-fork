@@ -9,7 +9,7 @@ Two layers:
   mock WorkspaceClient.
 - Route tests drive ``POST /api/industry-models/download`` through the
   TestClient, injecting the same fake connector by monkeypatching
-  ``build_github_connector`` in ``services.industry_download``.
+  ``build_source_connector`` in ``services.industry_download``.
 """
 
 from __future__ import annotations
@@ -123,7 +123,7 @@ def _patch_connector(monkeypatch, conn):
     """Make the service build our fake connector regardless of config."""
     from vibe_modeling.backend.services import industry_download as mod
 
-    monkeypatch.setattr(mod, "build_github_connector", lambda *a, **k: conn)
+    monkeypatch.setattr(mod, "build_source_connector", lambda *a, **k: conn)
 
 
 # ---------------------------------------------------------------------------

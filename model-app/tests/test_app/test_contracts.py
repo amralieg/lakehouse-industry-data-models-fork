@@ -68,6 +68,13 @@ DB_ONLY_FIELDS = {
         # / /config/agent-compat, not on AgentConfigOut.
         "upstream_release_version", "upstream_agent_version",
         "upstream_checked_at", "upstream_check_error",
+        # Source read-auth columns (0.7.1): exposed via SourceAuthConfigOut /
+        # /config/source-auth, not on AgentConfigOut. Secret material never
+        # lands here — only scope/key references.
+        "source_auth_mode", "source_github_app_id",
+        "source_github_app_installation_id", "source_github_app_secret_scope",
+        "source_github_app_secret_key", "source_token_secret_scope",
+        "source_token_secret_key",
     },
     "Industry": set(),
     "UserPreference": {"user_id"},  # user_id is derived from auth headers, not in Out

@@ -960,6 +960,53 @@ function calcDomainViewPositions(filteredNodes){
   return positions;
 }
 
+function subdomainNodeId(dname,sdname){
+  return 'subdomain_'+dname+'_'+sdname;
+}
+function viewFilterKey(type,value){
+  if(!type) return '';
+  return type+'::'+(value&&typeof value==='object'?JSON.stringify(value):(value||''));
+}
+function buildDomainScopeElements(dname,sdOnly,domainHierarchy,domainByName,tablesByDomain,edges,colorForSub){
+  const dh=domainHierarchy[dname]||{};
+  const subs=dh.subdomains||{};
+  const subNames=sdOnly?[sdOnly]:Object.keys(subs).sort();
+  const hasSubs=!!sdOnly||subNames.length>0;
+  const domColor=(domainByName[dname]||{data:{}}).data.color||'var(--muted)';
+  const result=[];
+  const subNodeIds=new Set();
+  if(hasSubs){
+    subNames.forEach((sdname,sdi)=>{
+      if(!sdname) return;
+      const sdId=subdomainNodeId(dname,sdname);
+      subNodeIds.add(sdId);
+      const painted=colorForSub?colorForSub(sdname,sdi):{};
+      const semLbl=String(sdname).replace(/_/g,' ').replace(/-/g,' ');
+      result.push({data:{id:sdId,label:semLbl,type:'subdomain',subdomain:sdname,domain:dname,domain_color:domColor,...painted},classes:'subdomain-node'});
+    });
+  } else {
+    const dn=domainByName[dname];
+    if(dn) result.push(dn);
+  }
+  const visibleIds=new Set();
+  (tablesByDomain[dname]||[]).forEach(n=>{
+    const sd=n.data.subdomain||'';
+    if(sdOnly&&sd!==sdOnly) return;
+    const sdId=hasSubs&&sd?subdomainNodeId(dname,sd):'';
+    const cloned={...n,classes:'table-node domain-view-node',data:{...n.data}};
+    if(hasSubs&&sd&&subNodeIds.has(sdId)) cloned.data.parent=sdId;
+    else if(hasSubs) delete cloned.data.parent;
+    result.push(cloned);
+    visibleIds.add(n.data.id);
+  });
+  (edges||[]).forEach(e=>{
+    if(visibleIds.has(e.data.source)&&visibleIds.has(e.data.target)) result.push(e);
+  });
+  const pos=calcDomainViewPositions(result);
+  result.forEach(n=>{if(n.data&&pos[n.data.id]) n.position=pos[n.data.id];});
+  return result;
+}
+
 // ── Cytoscape stylesheet ──────────────────────────────────
 /* Cytoscape parses its stylesheet itself and never resolves a CSS custom
    property, so every colour the canvas uses has to be read out of the document
@@ -1302,7 +1349,7 @@ async function apiFetch(url){
 
 // ── Tree Component ─────────────────────────────────────────
 const TreeNode=memo(({domainName,domainData,expandedDomains,expandedTables,
-                      onToggleDomain,onToggleTable,onClickDomain,onClickTable,onClickAttr,searchTerm})=>{
+                      onToggleDomain,onToggleTable,onClickDomain,onClickSubdomain,onClickTable,onClickAttr,searchTerm})=>{
   const {color,tables={},subdomains={},division=''}=domainData;
   const isExpanded=expandedDomains.has(domainName);
   const tableEntries=useMemo(()=>Object.entries(tables).sort((a,b)=>a[0].localeCompare(b[0])),[tables]);
@@ -1391,7 +1438,9 @@ const TreeNode=memo(({domainName,domainData,expandedDomains,expandedTables,
                 h('div',{key:sdname,style:{marginLeft:28,marginBottom:1,borderBottom:'1px solid var(--veil)'}},
                   h('div',{style:{display:'flex',alignItems:'center',padding:'5px 0'}},
                     h('span',{style:{fontSize:8,color,marginRight:6}},'◆'),
-                    h('span',{className:'subdomain-label',style:{flex:1}},sdname.replace(/_/g,' ').replace(/-/g,' ')),
+                    h('span',{className:'subdomain-label',style:{flex:1,cursor:'pointer'},
+                      onClick:()=>onClickSubdomain&&onClickSubdomain(domainName,sdname)},
+                      sdname.replace(/_/g,' ').replace(/-/g,' ')),
                     h('span',{style:{fontSize:9,color:'var(--line-strong)',marginLeft:5}},'('+sdTables.length+')')
                   )
                 ),
@@ -1406,7 +1455,7 @@ const TreeNode=memo(({domainName,domainData,expandedDomains,expandedTables,
 });
 
 // ── Node Info Panel ────────────────────────────────────────
-function NodeInfoPanel({selectedNode,selectedEdge,treeClick,graphData,domainSizes,setDomainSizes,filterState}){
+function NodeInfoPanel({selectedNode,selectedEdge,treeClick,graphData,domainSizes,setDomainSizes,filterState,onClickSubdomain}){
   if(!graphData) return h('div',{style:{padding:'15px'}},
     h('h3',{className:'section-header',style:{borderBottom:'1px solid var(--line)',paddingBottom:10,marginBottom:15}},'📌 Details'),
     h('p',{style:{color:'var(--muted)',fontSize:12,fontStyle:'italic'}},'Click a node to see details'),
@@ -1468,6 +1517,14 @@ function NodeInfoPanel({selectedNode,selectedEdge,treeClick,graphData,domainSize
       nodeData={type:'domain',id:`domain_${treeClick.value}`,
                 label:(treeClick.value||'').toUpperCase(),
                 color:ddata.color||'var(--muted)',...ddata};
+    } else if(nodeType==='subdomain'){
+      const v=treeClick.value||{};
+      const dname=v.domain||'';
+      const sdname=v.subdomain||'';
+      const ddata=domainHierarchy[dname]||{};
+      nodeData={type:'subdomain',id:subdomainNodeId(dname,sdname),
+                label:String(sdname).replace(/_/g,' ').replace(/-/g,' '),
+                domain:dname,subdomain:sdname,color:ddata.color||'var(--muted)'};
     } else if(nodeType==='attribute'){
       const parts=(treeClick.value||'').split('.');
       const dname=parts[0],tname=parts[1],aname=parts.slice(2).join('.');
@@ -1545,7 +1602,8 @@ function NodeInfoPanel({selectedNode,selectedEdge,treeClick,graphData,domainSize
         ...Object.keys(subs).sort().map(sdname=>{
           const sd=subs[sdname];
           return h('div',{key:sdname,style:{padding:10,background:'var(--well)',borderRadius:6,
-                                            borderLeft:`3px solid ${nodeData.color}`,marginBottom:8}},
+                                            borderLeft:`3px solid ${nodeData.color}`,marginBottom:8,cursor:onClickSubdomain?'pointer':'default'},
+              onClick:()=>onClickSubdomain&&onClickSubdomain(dname,sdname)},
             h('div',{style:{display:'flex',alignItems:'center',marginBottom:4}},
               h('span',{style:{fontSize:10,color:nodeData.color,marginRight:6}},'◆'),
               h('span',{style:{fontSize:12,fontWeight:600,color:'var(--ink)',flex:1}},sdname.replace(/_/g,' ').replace(/-/g,' ')),
@@ -1570,8 +1628,8 @@ function NodeInfoPanel({selectedNode,selectedEdge,treeClick,graphData,domainSize
   if(nodeData.type==='subdomain'){
     const sdId=nodeData.id||'';
     const parts=sdId.split('_');
-    const parentDomain=parts[1]||'';
-    const sdKey=parts.slice(2).join('_');
+    const parentDomain=nodeData.domain||parts[1]||'';
+    const sdKey=nodeData.subdomain||parts.slice(2).join('_');
     const ddata=domainHierarchy[parentDomain]||{};
     const sdInfo=(ddata.subdomains||{})[sdKey]||{};
     return h('div',{style:{padding:'15px',overflowY:'auto',height:'100%'}},
@@ -1771,6 +1829,57 @@ function modelDocsXlsxUrl(slug,version,flavour){
   const {owner,repo}=UPSTREAM_REPO;
   return `https://raw.githubusercontent.com/${owner}/${repo}/main/${path}`;
 }
+const VIEW_MIN_ZOOM_FLOOR=1e-5;
+const VIEW_MIN_ZOOM_CAP=0.01;
+const VIEW_MAX_FIT_ZOOM=1.8;
+
+function fitZoomNeeded(cy,pad){
+  const w=cy.width(),h=cy.height();
+  if(!w||!h) return null;
+  if(!cy.elements().length) return null;
+  const bb=cy.elements().boundingBox({includeLabels:true});
+  if(!(bb.w>0&&bb.h>0)) return null;
+  return Math.min((w-2*pad)/bb.w,(h-2*pad)/bb.h);
+}
+function unlockMinZoomForFit(cy,pad){
+  cy.resize();
+  const fitZ=fitZoomNeeded(cy,pad);
+  if(!(fitZ>0)){ cy.minZoom(VIEW_MIN_ZOOM_FLOOR); return; }
+  cy.minZoom(Math.max(VIEW_MIN_ZOOM_FLOOR, Math.min(VIEW_MIN_ZOOM_CAP, fitZ*0.2)));
+}
+function zoomAboutCenter(cy,factor){
+  if(!cy||cy.destroyed()) return;
+  const w=cy.width(),h=cy.height();
+  cy.zoom({level:cy.zoom()*factor,renderedPosition:{x:w/2,y:h/2}});
+}
+function fitGraph(cy,pad){
+  if(!cy||cy.destroyed()) return;
+  unlockMinZoomForFit(cy,pad);
+  cy.fit(pad);
+  if(cy.zoom()>VIEW_MAX_FIT_ZOOM){
+    cy.zoom({level:VIEW_MAX_FIT_ZOOM,renderedPosition:{x:cy.width()/2,y:cy.height()/2}});
+  }
+  cy.center();
+}
+function slugFilename(s){
+  return String(s||'model').replace(/[^\w.-]+/g,'_').replace(/^_|_$/g,'').slice(0,80)||'model';
+}
+function saveBlobFile(blob,filename){
+  if(!blob) return;
+  const obj=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=obj; a.download=filename; a.rel='noopener';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(obj);
+}
+function downloadCanvasPng(cy,name){
+  if(!cy||cy.destroyed()||!cy.elements().length) return;
+  const bg=getComputedStyle(document.body).getPropertyValue('--bg').trim()||'#ffffff';
+  const out=cy.png({output:'blob-promise',bg,full:false,scale:2,maxWidth:8192,maxHeight:8192});
+  const done=blob=>saveBlobFile(blob,slugFilename(name)+'.png');
+  if(out&&typeof out.then==='function') out.then(done); else done(out);
+}
+
 function downloadUpstreamFile(url,filename){
   return fetch(url).then(res=>{
     if(!res.ok) throw new Error('HTTP '+res.status);
@@ -1833,7 +1942,8 @@ const TOOLBAR_ICONS={
   fontDown:[['path',{d:'M5 20h14'}],['path',{d:'M12 20V8'}],['path',{d:'M8 12l4 4 4-4'}]],
   fontUp:[['path',{d:'M5 4h14'}],['path',{d:'M12 4v12'}],['path',{d:'M8 12l4-4 4 4'}]],
   fit:[['path',{d:'M15 3h6v6'}],['path',{d:'M9 21H3v-6'}],['path',{d:'M21 3l-7 7'}],['path',{d:'M3 21l7-7'}]],
-  reset:[['path',{d:'M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8'}],['path',{d:'M3 3v5h5'}]]
+  reset:[['path',{d:'M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8'}],['path',{d:'M3 3v5h5'}]],
+  png:[['rect',{x:3,y:3,width:18,height:18,rx:2}],['circle',{cx:8.5,cy:8.5,r:1.5}],['polyline',{points:'21 15 16 10 5 21'}]]
 };
 function ToolbarIcon({name,size=13}){
   const parts=TOOLBAR_ICONS[name]||[];
@@ -2511,7 +2621,7 @@ function App(){
       elements:[],
       style:getStylesheet(true),
       layout:{name:'circle'},
-      minZoom:0.01,maxZoom:5,wheelSensitivity:0.3,
+      minZoom:VIEW_MIN_ZOOM_FLOOR,maxZoom:5,wheelSensitivity:0.3,
       userPanningEnabled:true,userZoomingEnabled:true,
       boxSelectionEnabled:false,
     });
@@ -2530,6 +2640,8 @@ function App(){
           navigate({type:'table',value:data.id});
         } else if(data.type==='domain'){
           navigate({type:'domain',value:data.id.replace('domain_','')});
+        } else if(data.type==='subdomain'&&data.domain&&data.subdomain){
+          navigate({type:'subdomain',value:{domain:data.domain,subdomain:data.subdomain}});
         }
       } else {
         // Single-click → select, show details
@@ -2538,6 +2650,9 @@ function App(){
         setTreeClick(null);
         if(data.type==='domain'){
           navigate({type:'domain',value:data.id.replace('domain_','')});
+        }
+        if(data.type==='subdomain'&&data.domain&&data.subdomain){
+          navigate({type:'subdomain',value:{domain:data.domain,subdomain:data.subdomain}});
         }
         if(data.type==='table'){
           navigate({type:'table',value:data.id});
@@ -2596,6 +2711,11 @@ function App(){
       setFilterState(prev);
       return h.slice(0,-1);
     });
+  },[]);
+
+  const takeViewport=useCallback(()=>{
+    viewerTookOverRef.current=true;
+    if(introRef.current) introRef.current.cancel(true);
   },[]);
 
   const openCmd=useCallback(()=>{ gcEvent('search-open','Open industry search'); setCmdOpen(true); },[]);
@@ -2664,52 +2784,17 @@ function App(){
       return applyDomainSizes(result);
     }
 
-    if(type==='domain'&&value){
-      const dname=value;
-      const dh=domainHierarchy[dname]||{};
-      const subs=dh.subdomains||{};
-      const hasSubs=Object.keys(subs).length>0;
-      const domColor=(domainByName[dname]||{data:{}}).data.color||'var(--muted)';
-      // Distinct colors for each subdomain within a domain view. Keeps the domain
-      // color palette idea but rotates hues so each subdomain box is visually
-      // differentiated. Industry-agnostic, deterministic per subdomain name.
-      
-      const result=[];
-      const subNodeIds=new Set();
-      if(hasSubs){
-        Object.keys(subs).sort().forEach((sdname,sdi)=>{
-          const sdId=`subdomain_${dname}_${sdname}`;
-          subNodeIds.add(sdId);
+    if((type==='domain'||type==='subdomain')&&value){
+      const dname=type==='subdomain'?value.domain:value;
+      const sdOnly=type==='subdomain'?value.subdomain:null;
+      if(!dname||(type==='subdomain'&&!sdOnly)) return [];
+      return applyDomainSizes(buildDomainScopeElements(
+        dname,sdOnly,domainHierarchy,domainByName,tablesByDomain,edges,
+        (sdname,sdi)=>{
           const sdSlot=SUBDOMAIN_SLOTS[sdi%SUBDOMAIN_SLOTS.length];
-          const sdColor='var('+sdSlot+')';
-          const semLbl=sdname.replace(/_/g,' ').replace(/-/g,' ');
-          result.push({data:{id:sdId,label:semLbl,
-            type:'subdomain',color:sdColor,slot:sdSlot,domain:dname,domain_color:domColor},classes:'subdomain-node'});
-        });
-      } else {
-        const dn=domainByName[dname];
-        if(dn)result.push(dn);
-      }
-      const domTables=tablesByDomain[dname]||[];
-      const visibleIds=new Set();
-      domTables.forEach(n=>{
-        const sd=n.data.subdomain||'';
-        const sdId=hasSubs&&sd?`subdomain_${dname}_${sd}`:'';
-        const cloned={...n,classes:'table-node domain-view-node',data:{...n.data}};
-        if(hasSubs&&sd&&subNodeIds.has(sdId)) cloned.data.parent=sdId;
-        else if(hasSubs) delete cloned.data.parent;
-        result.push(cloned);
-        visibleIds.add(n.data.id);
-      });
-      // Render every edge whose BOTH endpoints are visible in this domain view
-      // (co-visible), so two tables the user can see always show their link.
-      // Robust vs. table names containing dots (unlike the prefix-split index).
-      edges.forEach(e=>{
-        if(visibleIds.has(e.data.source)&&visibleIds.has(e.data.target)) result.push(e);
-      });
-      const pos=calcDomainViewPositions(result);
-      result.forEach(n=>{if(n.data&&pos[n.data.id])n.position=pos[n.data.id];});
-      return applyDomainSizes(result);
+          return {slot:sdSlot,color:'var('+sdSlot+')'};
+        }
+      ));
     }
 
     if(type==='attribute'&&value){
@@ -2794,7 +2879,7 @@ function App(){
           node.position({x:r*Math.cos(angle), y:r*Math.sin(angle)});
         });
       }
-    } else if(type==='domain'){
+    } else if(type==='domain'||type==='subdomain'){
       // Circular grouped by subdomain — compound parents auto-wrap; dragging box moves products
       const tblNodes=cy.nodes('.domain-view-node').sort((a,b)=>{
         const pa=(a.data('parent')||''), pb=(b.data('parent')||'');
@@ -2847,17 +2932,14 @@ function App(){
     // on a slow model nothing has refreshed that 0x0 reading by the time the first
     // fit runs, and the fit silently does nothing.
     const doFit=()=>{
-      cy.resize();
-      cy.fit(60);
-      if(cy.zoom()>1.8) cy.zoom(1.8);
-      cy.center();
+      fitGraph(cy,60);
     };
     // The later fits exist to catch labels and boxes that settle after the first
     // one, so they must not run while the camera is mid-flight towards the same
     // destination, nor once the viewer has taken the viewport. The view is only
     // marked as introduced once a move actually starts, so a fit that landed on a
     // not-yet-measured viewport leaves the next one free to try again.
-    const viewKey=`${type||''}::${filterState.value||''}`;
+    const viewKey=viewFilterKey(type,filterState.value);
     const introduced=()=>lastFitKeyRef.current.graph===graphData&&lastFitKeyRef.current.key===viewKey;
     const mark=()=>{lastFitKeyRef.current={graph:graphData,key:viewKey};};
     const camFree=()=>!viewerTookOverRef.current&&(!introRef.current||introRef.current.finished);
@@ -2888,7 +2970,7 @@ function App(){
     const cy=cyRef.current;
     if(!cy)return;
     cy.style(getStylesheet(showDomains,sizeScale));
-    setTimeout(()=>cy.fit(50),50);
+    setTimeout(()=>fitGraph(cy,50),50);
   },[showDomains,sizeScale]);
 
   // ── Theme or palette change ─────────────────────────────
@@ -2915,6 +2997,7 @@ function App(){
       return `📊 ${value}`;
     }
     if(type==='domain'&&value) return `Domain: ${value}`;
+    if(type==='subdomain'&&value) return `Subdomain: ${value.domain||''} › ${String(value.subdomain||'').replace(/_/g,' ')}`;
     if(type==='edge'&&typeof value==='object') return `🔗 ${(value.source||'').split('.').pop()}.${value.source_column||''} → ${(value.target||'').split('.').pop()}.${value.target_column||''}`;
     if(type==='attribute'&&value) return `📊 ${(value||'').split('.').slice(1).join('.')}`;
     return '';
@@ -2931,6 +3014,11 @@ function App(){
     setTreeClick({type:'domain',value:dname});
     setSelectedNode(null);setSelectedEdge(null);
     navigate({type:'domain',value:dname});
+  },[navigate]);
+  const handleClickSubdomain=useCallback((dname,sdname)=>{
+    setTreeClick({type:'subdomain',value:{domain:dname,subdomain:sdname}});
+    setSelectedNode(null);setSelectedEdge(null);
+    navigate({type:'subdomain',value:{domain:dname,subdomain:sdname}});
   },[navigate]);
   const handleClickTable=useCallback(fid=>{
     setTreeClick({type:'table',value:fid});
@@ -2970,10 +3058,10 @@ function App(){
         // one is loaded rather than sitting there inert.
         graphData&&h(React.Fragment,null,
           h('button',{className:'tbtn icononly',title:'Zoom out','aria-label':'Zoom out',
-            onClick:()=>cyRef.current&&cyRef.current.zoom(cyRef.current.zoom()*0.8)},
+            onClick:()=>{takeViewport();zoomAboutCenter(cyRef.current,0.8);}},
             h(ToolbarIcon,{name:'zoomOut'})),
           h('button',{className:'tbtn icononly',title:'Zoom in','aria-label':'Zoom in',
-            onClick:()=>cyRef.current&&cyRef.current.zoom(cyRef.current.zoom()*1.25)},
+            onClick:()=>{takeViewport();zoomAboutCenter(cyRef.current,1.25);}},
             h(ToolbarIcon,{name:'zoomIn'})),
           h('button',{className:'tbtn icononly',title:'Decrease node and label size','aria-label':'Decrease font size',
             onClick:()=>setSizeScale(s=>Math.max(0.5,s-0.2))},
@@ -2982,7 +3070,7 @@ function App(){
             onClick:()=>setSizeScale(s=>Math.min(3,s+0.2))},
             h(ToolbarIcon,{name:'fontUp'})),
           h('button',{className:'tbtn icononly',title:'Fit graph to view','aria-label':'Fit to view',
-            onClick:()=>cyRef.current&&cyRef.current.fit(50)},
+            onClick:()=>{takeViewport();fitGraph(cyRef.current,50);}},
             h(ToolbarIcon,{name:'fit'}))
         ),
         gallery&&graphData&&h('button',{className:'iconbtn',title:'Take a guided tour','aria-label':'Take a guided tour',
@@ -3012,7 +3100,7 @@ function App(){
               onClick:()=>{
                 gcEvent('full-model-view','Full model view');
                 setFilterState({type:null,value:null});setNavHistory([]);
-                setTimeout(()=>cyRef.current&&cyRef.current.fit(50),100);
+                setTimeout(()=>fitGraph(cyRef.current,50),100);
               }},
             '⌂ Full Model View'),
           h('input',{type:'text',placeholder:'Search domains, tables...',
@@ -3029,8 +3117,8 @@ function App(){
             h(TreeNode,{key:dname,domainName:dname,domainData:ddata,
                         expandedDomains,expandedTables,searchTerm,
                         onToggleDomain:handleToggleDomain,onToggleTable:handleToggleTable,
-                        onClickDomain:handleClickDomain,onClickTable:handleClickTable,
-                        onClickAttr:handleClickAttr})
+                        onClickDomain:handleClickDomain,onClickSubdomain:handleClickSubdomain,
+                        onClickTable:handleClickTable,onClickAttr:handleClickAttr})
           )
         )
       ),
@@ -3040,14 +3128,25 @@ function App(){
                       backgroundImage:'radial-gradient(circle at 1px 1px,var(--line) 1px,transparent 0)',
                       backgroundSize:'40px 40px'}},
 
-        // Back button — present in any view other than the full model view; each
-        // press walks back one level until the full model is reached.
-        filterState.type&&h('button',{
-          onClick:goBack,
-          style:{position:'absolute',top:15,left:15,zIndex:1000,padding:'9px 16px',
-                 background:'var(--card)',color:'var(--ink)',border:'1px solid var(--line-strong)',borderRadius:9,
-                 cursor:'pointer',fontSize:13,fontWeight:650,boxShadow:'var(--shadow-lg)'}
-        },'← Back'),
+        graphData&&h('div',{style:{position:'absolute',top:15,left:15,zIndex:1000,display:'flex',alignItems:'center',gap:8}},
+          filterState.type&&h('button',{
+            onClick:goBack,
+            style:{padding:'9px 16px',background:'var(--card)',color:'var(--ink)',
+                   border:'1px solid var(--line-strong)',borderRadius:9,cursor:'pointer',
+                   fontSize:13,fontWeight:650,boxShadow:'var(--shadow-lg)'}
+          },'← Back'),
+          h('button',{
+            className:'tbtn',
+            title:'Download the current canvas as PNG',
+            'aria-label':'Download PNG',
+            onClick:()=>{
+              gcEvent('download-png','Download canvas PNG');
+              downloadCanvasPng(cyRef.current, graphData.sourceLabel||graphData.modelName||'model');
+            },
+            style:{height:32,padding:'0 10px',gap:6,boxShadow:'var(--shadow-lg)'}},
+            h(ToolbarIcon,{name:'png',size:14}),
+            'Download PNG')
+        ),
 
         // Filter info badge
         filterInfoText&&h('div',{style:{position:'absolute',top:15,right:15,zIndex:1000,
@@ -3097,7 +3196,6 @@ function App(){
           )
         ),
 
-        // Cytoscape container
         h('div',{ref:containerRef,style:{width:'100%',height:'100%',display:graphData?'block':'none'}})
       ),
 
@@ -3108,7 +3206,7 @@ function App(){
           selectedNode:treeClick?null:selectedNode,
           selectedEdge:treeClick?null:selectedEdge,
           treeClick,graphData,
-          domainSizes,setDomainSizes,filterState
+          domainSizes,setDomainSizes,filterState,onClickSubdomain:handleClickSubdomain
         })
       )
     ),

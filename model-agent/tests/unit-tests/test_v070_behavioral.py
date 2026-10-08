@@ -120,10 +120,14 @@ def test_v070_fix1_metrics_schema_is_never_dropped_after_decision_12a():
 
 
 def test_v070_fix1_logger_emits_metrics_drop_count():
-    """The new logger.info must report _metrics= and domain= drop counts."""
-    txt = _agent_text_for_grep()
-    assert re.search(r"vov-metrics-teardown FIRED.*_metrics=", txt), (
-        "Fix 1 log line must include _metrics= count for grep auditing"
+    """The new logger.info must report _metrics= and domain= drop counts on the one emitted FIRED line."""
+    import test_v514_schema_ownership_teardown as own
+    own.ah.set_vibe_scope_runtime(None)
+    log = own._Log()
+    own.ah._early_clash_detection(own._spark(own.ALL_SCHEMAS, *own._history()), own._config(), own._vov_wv(), log)
+    fired = [msg for _, msg in log.lines if "[vov-metrics-teardown FIRED]" in msg]
+    assert len(fired) == 1 and "domain=2" in fired[0] and "_metrics=1" in fired[0], (
+        f"Fix 1 log line must include domain= and _metrics= counts for grep auditing: {fired}"
     )
 
 

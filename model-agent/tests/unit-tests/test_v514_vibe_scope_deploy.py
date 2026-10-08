@@ -246,7 +246,7 @@ def test_fk_backstop_redrops_a_constraint_that_survived_the_pre_deploy_drop(monk
             if "ADD CONSTRAINT `fk_fleet_maintenance_roster_id`" in text and text not in self.failed:
                 self.failed.add(text)
                 self.record(text)
-                raise RuntimeError("[CONSTRAINT_ALREADY_EXISTS] Constraint 'fk_fleet_maintenance_roster_id' already exists")
+                raise RuntimeError(h.constraint_exists_text("fk_fleet_maintenance_roster_id", "roster_id", "skyline.crew.roster", "roster_id"))
             return super().sql(stmt)
 
     spark = StickySpark(h.base_physical_tables())

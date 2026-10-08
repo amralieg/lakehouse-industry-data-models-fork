@@ -92,6 +92,7 @@ def _exec_v251_namespace():
         # provide them or run_vov_pipeline NameErrors mid-pipeline. Stub with real values.
         "_VOV_BRIDGE_CALL_LOCK": __import__("threading").Lock(),
         "_VOV_BRIDGE_CALL_COUNT": 0,
+        "_VIBE_SCOPE_RUNTIME": None,
     }
     ordered_defs = [
         "_V251_PRIORITY_LINE_RE",
@@ -133,6 +134,9 @@ def _exec_v251_namespace():
         "_v330_recover_dropped_priorities",
         "_v413_vreq_to_det_op",
         "_v413_apply_det_op_inplace",
+        "_vibe_scope_apply_pass1",
+        "_vibe_scope_apply_det_op",
+        "_vibe_scope_engine_gate",
         "run_vov_pipeline",
     ]
     for name in ordered_defs:

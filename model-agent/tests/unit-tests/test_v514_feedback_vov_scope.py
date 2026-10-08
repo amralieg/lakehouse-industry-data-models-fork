@@ -62,7 +62,7 @@ def test_shared_loader_honours_an_explicit_scope_and_hydrate_flag(monkeypatch, t
 def test_preload_and_setup_share_one_loader():
     assert "_resolve_base_model_json(widgets_values, logger, base_version=widgets_values.get(\"base_version_for_review\")" in slice_function_source("run_vov_2_against_widgets")
     setup = slice_function_source("step_setup_and_clean")
-    assert setup.count("_resolve_base_model_json(") == 2
+    assert setup.count("_resolve_base_model_json(") == 3
     assert "with open(_bcfp" not in setup
 
 

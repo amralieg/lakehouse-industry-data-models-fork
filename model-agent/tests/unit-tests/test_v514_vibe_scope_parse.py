@@ -409,7 +409,7 @@ def test_setup_all_domains_is_a_strict_noop(monkeypatch, operation):
         wv = _vov_widgets(scope=None)
         _run_setup(monkeypatch, wv, sql=_vov_sql(latest="3"), table_exists=True)
         assert wv["_user_specified_domains"] == _legacy_business_domains_parse(RAW["model"]["data_domains"])
-        assert wv["sizing_directives"]["user_domains_exhaustive"] is True
+        assert "user_domains_exhaustive" not in (wv.get("sizing_directives") or {})
     assert ah.get_vibe_scope_runtime() is None
     assert "_vibe_scope_spec" not in wv and "_vibe_scope_stale_base" not in wv
     assert not any("vibe-scope" in str(s) for s in wv.get("_vov_pending_sentinels", []))

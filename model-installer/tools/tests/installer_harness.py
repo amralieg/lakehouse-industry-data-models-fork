@@ -394,12 +394,14 @@ def load_uninstall(spark, manifest=None, plan=None, log_lines=None):
 
 
 def run_main_cell(sample_cfg, failures=(), calls=None, catalog_exists=None,
-                  on_manifest=None):
+                  on_manifest=None, hooks=None):
     """Exec the installer's main cell against stubs and run main() once.
 
     `catalog_exists` is the stub behind the pre-install catalog probe; pass a callable
     with side effects to observe WHEN main() probes. `on_manifest` receives
     (cfg, plan, pre_existing, samples) so a test can assert what the install recorded.
+    The model.json load, the scoped-install guard, the install and the agent hand-off
+    append to calls["order"]; `hooks` replaces any stub by name after the cell is run.
     """
     import datetime as _datetime
     import json as _json
@@ -422,6 +424,20 @@ def run_main_cell(sample_cfg, failures=(), calls=None, catalog_exists=None,
     def _sink_setup(cfg):
         calls.setdefault("order", []).append("setup_log_sink")
 
+    def _step(name, result=None):
+        def _record(*args):
+            calls.setdefault("order", []).append(name)
+            calls.setdefault("args", {})[name] = args
+            return result
+        return _record
+
+    _install = _step("install", (failures, 12.0, {"table": 12.0}))
+
+    def _manifest(cfg, plan, pre_existing, samples=None):
+        calls.setdefault("order", []).append("write_install_manifest")
+        if on_manifest:
+            on_manifest(cfg, plan, pre_existing, samples)
+
     namespace = {
         "__name__": "installer_main_cell",
         "time": _time, "datetime": _datetime, "os": _os, "json": _json,
@@ -438,11 +454,13 @@ def run_main_cell(sample_cfg, failures=(), calls=None, catalog_exists=None,
             "session_id": "1", "local_install": "", "resolved_version": "v1",
             "target_catalogs": ["demo"], "sample": sample_cfg},
         "_catalog_exists": catalog_exists or (lambda catalog: True),
-        "write_install_manifest": (
-            on_manifest or (lambda cfg, plan, pre_existing, samples=None: None)),
+        "write_install_manifest": _manifest,
         "uninstall": lambda cfg: ([], 1.0),
         "build_plan": lambda cfg: {"table": ["CREATE TABLE t"]},
-        "install": lambda cfg, plan: (failures, 12.0, {"table": 12.0}),
+        "load_model_json": _step("load_model_json"),
+        "guard_scoped_install": _step("guard_scoped_install"),
+        "register_model_json": _step("register_model_json"),
+        "install": _install,
         "generate_sample_data": lambda spark, cfg, catalogs, log: (
             calls.setdefault("samples", []).append((cfg, catalogs))
             or {"written": 42, "tables": 7, "failed": []}),
@@ -459,12 +477,13 @@ def run_main_cell(sample_cfg, failures=(), calls=None, catalog_exists=None,
     # install / setup_log_sink / write_failures_manifest are defined by the cell itself,
     # so they can only be stubbed once it has been executed.
     namespace.update(
-        install=lambda cfg, plan: (failures, 12.0, {"table": 12.0}),
+        install=_install,
         setup_log_sink=_sink_setup,
         teardown_log_sink=lambda: None,
         write_failures_manifest=lambda cfg, final: None,
         JobLauncher=type("J", (), {
             "update_job_tags": staticmethod(lambda tags: {"success": True})}))
+    namespace.update(hooks or {})
     try:
         namespace["main"]()
     except _Exit:

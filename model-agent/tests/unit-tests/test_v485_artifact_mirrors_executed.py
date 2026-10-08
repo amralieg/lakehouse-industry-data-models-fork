@@ -42,6 +42,8 @@ def run_block(statements, failed=(), fallback=None, domains=("retail",)):
         "metric_exec_result": {"failed": list(failed), "total": len(statements)},
         "_mv_failed_ct": len(failed),
         "_mv_fallback_statements": dict(fallback or {}),
+        "_vs_plan": None,
+        "_vs_mv_kept": [],
         "widgets_values": {
             "current_version": "1",
             "model_scope": "mvm",

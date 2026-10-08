@@ -4,16 +4,25 @@ A small three-domain airline model (crew in scope; flight and fleet frozen), the
 scoped run's facts (P1-P5), a thread-safe fake Spark session that records every
 SQL statement and answers the catalog probes from an in-memory physical state, and
 a loader that executes the install-model functions nested inside ``main()``.
+
+UCSpark adds the Unity Catalog constraint behaviour the 2026-10-08 probe measured
+(fixtures/v514_uc_probe_errors.json): a parent CREATE OR REPLACE keeps child FKs only
+while the PK keeps its name and columns, a changed PK or a dropped parent deletes them
+silently, a replaced child loses its own FKs and rows, CREATE TABLE IF NOT EXISTS
+changes nothing, and errors carry the probe's texts (serverless ones with the
+QueryExecution.scala:2504 frame). information_schema is answered by sqlite.
 """
 import ast
 import copy
 import json
 import logging
 import re
+import sqlite3
 import sys
 import textwrap
 import threading
 import types
+from pathlib import Path
 
 import agent_helpers as ah
 from notebook_source_util import notebook_concat_source
@@ -243,10 +252,11 @@ class FakeSpark:
             with self._lock:
                 if fqn not in self.tables:
                     raise RuntimeError(f"[TABLE_OR_VIEW_NOT_FOUND] {fqn}")
-                for col in re.findall(r"`([^`]+)`\s+\S", m.group(4)):
-                    if col.lower() in self.tables[fqn]:
-                        raise RuntimeError(f"[FIELDS_ALREADY_EXISTS] Cannot add column, because `{col}` already exists")
-                    self.tables[fqn].append(col.lower())
+                cols = re.findall(r"`([^`]+)`\s+\S", m.group(4))
+                existing = [col for col in cols if col.lower() in self.tables[fqn]]
+                if existing:
+                    raise RuntimeError(field_exists_text(existing[0], [(c, "BIGINT") for c in self.tables[fqn]]))
+                self.tables[fqn].extend(col.lower() for col in cols)
             return
         m = self._DROP_TABLE.match(text)
         if m:
@@ -319,6 +329,255 @@ class FakeSpark:
                 prods.add((s, t))
             return _DF(self, [Row(p) for p in sorted(prods)])
         return _DF(self, [])
+
+
+PROBE = json.loads((Path(__file__).resolve().parent / "fixtures" / "v514_uc_probe_errors.json").read_text())
+RUNCOMMAND_FRAME = "\tat org.apache.spark.sql" + PROBE["serverless_runCommand_context_2504"].split(" | ")[0]
+_UC_DATA_TYPE = {"bigint": "LONG", "int": "INT", "string": "STRING", "double": "DOUBLE", "date": "DATE", "timestamp": "TIMESTAMP",
+                 "boolean": "BOOLEAN"}
+
+
+def field_exists_text(column, columns):
+    struct = ", ".join(f"{name}: {ctype.upper()}" for name, ctype in columns)
+    return (f"[FIELD_ALREADY_EXISTS] Cannot add column, because `{column}` already exists in \"STRUCT<{struct}>\". "
+            f"SQLSTATE: 42710; line 1 pos 0")
+
+
+def constraint_exists_text(name, column, parent, parent_column):
+    pc, ps, pt = parent.split(".")
+    return (f"[DELTA_CONSTRAINT_ALREADY_EXISTS] Constraint '{name}' already exists. Please delete the old constraint first.\n"
+            f"Old constraint:\n{name} FOREIGN KEY (`{column}`) REFERENCES `{pc}`.`{ps}`.`{pt}` (`{parent_column}`)\n")
+
+
+def table_not_found_text(fqn):
+    cat, schema, table = fqn.split(".")
+    return PROBE["warehouse"]["D01_fk_parent_missing"].replace("vibe_dryrun_smoke_v1", cat).replace(
+        "vs_probe_v514_a", schema).replace("`parent`", f"`{table}`")
+
+
+def fk_type_mismatch_text(column, child_type, parent_column, parent_type):
+    return (f"The foreign key child column type does not match the parent column type. Foreign key child column `{column}` has "
+            f"type {_UC_DATA_TYPE.get(child_type.lower(), child_type.upper())} and parent column `{parent_column}` has type "
+            f"{_UC_DATA_TYPE.get(parent_type.lower(), parent_type.upper())}.")
+
+
+class UCError(Exception):
+    def __init__(self, message="", condition=None, sqlstate=None):
+        super().__init__(message)
+        self._condition, self._sqlstate = condition, sqlstate
+
+    def getCondition(self):
+        return self._condition
+
+    def getErrorClass(self):
+        return self._condition
+
+    def getSqlState(self):
+        return self._sqlstate
+
+
+def serverless_error(head, condition=None, sqlstate=None):
+    return UCError(f"{head}\n\nJVM stacktrace:\norg.apache.spark.sql.AnalysisException\n{RUNCOMMAND_FRAME}\n"
+                   f"\tat java.base/java.lang.Thread.run(Thread.java:840)", condition, sqlstate)
+
+
+class UCSpark(FakeSpark):
+    _UC_CREATE = re.compile(r"^CREATE\s+(OR\s+REPLACE\s+TABLE|TABLE\s+IF\s+NOT\s+EXISTS|TABLE)\s+`([^`]+)`\.`([^`]+)`\.`([^`]+)`\s*\((.*)\)",
+                            re.I | re.S)
+    _UC_DEF = re.compile(r"`([^`]+)`\s+([A-Za-z_]\w*(?:\([^)]*\))?)")
+    _UC_PK = re.compile(r"CONSTRAINT\s+`?(\w+)`?\s+PRIMARY\s+KEY\s*\(([^)]*)\)", re.I)
+    _UC_ADD_FK = re.compile(r"^ALTER\s+TABLE\s+`([^`]+)`\.`([^`]+)`\.`([^`]+)`\s+ADD\s+CONSTRAINT\s+`([^`]+)`\s+FOREIGN\s+KEY\s*\(`([^`]+)`\)\s*"
+                            r"REFERENCES\s+`([^`]+)`\.`([^`]+)`\.`([^`]+)`\s*\(`([^`]+)`\)", re.I)
+    _UC_DROP_FK = re.compile(r"^ALTER\s+TABLE\s+`([^`]+)`\.`([^`]+)`\.`([^`]+)`\s+DROP\s+CONSTRAINT\s+IF\s+EXISTS\s+`([^`]+)`", re.I)
+    _UC_INFO = re.compile(r"`([^`]+)`\.information_schema\.(\w+)", re.I)
+    _UC_CATALOG_COLUMN = {"columns": "table_catalog", "tables": "table_catalog"}
+
+    def __init__(self, serverless=True, **kwargs):
+        super().__init__(**kwargs)
+        self.serverless = serverless
+        self.uc = {}
+
+    @classmethod
+    def from_model(cls, root, catalog=CATALOG, extra_tables=None, **kwargs):
+        spark = cls(**kwargs)
+        mdl = root["model"]
+        types = {}
+        for domain in mdl["domains"]:
+            for product in domain["products"]:
+                for attr in product["attributes"]:
+                    if attr.get("is_primary_key"):
+                        types[f"{domain['name']}.{product['name']}.{attr['name']}"] = ah.map_data_type(attr["type"])
+        for domain in mdl["domains"]:
+            for product in domain["products"]:
+                fqn = f"{catalog}.{domain['database_name']}.{product['table_name']}".lower()
+                cols = [(a["name"].lower(), (types.get(a.get("foreign_key_to")) or ah.map_data_type(a["type"])).lower())
+                        for a in product["attributes"]]
+                spark._put(fqn, cols, (f"pk_{product['table_name']}", [product["primary_key"].lower()]))
+        for domain in mdl["domains"]:
+            for product in domain["products"]:
+                fqn = f"{catalog}.{domain['database_name']}.{product['table_name']}".lower()
+                for attr in product["attributes"]:
+                    fk = attr.get("foreign_key_to") or ""
+                    if fk.count(".") == 2:
+                        pdom, pprod, pcol = fk.split(".")
+                        pdb = next(d["database_name"] for d in mdl["domains"] if d["name"] == pdom)
+                        spark.uc[fqn]["fks"][f"fk_{domain['name']}_{product['name']}_{attr['name']}"] = (
+                            attr["name"].lower(), f"{catalog}.{pdb}.{pprod}".lower(), pcol.lower())
+        for fqn, cols in (extra_tables or {}).items():
+            spark._put(fqn.lower(), [(c.lower(), "bigint") for c in cols], None)
+        return spark
+
+    def _put(self, fqn, cols, pk, rows=0):
+        self.uc[fqn] = {"cols": list(cols), "pk": pk, "fks": {}, "rows": rows}
+        self.tables[fqn] = [c for c, _t in cols]
+
+    def _raise(self, head, condition=None, sqlstate=None):
+        if self.serverless:
+            raise serverless_error(head, condition, sqlstate)
+        raise UCError(head, condition, sqlstate)
+
+    def fks(self, fqn):
+        return dict(self.uc[fqn.lower()]["fks"])
+
+    def insert_rows(self, fqn, count=1):
+        self.uc[fqn.lower()]["rows"] += count
+
+    def _drop_inbound(self, parent, keep=None):
+        for fqn, table in self.uc.items():
+            if fqn == parent:
+                continue
+            for name, (_col, target, _pcol) in list(table["fks"].items()):
+                if target == parent and not keep:
+                    del table["fks"][name]
+
+    def _uc_ddl(self, text):
+        m = self._UC_CREATE.match(text)
+        if m:
+            fqn = ".".join(x.lower() for x in m.group(2, 3, 4))
+            body = m.group(5)
+            cols = [(c.lower(), t.lower()) for c, t in self._UC_DEF.findall(body)]
+            pk_m = self._UC_PK.search(body)
+            pk = (pk_m.group(1).lower(), [c.strip(" `").lower() for c in pk_m.group(2).split(",")]) if pk_m else None
+            kind = m.group(1).upper().split()[0:2]
+            if fqn in self.uc and kind == ["TABLE", "IF"]:
+                return True
+            if fqn in self.uc and kind == ["TABLE"]:
+                self._raise(f"[TABLE_OR_VIEW_ALREADY_EXISTS] Cannot create table or view `{fqn}` because it already exists.",
+                            "TABLE_OR_VIEW_ALREADY_EXISTS", "42P07")
+            if fqn in self.uc:
+                old_pk = self.uc[fqn]["pk"]
+                self._drop_inbound(fqn, keep=old_pk is not None and pk is not None and old_pk == pk)
+            self._put(fqn, cols, pk)
+            return True
+        m = self._UC_ADD_FK.match(text)
+        if m:
+            child, name, col = ".".join(x.lower() for x in m.group(1, 2, 3)), m.group(4).lower(), m.group(5).lower()
+            parent, pcol = ".".join(x.lower() for x in m.group(6, 7, 8)), m.group(9).lower()
+            if child not in self.uc:
+                self._raise(table_not_found_text(child), "TABLE_OR_VIEW_NOT_FOUND", "42P01")
+            if parent not in self.uc:
+                self._raise(table_not_found_text(parent), "TABLE_OR_VIEW_NOT_FOUND", "42P01")
+            if name in self.uc[child]["fks"]:
+                old = self.uc[child]["fks"][name]
+                self._raise(constraint_exists_text(name, old[0], old[1], old[2]), "DELTA_CONSTRAINT_ALREADY_EXISTS", "42710")
+            ctype = dict(self.uc[child]["cols"]).get(col, "")
+            ptype = dict(self.uc[parent]["cols"]).get(pcol, "")
+            if ctype != ptype:
+                self._raise(fk_type_mismatch_text(col, ctype, pcol, ptype), None, "XXKCM")
+            self.uc[child]["fks"][name] = (col, parent, pcol)
+            return True
+        m = self._UC_DROP_FK.match(text)
+        if m:
+            fqn = ".".join(x.lower() for x in m.group(1, 2, 3))
+            if fqn not in self.uc:
+                self._raise(table_not_found_text(fqn), "TABLE_OR_VIEW_NOT_FOUND", "42P01")
+            self.uc[fqn]["fks"].pop(m.group(4).lower(), None)
+            return True
+        m = self._ADD_COLUMNS.match(text)
+        if m:
+            fqn = ".".join(x.lower() for x in m.group(1, 2, 3))
+            if fqn not in self.uc:
+                self._raise(table_not_found_text(fqn), "TABLE_OR_VIEW_NOT_FOUND", "42P01")
+            cols = [(c.lower(), t.lower()) for c, t in self._UC_DEF.findall(m.group(4))]
+            present = dict(self.uc[fqn]["cols"])
+            existing = [c for c, _t in cols if c in present]
+            if existing:
+                self._raise(field_exists_text(existing[0], self.uc[fqn]["cols"]), "FIELD_ALREADY_EXISTS", "42710")
+            self.uc[fqn]["cols"].extend(cols)
+            self.tables[fqn] = [c for c, _t in self.uc[fqn]["cols"]]
+            return True
+        m = self._DROP_TABLE.match(text)
+        if m:
+            fqn = ".".join(x.lower() for x in m.group(1, 2, 3))
+            if fqn in self.uc:
+                del self.uc[fqn]
+                self.tables.pop(fqn, None)
+                self._drop_inbound(fqn)
+            return True
+        return False
+
+    def _info_db(self):
+        db = sqlite3.connect(":memory:")
+        db.execute("CREATE TABLE columns (table_catalog, table_schema, table_name, column_name, data_type, full_data_type, ordinal_position)")
+        db.execute("CREATE TABLE tables (table_catalog, table_schema, table_name, table_type)")
+        db.execute("CREATE TABLE table_constraints (constraint_catalog, constraint_schema, constraint_name, table_catalog, table_schema, "
+                   "table_name, constraint_type)")
+        db.execute("CREATE TABLE key_column_usage (constraint_catalog, constraint_schema, constraint_name, table_catalog, table_schema, "
+                   "table_name, column_name, ordinal_position, position_in_unique_constraint)")
+        db.execute("CREATE TABLE referential_constraints (constraint_catalog, constraint_schema, constraint_name, unique_constraint_catalog, "
+                   "unique_constraint_schema, unique_constraint_name)")
+        db.execute("CREATE TABLE constraint_column_usage (constraint_catalog, constraint_schema, constraint_name, table_catalog, "
+                   "table_schema, table_name, column_name)")
+        for fqn, table in self.uc.items():
+            cat, schema, name = fqn.split(".")
+            db.execute("INSERT INTO tables VALUES (?, ?, ?, 'MANAGED')", (cat, schema, name))
+            for pos, (col, ctype) in enumerate(table["cols"]):
+                db.execute("INSERT INTO columns VALUES (?, ?, ?, ?, ?, ?, ?)",
+                           (cat, schema, name, col, _UC_DATA_TYPE.get(ctype, ctype.upper()), ctype, pos))
+            if table["pk"]:
+                pk_name, pk_cols = table["pk"]
+                db.execute("INSERT INTO table_constraints VALUES (?, ?, ?, ?, ?, ?, 'PRIMARY KEY')", (cat, schema, pk_name, cat, schema, name))
+                for pos, col in enumerate(pk_cols, start=1):
+                    db.execute("INSERT INTO key_column_usage VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)", (cat, schema, pk_name, cat, schema, name, col, pos))
+                    db.execute("INSERT INTO constraint_column_usage VALUES (?, ?, ?, ?, ?, ?, ?)", (cat, schema, pk_name, cat, schema, name, col))
+            for fk_name, (col, parent, pcol) in table["fks"].items():
+                pcat, pschema, ptable = parent.split(".")
+                ppk = (self.uc.get(parent) or {}).get("pk")
+                db.execute("INSERT INTO table_constraints VALUES (?, ?, ?, ?, ?, ?, 'FOREIGN KEY')", (cat, schema, fk_name, cat, schema, name))
+                db.execute("INSERT INTO key_column_usage VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1)", (cat, schema, fk_name, cat, schema, name, col))
+                db.execute("INSERT INTO referential_constraints VALUES (?, ?, ?, ?, ?, ?)",
+                           (cat, schema, fk_name, pcat, pschema, ppk[0] if ppk else None))
+                db.execute("INSERT INTO constraint_column_usage VALUES (?, ?, ?, ?, ?, ?, ?)", (cat, pschema, fk_name, pcat, pschema, ptable, pcol))
+        return db
+
+    def _info(self, text):
+        for cat in {c.lower() for c, _v in self._UC_INFO.findall(text)}:
+            if cat in self.missing_catalogs:
+                raise RuntimeError(f"[NO_SUCH_CATALOG_EXCEPTION] Catalog '{cat}' was not found.")
+
+        def _scoped(m):
+            view = m.group(2).lower()
+            column = self._UC_CATALOG_COLUMN.get(view, "constraint_catalog")
+            return f"(SELECT * FROM {view} WHERE {column} = '{m.group(1).lower()}')"
+
+        cursor = self._info_db().execute(self._UC_INFO.sub(_scoped, text).replace("`", ""))
+        names = [d[0] for d in cursor.description]
+        return _DF(self, [Row(tuple(r), names) for r in cursor.fetchall()])
+
+    def _uc_handles(self, text):
+        return any(rx.match(text) for rx in (self._UC_CREATE, self._UC_ADD_FK, self._UC_DROP_FK, self._ADD_COLUMNS, self._DROP_TABLE))
+
+    def sql(self, stmt):
+        text = str(stmt).strip()
+        if "information_schema" in text and "information_schema.tables" not in text:
+            self.record(text)
+            return self._info(text)
+        if self._uc_handles(text):
+            self.record(text)
+            with self._lock:
+                self._uc_ddl(text)
+            return _DF(self, [])
+        return super().sql(stmt)
 
 
 def flat_widgets(model, logger=LOG, spark=None, facts=None, dry_run=False, statement_model=None,
@@ -438,7 +697,8 @@ class InstallRecorder:
     def __init__(self):
         self.phases = []
 
-    def execute_ddl_statements(self, spark, statements, mode="serial", logger=None, file_label="", max_workers=20, is_fk_file=False):
+    def execute_ddl_statements(self, spark, statements, mode="serial", logger=None, file_label="", max_workers=20, is_fk_file=False,
+                               on_failure=None):
         stmts = list(statements)
         self.phases.append((file_label, stmts))
         for stmt in stmts:

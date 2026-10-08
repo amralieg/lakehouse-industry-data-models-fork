@@ -105,7 +105,10 @@ class _FakeAIAgent:
 def _build_selffixer_namespace():
     """Execute the SelfFixer cell in an isolated namespace and return it."""
     src = _load_selffixer_cell()
-    ns = {"__name__": "__test_selffixer__"}
+    ns = {"__name__": "__test_selffixer__", "_VIBE_SCOPE_RUNTIME": None}
+    from notebook_source_util import slice_function_source
+    for name in ("_vibe_scope_digest_marks", "_vibe_scope_digest_state"):
+        exec(compile(slice_function_source(name), f"<{name}>", "exec"), ns)
     exec(compile(src, "<selffixer-cell>", "exec"), ns)
     return ns
 

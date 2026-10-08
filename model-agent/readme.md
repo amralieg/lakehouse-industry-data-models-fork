@@ -68,7 +68,7 @@ Same notebook — change **03. Operation** and fill the few widgets each mode ne
 
 | To do this | Set Operation to | Also set |
 |:---|:---|:---|
-| **Refine an existing version (VOV)** | `vibe modeling of version` | **04. Version** = the version to build on · **08. Model Vibes** = your changes in plain English (or paste `next_vibes.txt`). Writes a **new** version N+1; the source version is untouched. |
+| **Refine an existing version (VOV)** | `vibe modeling of version` | **04. Version** = the version to build on · **08. Model Vibes** (required) = your changes in plain English, or the path of the source version's `vibes/next_vibes.txt`. The source version's next_vibes are never applied automatically. Writes a **new** version N+1; the source version is untouched. |
 | **Shrink an ECM to a lean MVM** | `shrink ecm` | **04. Version** · **09. Installation Catalog** |
 | **Enlarge an MVM to a full ECM** | `enlarge mvm` | **04. Version** · **09. Installation Catalog** |
 | **Deploy a logical model to the catalog** | `install model` | **11. Model JSON File** (path to a `model.json`) · **09. Installation Catalog** |
@@ -400,7 +400,7 @@ The notebook exposes fine-grained widgets for naming conventions, tag prefixes, 
 | 06 | **Business Domains** | Conditional | Comma-separated domains. With **06a** on `All Domains`: optional seed domains, kept verbatim if you set them. Under a scope: required, and it is the scope list, `d1, d2` for `Some Domains` or `d1.s1, d2.s2` (domain.subdomain) for `Some Subdomains` |
 | 06a | **Vibe Scope** | No | `All Domains` (default), `Some Domains` or `Some Subdomains`. A scoped value limits a `vibe modeling of version` or `new base model` run to the entries in **06**. Everything else stays frozen, apart from a few boundary FK and metric-view fixes. Other operations reject a scoped value. See [Vibe Scope Semantics](docs/design-guide.md#vibe-scope-semantics-widget-06a) |
 | 07 | **Included Org Divisions** | Yes | Operations / Operations and Business / all three |
-| 08 | **Model Vibes** | Conditional | Natural-language instructions — inline text or a path to a `.txt` on a UC Volume |
+| 08 | **Model Vibes** | Conditional | Natural-language instructions — inline text or a path to a `.txt` on a UC Volume. Required for `vibe modeling of version` (an empty value fails preflight; pass the source version's `vibes/next_vibes.txt` path to apply its suggestions) |
 | 09 | **Installation Catalog** | Conditional | Unity Catalog target for physical deployment |
 | 09a | **Cataloging Style** | No | Physical catalog layout: `One Catalog` (whole model in one), `Catalog per Division`, or `Catalog per Domain` |
 | 10 | **Sample Records** | No | Synthetic records per table (0 = none) |

@@ -1312,7 +1312,7 @@ Widgets are the Databricks notebook input parameters that configure each agent r
 | 06 | business_domains | Domain names, comma-separated. With vibe_scope `All Domains`: optional pre-specified domains, kept verbatim. Under a scope: required, and it is the scope list, `d1, d2` for `Some Domains` or `d1.s1, d2.s2` (domain.subdomain) for `Some Subdomains` | Text |
 | 06a | vibe_scope | `All Domains` (default), `Some Domains` or `Some Subdomains`. A scoped value limits a `vibe modeling of version` or `new base model` run to the entries in `business_domains`; other operations reject it. See [Vibe Scope Semantics](#vibe-scope-semantics-widget-06a) | Dropdown |
 | 07 | org_divisions | Optional: custom division names and allocation | Text |
-| 08 | model_vibes | Natural-language refinement instructions — inline text (max 2,000 chars) or file path to `.txt` on a UC Volume | Multiline Text |
+| 08 | model_vibes | Natural-language refinement instructions — inline text (max 2,000 chars) or file path to `.txt` on a UC Volume. Required for `vibe modeling of version`: an empty value fails preflight, and the source version's `vibes/next_vibes.txt` applies only when this widget names its path | Multiline Text |
 | 09 | deployment_catalog | Unity Catalog target catalog for physical deployment | Text |
 | 09a | cataloging_style | Catalog naming strategy: one_catalog, per_division, per_domain | Dropdown |
 | 09b | catalog_prefix | Optional prefix applied to catalog names | Text |
@@ -1354,17 +1354,20 @@ Note: Widget 14 is intentionally skipped in the numbering.
 - VOV: the vibe changes only the in-scope part. Out-of-scope domains, products and metric views are carried over verbatim from the base model, apart from P1 to P5 below. In-scope domains stay pinned, so the run cannot drop one as a whole.
 - `new base model` with `Some Domains`: builds exactly the listed domains. With fewer than 4 domains, the division-balance and no-early-corporate gates only report.
 - `new base model` with `Some Subdomains`: builds the named domains and gives each listed subdomain at least one product. If a listed subdomain stays empty, the run retries, then fails with a clear message. Products in other subdomains are then removed.
+- `Some Subdomains` subdomain allocation: if it fails, the run halts before `model.json` is written. A new in-scope product without a subdomain is never pruned: in a VOV it gets the only subdomain listed for its domain, otherwise the constrained allocation assigns one, otherwise the run fails with a clear message.
 - Every other operation rejects a scoped value at preflight. To install a scoped model, leave widget 06a on `All Domains`. The scope travels inside `model.json`.
 
-**Allowed outside the scope (VOV only):** only these five deltas may touch an out-of-scope artifact. Each one is recorded with its cause in `_vibe_scope`.
+**Allowed outside the scope (VOV only):** only these five deltas may touch an out-of-scope artifact. P1 to P3 are allowed only as consequences of an explicit in-scope rename, drop or add, and the fence ledger records each of those with its cause (the requirement id, or the deterministic operation that applied it). Each delta is recorded with its cause in `_vibe_scope`.
 
 | Delta | What may change | Only when |
 |---|---|---|
-| P1 re-link | An existing FK column gets a new `foreign_key_to`. Its name and type stay. | Its in-scope target was renamed or moved |
-| P2 unlink | An existing FK column has its `foreign_key_to` cleared. The column stays. | Its in-scope target was dropped |
-| P3 link existing | An existing unlinked column gets a `foreign_key_to` | The target is a product created in scope during this run |
+| P1 re-link | An existing FK column gets a new `foreign_key_to`. Its name and type stay. | Its in-scope target was renamed or moved, and the rename is in the ledger |
+| P2 unlink | An existing FK column has its `foreign_key_to` cleared. The column stays. | Its in-scope target table was dropped, and the drop is in the ledger |
+| P3 link existing | An existing unlinked column gets a `foreign_key_to` | The target is a product created in scope during this run by an explicit add (a ledger create) |
 | P4 new FK column | A new FK column is added to an out-of-scope product, pointing into the scope | A vibe requirement names that product and that link |
-| P5 metric-view re-point | Renamed in-scope table names are substituted in the view SQL | Nothing else in the view changes |
+| P5 metric-view re-point | Renamed in-scope table and column names are substituted in the view SQL | Nothing else in the view changes |
+
+**Unrequested drop:** an in-scope table that out-of-scope FKs reference and that disappears, or moves, with no ledger drop or rename is a `unrequested_drop_of_referenced` conflict. The fence restores the product from the base model (or moves it back), logs a WARN (`vibe-scope-unrequested-drop`), and records it in `_vibe_scope.unrequested_drops` and in the run outcomes. The out-of-scope FKs keep their target.
 
 **Blocked:** an in-scope change is blocked when it breaks an out-of-scope artifact in a way P1 to P5 cannot repair. Its outcome is `scope_dependency_conflict`. The blocked cases are:
 
@@ -1381,14 +1384,15 @@ Note: Widget 14 is intentionally skipped in the numbering.
 - a scoped value with an empty `business_domains`;
 - a `Some Domains` entry that contains a dot;
 - a `Some Subdomains` entry without exactly one dot, or with an empty domain or subdomain part;
-- an entry with no letters or digits;
-- a scoped VOV whose convention widgets differ from the base model's `model_conventions`. A scoped run cannot change conventions for the whole model. Set those widgets to the base values, or use `All Domains`.
+- an entry with no letters or digits.
+
+**Conventions:** a scoped VOV keeps the base model's `model_conventions` for the whole model. Convention widgets that differ from them are ignored with a WARN (`vibe-scope-convention-mismatch`). Use `All Domains` to change conventions.
 
 **Stale base:** a scoped VOV may edit a base version that is no longer the latest completed version. This logs a WARN (`vibe-scope-stale-base`) and the run continues. Changes made in later versions are not in this base, so the new version will not have them. The check runs at setup and again before `model.json` is written.
 
-**`_vibe_scope` in model.json:** a scoped run writes a root key `_vibe_scope` right after `agent_version`. `All Domains` runs do not write it. It holds the mode, the entries and the resolved scope, every permitted delta with its cause, the blocked and rejected requirements, the restores per checkpoint (a clean run has 0) and the stale-base result. If an out-of-scope problem is still present at the write, the write fails closed and `model.json` is not written.
+**`_vibe_scope` in model.json:** a scoped run writes a root key `_vibe_scope` right after `agent_version`. `All Domains` runs do not write it. It holds the mode, the entries and the resolved scope, `base_version`, `base_scope` and `base_catalog` (the VOV base, at the block root; null for a new base model), every permitted delta with its cause, the change ledger (explicit drops and creates with their cause), the unrequested drops the fence restored, the blocked and rejected requirements, the restores per checkpoint (a clean run has 0) and the stale-base result. If an out-of-scope problem is still present at the write, or a listed subdomain received no product, the write fails closed and `model.json` is not written. A failed write halts the whole run: no artifact of the base version is carried over and nothing is deployed in its place.
 
-**Unity Catalog deploy:** a scoped run replaces only the in-scope tables that changed. Out-of-scope and unchanged tables get `CREATE TABLE IF NOT EXISTS`, so their rows and column tags stay. A P4 column is added with `ALTER TABLE ... ADD COLUMNS`. Stale-table cleanup drops only in-scope tables removed in this run. A later `install model` of a scoped `model.json` reads `_vibe_scope` and keeps the out-of-scope tables the same way.
+**Unity Catalog deploy:** a scoped run replaces only the in-scope tables that changed. Out-of-scope and unchanged tables get `CREATE TABLE IF NOT EXISTS`, so their rows and column tags stay. A P4 column is added with `ALTER TABLE ... ADD COLUMNS`. Stale-table cleanup drops only in-scope tables removed in this run. The setup teardown that drops every schema of the catalog for `All Domains` VOV, shrink and enlarge runs is skipped for a scoped run. A scoped Dry Run writes `metrics/*.sql` with the same view set the deploy would apply: in-scope views plus P5 re-pointed views. A later `install model` of a scoped `model.json` reads `_vibe_scope` and keeps the out-of-scope tables the same way. The install accepts it only when the catalog's latest installed version equals `_vibe_scope.base_version` (for `base_scope`), or when the catalog holds none of the model's schemas; a scoped new base model needs no installed base. Both the agent and the installer count a version as installed when its registry row is complete (`completed_percent = 100`) with `deploy_status` NULL or `installed`, or when an installer manifest recorded installing it.
 
 ### Vibe Scope App Contract
 

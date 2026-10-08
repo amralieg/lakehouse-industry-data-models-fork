@@ -44,7 +44,8 @@ def _legacy_business_domains_parse(raw):
 
 def _validate(operation=VOV, **kw):
     base = dict(operation=operation, business_name="Airlines", business_description="An airline.",
-                model_version="1", deployment_catalog="cat", context_file_loaded=True, model_folder="/Volumes/x")
+                model_version="1", deployment_catalog="cat", context_file_loaded=True, model_folder="/Volumes/x",
+                model_vibes="add nickname to crew.member")
     base.update(kw)
     return ah._validate_required_widget_values(**base)
 
@@ -184,7 +185,7 @@ def test_widget_is_declared_and_forwarded_to_the_child_job():
 def test_both_preflight_callers_pass_the_scope_kwargs():
     main_src = slice_function_source("main")
     assert 'w_vibe_scope = _safe_widget("vibe_scope", "All Domains")' in main_src
-    assert "vibe_scope=w_vibe_scope," in main_src and "business_domains=_eff_domains," in main_src
+    assert "vibe_scope=w_vibe_scope," in main_src and "business_domains=w_domains," in main_src
     assert "base_model=_context_file_data," not in main_src and "model_conventions=_widget_model_conventions," not in main_src
     assert 'vibe_scope=_pf_w("vibe_scope"),' in main_src and 'business_domains=_pf_w("business_domains"),' in main_src
     assert '_widget_raw_values["vibe_scope"] = _eff_vibe_scope' in main_src

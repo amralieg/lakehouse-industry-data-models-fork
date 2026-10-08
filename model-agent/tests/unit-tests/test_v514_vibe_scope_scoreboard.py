@@ -128,7 +128,7 @@ def test_run_vov_2_marks_orchestrator_and_publishes_scope_outcomes(monkeypatch):
 
 
 def test_static_analysis_reports_scope_gates_and_nothing_without_a_fence():
-    _fence()
+    fence = _fence()
     d, p, a, _mv = _flat()
     _row(p, "fleet", "aircraft")["description"] = "leaked out-of-scope edit"
     d.append(dict(d[0], domain="marketing"))
@@ -137,11 +137,18 @@ def test_static_analysis_reports_scope_gates_and_nothing_without_a_fence():
     a[:] = [r for r in a if not (r["domain"] == "crew" and r["product"] == "absence")]
     issues = ah.run_metamodel_static_analysis(d, p, a, {}, LOG)["issues"]
     gates = {i["category"]: i for i in issues if i["category"].startswith("vibe_scope_")}
-    assert set(gates) == {"vibe_scope_out_of_scope_change", "vibe_scope_extra_domain",
-                          "vibe_scope_dependency_conflict", "vibe_scope_dangling_boundary_fk"}
+    assert set(gates) == {"vibe_scope_out_of_scope_change", "vibe_scope_extra_domain", "vibe_scope_dependency_conflict"}
     assert gates["vibe_scope_out_of_scope_change"]["severity"] == "error" and "fleet.aircraft" in gates["vibe_scope_out_of_scope_change"]["details"]["paths"]
     assert gates["vibe_scope_extra_domain"]["details"]["paths"] == ["marketing"]
     assert "crew.member.member_id" in gates["vibe_scope_dependency_conflict"]["details"]["paths"]
+    assert "crew.absence" in gates["vibe_scope_dependency_conflict"]["details"]["paths"]
+    assert "unrequested_drop_of_referenced" in gates["vibe_scope_dependency_conflict"]["details"]["kinds"]
+    fence.record_change("drop", "crew", "absence", "engine:V1")
+    issues = ah.run_metamodel_static_analysis(d, p, a, {}, LOG)["issues"]
+    gates = {i["category"]: i for i in issues if i["category"].startswith("vibe_scope_")}
+    assert set(gates) == {"vibe_scope_out_of_scope_change", "vibe_scope_extra_domain",
+                          "vibe_scope_dependency_conflict", "vibe_scope_dangling_boundary_fk"}
+    assert "crew.absence" not in gates["vibe_scope_dependency_conflict"]["details"]["paths"]
     assert gates["vibe_scope_dangling_boundary_fk"]["severity"] == "info"
     ah.set_vibe_scope_runtime(None)
     issues = ah.run_metamodel_static_analysis(d, p, a, {}, LOG)["issues"]

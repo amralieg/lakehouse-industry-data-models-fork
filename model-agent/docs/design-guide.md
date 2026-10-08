@@ -1367,7 +1367,7 @@ Note: Widget 14 is intentionally skipped in the numbering.
 | P4 new FK column | A new FK column is added to an out-of-scope product, pointing into the scope | A vibe requirement names that product and that link |
 | P5 metric-view re-point | Renamed in-scope table and column names are substituted in the view SQL | Nothing else in the view changes |
 
-**Unrequested drop:** an in-scope table that out-of-scope FKs reference and that disappears, or moves, with no ledger drop or rename is a `unrequested_drop_of_referenced` conflict. The fence restores the product from the base model (or moves it back), logs a WARN (`vibe-scope-unrequested-drop`), and records it in `_vibe_scope.unrequested_drops` and in the run outcomes. The out-of-scope FKs keep their target.
+**Unrequested drop:** an in-scope table that out-of-scope FKs reference and that disappears, or moves, with no ledger drop or rename is a `unrequested_drop_of_referenced` conflict. The fence restores the product from the base model (or moves it back), logs a WARN (`vibe-scope-unrequested-drop`), and records it in `_vibe_scope.unrequested_drops` and in the run outcomes. The out-of-scope FKs keep their target. The passes apply the same rule before they act: the architect review drops any proposal that would remove, rename, merge, split or move such a product without a ledger drop (`vibe-scope-architect-referenced-guard`), and the deterministic FK linker links an out-of-scope column only to a product with a ledger create.
 
 **Blocked:** an in-scope change is blocked when it breaks an out-of-scope artifact in a way P1 to P5 cannot repair. Its outcome is `scope_dependency_conflict`. The blocked cases are:
 

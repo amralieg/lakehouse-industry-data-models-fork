@@ -349,12 +349,22 @@ def _strip_versions(uploads):
     return out
 
 
+_TWO_PART_DROP = re.compile(r"^DROP TABLE IF EXISTS (`[^`]+`\.`[^`]+`)$")
+
+
+def _with_three_part_stale_drops(ddl):
+    return sorted(_TWO_PART_DROP.sub(rf"DROP TABLE IF EXISTS `{h.CATALOG}`.\1", s) for s in ddl)
+
+
 @pytest.mark.parametrize("dry_run", [False, True])
 def test_unscoped_pipeline_deploy_matches_the_pre_patch_outputs(monkeypatch, dry_run):
     final = h.scoped_final_model()
     res = _run(monkeypatch, dry_run=dry_run, fence=False, facts=None, statement_model=None, final=final)
     key = "dry" if dry_run else "full"
-    assert sorted(_ddl(res)) == GOLDEN[key]["ddl"]
+    if not dry_run:
+        assert len([s for s in GOLDEN[key]["ddl"] if _TWO_PART_DROP.match(s)]) == 4
+    assert sorted(_ddl(res)) == _with_three_part_stale_drops(GOLDEN[key]["ddl"])
+    assert not [s for s in _ddl(res) if _TWO_PART_DROP.match(s)]
     assert {Path(p).name: h.normalize_artifact(t) for p, t in res["artifacts"].items()} == GOLDEN[key]["artifacts"]
     assert _strip_versions(res["uploads"]) == GOLDEN[key]["uploads"]
     assert "_vibe_scope_deploy_plan" not in res["widgets"]

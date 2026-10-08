@@ -108,9 +108,13 @@ def test_install_writes_installed_rows_into_the_registry(monkeypatch, tmp_path):
     assert "inst_cat._metamodel.business" not in fake.rows
 
 
-def _scoped(raw, base_version=2):
+def _scoped(raw, base_version=2, base_scope="mvm", operation="vibe modeling of version"):
     raw = copy.deepcopy(raw)
-    raw["_vibe_scope"] = {"mode": "domains", "label": "Some Domains", "entries": ["crm"], "base_version": base_version}
+    raw["_vibe_scope"] = {"mode": "domains", "label": "Some Domains", "entries": ["crm"], "operation": operation,
+                          "base_version": None if base_version is None else str(base_version), "base_scope": base_scope,
+                          "base_catalog": "inst_cat", "changed_in_scope_products": ["crm.customer"],
+                          "preserved_products": ["billing.invoice", "billing.payment"], "permitted_deltas": [],
+                          "serialize_gate": {"status": "passed", "violations": []}}
     return raw
 
 
@@ -168,11 +172,25 @@ def test_precondition_treats_legacy_null_deploy_status_as_installed():
     assert ah._scoped_install_precondition(fake, _scoped(fu.small_model()), fu.small_model()["model"], "inst_cat", "Airlines", "mvm", "inst_cat", _resolver()) == "base_match"
 
 
-def test_precondition_reads_the_stale_base_version_shape():
+def test_precondition_reads_only_the_root_base_version_like_the_installer():
     fake = _existing_install(2)
-    parsed = copy.deepcopy(fu.small_model())
-    parsed["_vibe_scope"] = {"mode": "domains", "entries": ["crm"], "stale_base": {"base_version": 2}}
-    assert ah._scoped_install_precondition(fake, parsed, fu.small_model()["model"], "inst_cat", "Airlines", "mvm", "inst_cat", _resolver()) == "base_match"
+    parsed = _scoped(fu.small_model(), base_version=None)
+    parsed["_vibe_scope"]["stale_base"] = {"base_version": "2"}
+    with pytest.raises(ValueError, match="an unrecorded base version"):
+        ah._scoped_install_precondition(fake, parsed, fu.small_model()["model"], "inst_cat", "Airlines", "mvm", "inst_cat", _resolver())
+    assert ah._scoped_install_precondition(fake, _scoped(fu.small_model()), fu.small_model()["model"], "inst_cat", "Airlines", "mvm", "inst_cat", _resolver()) == "base_match"
+
+
+def test_precondition_looks_up_the_base_scope_from_the_block():
+    fake = _existing_install(2)
+    with pytest.raises(ValueError, match="Scoped install refused"):
+        ah._scoped_install_precondition(fake, _scoped(fu.small_model(), base_scope="ecm"), fu.small_model()["model"], "inst_cat", "Airlines", "mvm", "inst_cat", _resolver())
+
+
+def test_precondition_needs_no_base_for_a_scoped_new_base_model_like_the_installer():
+    fake = _existing_install(1)
+    parsed = _scoped(fu.small_model(), base_version=None, base_scope=None, operation="new base model")
+    assert ah._scoped_install_precondition(fake, parsed, fu.small_model()["model"], "inst_cat", "Airlines", "mvm", "inst_cat", _resolver()) == "new_base"
 
 
 def test_precondition_without_registry_and_schemas_is_fresh():
@@ -184,3 +202,23 @@ def test_precondition_without_registry_and_schemas_is_fresh():
 def test_model_schemas_present_lists_only_the_model_schemas():
     fake = fu.FakeSpark(schemata={"inst_cat": ["crm", "other"]})
     assert ah._model_schemas_present(fake, fu.small_model()["model"], _resolver()) == ["inst_cat.crm"]
+
+
+def test_an_installer_manifest_counts_as_installed_like_the_installer(monkeypatch, tmp_path):
+    import glob
+    fake = _existing_install(1)
+    fu.register(fake, "inst_cat", version="2", model=fu.small_model(), deploy_status="dry_run")
+    manifest = tmp_path / "manifest_airlines_mvm.json"
+    manifest.write_text(json.dumps({"model_registration": {"business": "Airlines", "version": 2, "scope": "mvm"}}))
+    real_glob = glob.glob
+    monkeypatch.setattr(glob, "glob", lambda pattern, *a, **k: [str(manifest)] if pattern == "/Volumes/inst_cat/_install/logs/manifest_*.json" else real_glob(pattern, *a, **k))
+    assert ah._latest_installed_version(fake, "inst_cat", "Airlines", "mvm", catalog="inst_cat") == "2"
+    assert ah._scoped_install_precondition(fake, _scoped(fu.small_model()), fu.small_model()["model"], "inst_cat", "Airlines", "mvm", "inst_cat", _resolver()) == "base_match"
+
+
+def test_a_null_catalog_row_counts_only_in_a_co_located_registry():
+    fake = _existing_install(2)
+    for row in fake.rows["inst_cat._metamodel.business"]:
+        row["catalog"] = None
+    assert ah._latest_installed_version(fake, "inst_cat", "Airlines", "mvm", catalog="inst_cat") == "2"
+    assert ah._latest_installed_version(fake, "inst_cat", "Airlines", "mvm", catalog="other_cat") is None

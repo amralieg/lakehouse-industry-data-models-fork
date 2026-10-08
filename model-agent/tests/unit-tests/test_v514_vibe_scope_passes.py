@@ -665,6 +665,9 @@ def test_scoped_linker_links_out_of_scope_column_to_new_in_scope_product_as_p3()
     a.append({"domain": "crew", "product": "duty_slot", "attribute": "duty_slot_id", "type": "BIGINT", "tags": "primary_key",
               "is_primary_key": True, "foreign_key_to": ""})
     ah._post_normalization_deterministic_fk_linker(d, p, a, _cfg(), _Log())
+    assert not _row(a, "flight", "cancellation", "relief_duty_slot_id")["foreign_key_to"], "P3 needs a ledger create (decision 9A)"
+    fence.record_change("create", "crew", "duty_slot", "engine:VREQ-7")
+    ah._post_normalization_deterministic_fk_linker(d, p, a, _cfg(), _Log())
     assert _row(a, "flight", "cancellation", "relief_duty_slot_id")["foreign_key_to"] == "crew.duty_slot.duty_slot_id"
     result = fence.check_flat(d, p, a, mv)
     _assert_no_leak(result)
@@ -709,21 +712,39 @@ def test_new_base_subdomain_runs_let_passes_process_unallocated_roster_products(
     assert fence.report()["rename_ledger"] == []
     _row(p, "crew", "duty_period")["subdomain"] = "crew_records"
     wv = {"domains": d, "products": p, "attributes": a, "metric_views": []}
+    with pytest.raises(ah.VibeScopeFenceError, match="takes product subdomains only from the subdomain allocation"):
+        ah._vibe_scope_checkpoint_widgets("after_subdomains", wv, _Log(), allocated=True)
+    assert sorted(r["product"] for r in p) == crew_products, "item 2: unassigned products are never pruned silently"
+    for row in p:
+        if row["product"] != "duty_period":
+            row["subdomain"] = "crew_scheduling"
     assert ah._vibe_scope_checkpoint_widgets("after_subdomains", wv, _Log(), allocated=True) == len(crew_products) - 1
     assert [r["product"] for r in p] == ["duty_period"]
 
 
-def test_vov_subdomain_runs_keep_unassigned_new_products_until_allocation():
+def test_vov_subdomain_runs_settle_or_keep_unassigned_new_products():
     base, fence = _scoped("crew.crew_records", "Some Subdomains")
     d, p, a, mv = _flat(base)
     p.append({"domain": "crew", "product": "crew_note", "subdomain": "", "primary_key": "crew_note_id"})
     p.append({"domain": "crew", "product": "crew_memo", "subdomain": "flight_scheduling", "primary_key": "crew_memo_id"})
     wv = {"domains": d, "products": p, "attributes": a, "metric_views": mv}
     ah._vibe_scope_checkpoint_widgets("vov_writeback", wv, _Log())
-    assert _row(p, "crew", "crew_note") and not _row(p, "crew", "crew_memo")
+    assert _row(p, "crew", "crew_note")["subdomain"] == "" and not _row(p, "crew", "crew_memo")
     ah._vibe_scope_checkpoint_widgets("after_subdomains", wv, _Log(), allocated=True)
-    assert not _row(p, "crew", "crew_note")
+    assert _row(p, "crew", "crew_note")["subdomain"] == "crew_records"
     assert fence.mark_subdomains_allocated() is False
+
+
+def test_vov_subdomain_runs_fail_instead_of_pruning_an_unassigned_product_with_two_listed_subdomains():
+    base, fence = _scoped("crew.crew_records, crew.flight_scheduling", "Some Subdomains")
+    d, p, a, mv = _flat(base)
+    p.append({"domain": "crew", "product": "crew_note", "subdomain": "", "primary_key": "crew_note_id"})
+    wv = {"domains": d, "products": p, "attributes": a, "metric_views": mv}
+    ah._vibe_scope_checkpoint_widgets("vov_writeback", wv, _Log())
+    assert _row(p, "crew", "crew_note")["subdomain"] == ""
+    with pytest.raises(ah.VibeScopeFenceError, match="their domain lists more than one subdomain"):
+        ah._vibe_scope_checkpoint_widgets("after_subdomains", wv, _Log(), allocated=True)
+    assert _row(p, "crew", "crew_note")
 
 
 def test_scoped_cycle_breakers_spare_out_of_scope_edges():
@@ -782,6 +803,11 @@ def test_scoped_autofix_and_queued_ops_contain_out_of_scope_rows():
 
 def test_scoped_architect_review_applies_only_in_scope_proposals():
     base, fence = _scoped()
+    assert fence.referenced_from_outside("crew", "absence") and not fence.referenced_from_outside("crew", "pairing")
+    out = architect_review(copy.deepcopy(base))
+    res, p = out["result"], out["products"]
+    assert res["products_removed"] == [] and _row(p, "crew", "absence"), "9A: no ledger drop for a referenced in-scope product"
+    fence.record_change("drop", "crew", "absence", "engine:V1")
     out = architect_review(copy.deepcopy(base))
     res, p = out["result"], out["products"]
     assert res["products_removed"] == [{"domain_product_key": "crew.absence", "reason": "dup"}]

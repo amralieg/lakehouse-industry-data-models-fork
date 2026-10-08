@@ -151,6 +151,7 @@ def test_hooks_are_noops_without_a_runtime():
 
 def test_drop_is_dangling_until_reconcile_applies_p2():
     fence = _fence()
+    fence.record_change("drop", "crew", "absence", "engine:VREQ-1")
     m = _model()
     _domain(m, "crew")["products"] = [p for p in _domain(m, "crew")["products"] if p["name"] != "absence"]
     before = fence.check(m)
@@ -163,6 +164,7 @@ def test_drop_is_dangling_until_reconcile_applies_p2():
 
 def test_new_in_scope_product_link_is_p3():
     fence = _fence()
+    fence.record_change("create", "crew", "crew_shift", "engine:VREQ-2")
     m = _model()
     _domain(m, "crew")["products"].append({"name": "crew_shift", "primary_key": "crew_shift_id", "subdomain": "crew_records",
                                            "attributes": [{"name": "crew_shift_id", "type": "BIGINT"}]})
@@ -401,6 +403,7 @@ def test_splice_restores_out_of_scope_subtrees_byte_for_byte():
 def test_splice_reapplies_p3_and_p4_on_spliced_frozen_products():
     fence = _fence()
     assert fence.authorize_oos_link("flight", "scheduled_flight", "crew.member.member_id", column="duty_member_id")
+    fence.record_change("create", "crew", "crew_shift", "engine:VREQ-3")
     m = _model()
     _domain(m, "crew")["products"].append({"name": "crew_shift", "primary_key": "crew_shift_id", "attributes": [{"name": "crew_shift_id", "type": "BIGINT"}]})
     sched = _product(m, "flight", "scheduled_flight")

@@ -80,7 +80,6 @@ def test_v83_agent_version_at_least_083():
         ("user-renamed-attribute-record", "P50"),
         ("autofix-p016-user-vibe-skip", "P50"),
         ("connect-table-upsert-fk", "P51"),
-        ("vov-auto-latest-version-when-v1", "P52"),
         ("install-mv-hard-gate", "P53"),
         ("unconditional-cascade-drop-extras", "P54"),
         ("honest-adherence-precision", "P56"),
@@ -182,16 +181,11 @@ def test_p51_handler_adds_foreign_key_tag():
 # ───────────────────────────────────────────────────────────────────────────
 
 
-def test_p52_promotes_widget_when_higher_version_exists():
-    """The P52 guard must scan the volume for higher ECM versions and promote
-    `_base_ver_auto` so vibes patch the latest model, not rebuild from v1."""
+def test_p52_next_vibes_version_promotion_removed_with_the_auto_load():
     src = notebook_concat_source()
-    assert "widget model_version=1 but volume has" in src, (
-        "P52: log marker confirming the promotion path"
-    )
-    assert "_base_ver_auto = _highest" in src, (
-        "P52: must overwrite _base_ver_auto when promotion fires"
-    )
+    assert "widget model_version=1 but volume has" not in src
+    assert "_base_ver_auto = _highest" not in src
+    assert "[vov-vibes-required FIRED v5.1.4]" in src
 
 
 def test_p53_install_mv_hard_gate_fires_on_zero_deployed():

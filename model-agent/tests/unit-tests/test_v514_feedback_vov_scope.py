@@ -66,7 +66,7 @@ def test_preload_and_setup_share_one_loader():
     assert "with open(_bcfp" not in setup
 
 
-def _registered_vov_setup(monkeypatch, tmp_path, vibes="", business_domains=""):
+def _registered_vov_setup(monkeypatch, tmp_path, vibes=None, business_domains=""):
     volume = fu.VolumeRedirect(monkeypatch, tmp_path)
     volume.put(fu.model_json_path("inst_cat", "airlines", "1", "mvm"), fu.RAW)
     fake = fu.register(fu.FakeSpark(), "inst_cat")
@@ -258,7 +258,7 @@ def test_review_gate_does_not_restore_products_qa_renamed_in_place():
     wv = _vov_review_widgets(model)
     pre_qa = ah._vov_review_pre_qa_snapshot(wv, p, a)
     ah.run_quality_assurance_checks(d, p, a, fu.RecordingLogger(), None, _qa_config(),
-                                    protected_artifacts={"products": [], "domains": [], "links": []})
+                                    protected_artifacts={"products": ["billing.billing_invoice"], "domains": [], "links": []})
     assert ("billing", "invoice") in _keys(p) and ("billing", "billing_invoice") not in _keys(p)
     assert ah._vov_review_preservation_gate(wv, pre_qa, d, p, a) == 0
     assert len(p) == 3

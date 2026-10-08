@@ -166,10 +166,12 @@ def _where_matches(row, sql):
         return False
     if "completed_percent = 100" in where and float(row.get("completed_percent") or 0) != 100.0:
         return False
-    if "deploy_status IS NULL OR deploy_status = 'installed'" in where and row.get("deploy_status") not in (None, "installed"):
+    if re.search(r"deploy_status IS NULL OR (?:LOWER\()?deploy_status\)? = 'installed'", where) and \
+            row.get("deploy_status") is not None and str(row.get("deploy_status")).lower() != "installed":
         return False
     cat = re.search(r"LOWER\(catalog\) = LOWER\('([^']*)'\)", where)
-    if cat and str(row.get("catalog") or "").lower() != cat.group(1).lower():
+    legacy_catalog = "catalog IS NULL OR catalog = '' OR" in where
+    if cat and not (legacy_catalog and not row.get("catalog")) and str(row.get("catalog") or "").lower() != cat.group(1).lower():
         return False
     return True
 
@@ -334,10 +336,13 @@ def stop(*_a, **_k):
     raise StopAfterBranching()
 
 
-def setup_widgets(operation, business_domains="", vibe_scope=None, vibes="", data_domains=None, deployment_catalog="inst_cat",
+def setup_widgets(operation, business_domains="", vibe_scope=None, vibes=None, data_domains=None, deployment_catalog="inst_cat",
                   metamodel_catalog="", model_version=None):
+    if vibes is None:
+        vibes = "Add a loyalty_tier column to crew.member." if operation == VOV else ""
     wv = copy.deepcopy(ah.TECHNICAL_CONTEXT)
-    raw_values = {"business_name": "Airlines", "business_domains": business_domains, "operation": operation}
+    raw_values = {"business_name": "Airlines", "business_domains": business_domains, "operation": operation,
+                  "vibe_modelling_instructions": vibes}
     if vibe_scope is not None:
         raw_values["vibe_scope"] = vibe_scope
     wv.update({

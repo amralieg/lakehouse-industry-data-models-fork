@@ -28,7 +28,8 @@ def _helper_namespace():
     start = src.index("_CONVENIENCE_FK_PREFIXES = (")
     end = src.index("def _break_cycles(", start)  # wrapper right after _break_cycles_heuristic_internal
     block = src[start:end]
-    ns = {"defaultdict": defaultdict}
+    ns = {"defaultdict": defaultdict, "_vibe_scope_frozen_edges": exec_function_namespace(
+        "_vibe_scope_frozen_edges", extra_globals={"_VIBE_SCOPE_RUNTIME": None}, source=src)["_vibe_scope_frozen_edges"]}
     exec(compile(block, "<cyclebreak_helpers>", "exec"), ns)
     return ns
 

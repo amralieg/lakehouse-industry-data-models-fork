@@ -278,13 +278,21 @@ def test_blocked_dropping_a_table_or_column_a_frozen_mv_reads():
     assert result.conflicts[0]["path"] == f"crew.qualification.{read_column}"
 
 
-def test_blocked_rename_when_a_frozen_mv_joins_on_the_renamed_key():
+def test_renaming_the_key_a_frozen_mv_joins_on_is_repointed_not_blocked():
     pk = _product(RAW, "crew", "qualification")["primary_key"]
     base = _with_frozen_mv_joining_crew_qualification(pk)
     fence = _fence(base=base)
     m = copy.deepcopy(base)
     ah._v337_apply_rename_product(m["model"], "crew", "qualification", "crew_qualification")
-    assert _kinds(fence.check(m)).get("dropped_read_by_frozen_mv") == 1
+    before = fence.check(m)
+    assert before.ok and "dropped_read_by_frozen_mv" not in _kinds(before)
+    assert [d["fix"] for d in before.dangling] == ["P5"]
+    assert [a["kind"] for a in fence.reconcile_boundary(m, LOG)] == ["P5"]
+    after = fence.check(m)
+    assert after.ok and _kinds(after) == {"P1": 1, "P5": 1} and not after.dangling
+    sql = next(x for x in m["model"]["metric_views"] if x["view_name"] == "airport_baggage_irregularity")["sql"]
+    assert "qualification.crew_qualification_id" in sql and f"qualification.{pk}" not in sql
+    assert 'source: "`airlines_ecm`.`crew`.`crew_qualification`"' in sql
 
 
 def test_blocked_changing_the_type_of_a_referenced_in_scope_key():

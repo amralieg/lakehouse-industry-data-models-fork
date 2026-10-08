@@ -92,8 +92,8 @@ def test_fixH_v413_bridge_applies_split_and_reverse():
         ["_v413_apply_det_op_inplace", "_v337_apply_split_product", "_v337_apply_reverse_fk",
          "_v337_find_product", "_v337_iter_products", "_v337_apply_move_product",
          "_v337_apply_rename_product", "_v337_apply_rename_attribute", "_v337_rewire_fks",
-         "_v337_parse_fk_fqn", "_v251_find_product", "_v327_infer_coltype"],
-        src, extra_globals={"re": re, "copy": __import__("copy")})
+         "_v337_parse_fk_fqn", "_v251_find_product", "_v327_infer_coltype", "_vibe_scope_note_rename"],
+        src, extra_globals={"re": re, "copy": __import__("copy"), "_VIBE_SCOPE_RUNTIME": None})
     fn = ns["_v413_apply_det_op_inplace"]
     model = {"model": {"domains": [{"name": "customer", "products": [
         {"name": "preference", "primary_key": "preference_id", "attributes": [

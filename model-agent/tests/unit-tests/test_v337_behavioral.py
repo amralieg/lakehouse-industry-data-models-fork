@@ -25,7 +25,8 @@ def _extract_top_fn(src, name):
 
 def _bind():
     src = _full_src(NB)
-    ns = {"re": re, "copy": copy}
+    ns = {"re": re, "copy": copy, "_VIBE_SCOPE_RUNTIME": None}
+    exec(_extract_top_fn(src, "_vibe_scope_note_rename"), ns)
     try:
         ns2 = {"re": re}
         exec(_extract_top_fn(src, "sanitize_name"), ns2)

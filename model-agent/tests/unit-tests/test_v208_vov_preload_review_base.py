@@ -211,8 +211,10 @@ def _build_shim_namespace_with_stubs():
         # __RELEASE_VERSION__ (public label decoupled from the engine build). Cell 1
         # defines it in production; the extracted-function shim must inject it too.
         "__RELEASE_VERSION__": "0.8.0",
+        "_VIBE_SCOPE_RUNTIME": None,
     }
     # Order matters: helpers first
+    exec(compile(_extract_function_block(_notebook_source(), "_vibe_scope_bind_engine_baseline"), "<vibe-scope-bind>", "exec"), ns)
     exec(compile(model_to_flat, "<model_to_widgets_flat>", "exec"), ns)
     exec(compile(flat_to_model, "<widgets_flat_to_model>", "exec"), ns)
     exec(compile(fn_block, "<run_vov_2_against_widgets>", "exec"), ns)

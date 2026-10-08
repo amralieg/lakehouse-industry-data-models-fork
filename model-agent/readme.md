@@ -397,7 +397,8 @@ The notebook exposes fine-grained widgets for naming conventions, tag prefixes, 
 | 03 | **Operation** | Yes | Pipeline operation (see table above) |
 | 04 | **Version** | Conditional | Version to build on (for vibe/shrink/enlarge/install) |
 | 05 | **Model Scope** | Yes | MVM (lean) or ECM (comprehensive) |
-| 06 | **Business Domains** | No | Comma-separated seed domains — kept verbatim if you set them |
+| 06 | **Business Domains** | Conditional | Comma-separated domains. With **06a** on `All Domains`: optional seed domains, kept verbatim if you set them. Under a scope: required, and it is the scope list, `d1, d2` for `Some Domains` or `d1.s1, d2.s2` (domain.subdomain) for `Some Subdomains` |
+| 06a | **Vibe Scope** | No | `All Domains` (default), `Some Domains` or `Some Subdomains`. A scoped value limits a `vibe modeling of version` or `new base model` run to the entries in **06**. Everything else stays frozen, apart from a few boundary FK and metric-view fixes. Other operations reject a scoped value. See [Vibe Scope Semantics](docs/design-guide.md#vibe-scope-semantics-widget-06a) |
 | 07 | **Included Org Divisions** | Yes | Operations / Operations and Business / all three |
 | 08 | **Model Vibes** | Conditional | Natural-language instructions — inline text or a path to a `.txt` on a UC Volume |
 | 09 | **Installation Catalog** | Conditional | Unity Catalog target for physical deployment |

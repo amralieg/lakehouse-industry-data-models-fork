@@ -9,6 +9,7 @@
 Behavioral tests fail on pre-patch 5d386ed.
 """
 import ast
+import copy
 import hashlib
 import json
 import logging
@@ -294,6 +295,21 @@ def test_synthesis_prompt_carries_block_and_frozen_digest():
     plain = llm.calls[-1][1]
     assert ah._VIBE_SCOPE_PROMPT_SENTINEL not in plain and '"frozen": true' not in plain and "{vibe_scope_" not in plain
     assert "VIBE SCOPE: products marked" not in plain
+
+
+def test_synthesis_digest_lists_metric_view_names():
+    small = copy.deepcopy(_ENGINE)
+    crew = next(d for d in small["model"]["domains"] if d["name"] == "crew")
+    crew["products"] = [p for p in crew["products"] if p["name"] in ("member", "base", "qualification")]
+    small["model"]["domains"] = [crew]
+    small["model"]["metric_views"] = [mv for mv in small["model"]["metric_views"] if mv.get("owner_domain") == "crew"]
+    views = [mv["view_name"] for mv in small["model"]["metric_views"]]
+    assert views and not [mv for mv in small["model"]["metric_views"] if "name" in mv]
+    llm = _CaptureLLM()
+    ah.synthesize_handler(_batch(), llm, model_snapshot=small)
+    user = llm.calls[-1][1]
+    assert "truncated at 16KB" not in user
+    assert '"metric_views": ["' + '", "'.join(views) + '"]' in user
 
 
 def test_selffixer_digest_marks_frozen_neighbours_and_is_unchanged_without_a_fence():

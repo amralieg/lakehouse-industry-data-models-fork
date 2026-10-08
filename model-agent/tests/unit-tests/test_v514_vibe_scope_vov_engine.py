@@ -355,6 +355,20 @@ def test_merge_partial_leaves_fks_into_other_entities_alone():
     assert next(a for a in _product(merged, "flight", "plan")["attributes"] if a["name"] == victim["name"])["foreign_key_to"] == original["foreign_key_to"]
 
 
+def test_merge_partial_keeps_candidate_metric_views_keyed_by_view_name():
+    base = _engine()
+    existing = base["model"]["metric_views"][0]
+    assert "name" not in existing and existing["view_name"]
+    candidate = copy.deepcopy(base)
+    candidate["model"]["metric_views"].append(dict(existing, view_name="mv_crew_member_headcount", owner_domain="crew", owner_product="member"))
+    candidate["model"]["metric_views"].append(dict(existing, view_name=existing["view_name"].upper(), sql="SELECT 1"))
+    merged = ah._merge_partial(base, candidate, (("crew", "member"),))
+    names = [mv["view_name"] for mv in merged["model"]["metric_views"]]
+    assert names.count("mv_crew_member_headcount") == 1
+    assert [n for n in names if n.lower() == existing["view_name"].lower()] == [existing["view_name"]]
+    assert len(names) == len(base["model"]["metric_views"]) + 1
+
+
 def test_batching_index_and_batches_are_narrowed_to_the_scope():
     fence = _fence()
     model = _engine()

@@ -25,7 +25,7 @@
 - [15. Vibe System Architecture](#15-vibe-system-architecture)
 - [16. DAG Enforcement Deep Dive](#16-dag-enforcement-deep-dive)
 - [17. Static Analysis Checks](#17-static-analysis-checks)
-- [18. Complete Widget Reference (29 Widgets)](#18-complete-widget-reference-29-widgets)
+- [18. Complete Widget Reference (30 Widgets)](#18-complete-widget-reference-30-widgets)
 - [19. Output Artifacts (Complete Reference)](#19-output-artifacts-complete-reference)
 - [20. Error Handling Patterns](#20-error-handling-patterns)
 - [22. Surgical Mode Architecture (v0.4.0 — v0.5.1)](#22-surgical-mode-architecture-v040--v051)
@@ -1297,7 +1297,7 @@ The agent performs comprehensive code-based validation of the model without LLM 
 
 ---
 
-## 18. Complete Widget Reference (29 Widgets)
+## 18. Complete Widget Reference (30 Widgets)
 
 Widgets are the Databricks notebook input parameters that configure each agent run. Below is the complete reference:
 
@@ -1309,7 +1309,8 @@ Widgets are the Databricks notebook input parameters that configure each agent r
 | 03a | run_type | `Full Run` (default; deploy to Unity Catalog) or `Dry Run` (build the model and all volume artifacts, including the runnable `schemas/*.sql` DDL, but skip the UC deploy). Applies to generative ops only; install/uninstall always deploy | Dropdown |
 | 04 | model_version | Version identifier for the model (e.g., v1, v2) | Text |
 | 05 | data_model_scopes | MVM or ECM scope selection | Dropdown |
-| 06 | business_domains | Optional: pre-specified domain names (comma-separated) | Text |
+| 06 | business_domains | Domain names, comma-separated. With vibe_scope `All Domains`: optional pre-specified domains, kept verbatim. Under a scope: required, and it is the scope list, `d1, d2` for `Some Domains` or `d1.s1, d2.s2` (domain.subdomain) for `Some Subdomains` | Text |
+| 06a | vibe_scope | `All Domains` (default), `Some Domains` or `Some Subdomains`. A scoped value limits a `vibe modeling of version` or `new base model` run to the entries in `business_domains`; other operations reject it. See [Vibe Scope Semantics](#vibe-scope-semantics-widget-06a) | Dropdown |
 | 07 | org_divisions | Optional: custom division names and allocation | Text |
 | 08 | model_vibes | Natural-language refinement instructions — inline text (max 2,000 chars) or file path to `.txt` on a UC Volume | Multiline Text |
 | 09 | deployment_catalog | Unity Catalog target catalog for physical deployment | Text |
@@ -1334,6 +1335,72 @@ Widgets are the Databricks notebook input parameters that configure each agent r
 | 24 | vibe_session_id | Unique session identifier for progress tracking | Text |
 
 Note: Widget 14 is intentionally skipped in the numbering.
+
+### Vibe Scope Semantics (Widget 06a)
+
+`vibe_scope` sets how much of the model a run may change. `All Domains` (the default) keeps the existing behavior. `Some Domains` and `Some Subdomains` fence the run to the entries in `business_domains`. The fence is deterministic code. It checks every change when it is made, and again before `model.json` is written. Every LLM prompt also carries the scope, but only to cut wasted retries.
+
+**Entries:** `Some Domains` takes `d1, d2`; an entry with a dot is an error. `Some Subdomains` takes `d1.s1, d2.s2`; each entry needs exactly one dot. Entries match exactly after normalization: lowercase, letters and digits only. So `Customer Service` matches the domain `customer_service`, but `customer` does not. In a `vibe modeling of version` (VOV) run, an entry that is not in the base model is accepted as a new container, and the run logs a WARN with the closest existing names. A typo cannot change anything outside the scope. It can leave the intended domain frozen, though, so check that WARN.
+
+**In scope:**
+
+- `Some Domains`: each listed domain with its record, products and attributes, plus the metric views whose `owner_domain` is that domain.
+- `Some Subdomains`: the products whose `subdomain` is listed for their domain, plus the metric views those products own. The domain record (description, division, tags, `database_name`) stays frozen. New products must use a listed subdomain.
+- Everything else is frozen. That includes the model-level metadata: description, glossary, systems of record, governing body and `model_conventions`. Run-stamped fields such as `agent_version` and `version` still update.
+- A metric view with no `owner_domain` is out of scope. Under `Some Subdomains`, so is one with no `owner_product`.
+
+**Operations that honor the scope:**
+
+- VOV: the vibe changes only the in-scope part. Out-of-scope domains, products and metric views are carried over verbatim from the base model, apart from P1 to P5 below. In-scope domains stay pinned, so the run cannot drop one as a whole.
+- `new base model` with `Some Domains`: builds exactly the listed domains. With fewer than 4 domains, the division-balance and no-early-corporate gates only report.
+- `new base model` with `Some Subdomains`: builds the named domains and gives each listed subdomain at least one product. If a listed subdomain stays empty, the run retries, then fails with a clear message. Products in other subdomains are then removed.
+- Every other operation rejects a scoped value at preflight. To install a scoped model, leave widget 06a on `All Domains`. The scope travels inside `model.json`.
+
+**Allowed outside the scope (VOV only):** only these five deltas may touch an out-of-scope artifact. Each one is recorded with its cause in `_vibe_scope`.
+
+| Delta | What may change | Only when |
+|---|---|---|
+| P1 re-link | An existing FK column gets a new `foreign_key_to`. Its name and type stay. | Its in-scope target was renamed or moved |
+| P2 unlink | An existing FK column has its `foreign_key_to` cleared. The column stays. | Its in-scope target was dropped |
+| P3 link existing | An existing unlinked column gets a `foreign_key_to` | The target is a product created in scope during this run |
+| P4 new FK column | A new FK column is added to an out-of-scope product, pointing into the scope | A vibe requirement names that product and that link |
+| P5 metric-view re-point | Renamed in-scope table names are substituted in the view SQL | Nothing else in the view changes |
+
+**Blocked:** an in-scope change is blocked when it breaks an out-of-scope artifact in a way P1 to P5 cannot repair. Its outcome is `scope_dependency_conflict`. The blocked cases are:
+
+- dropping an in-scope table that an out-of-scope metric view reads, or dropping or renaming a column that the view reads;
+- changing the type of an in-scope primary key that out-of-scope FKs reference;
+- moving a product across the scope boundary, in either direction.
+
+**Rejected and reported:** a vibe requirement that targets an out-of-scope artifact is not applied. Its outcome is `scope_rejected`. A requirement with both in-scope and out-of-scope targets is split, and only its in-scope part is applied. Adherence is reported over the in-scope requirements, with the rejected and blocked counts beside it. `next_vibes.txt` starts with a scope summary and keeps the out-of-scope suggestions, so a later run scoped to that domain can apply them. Static-analysis findings on out-of-scope artifacts are reported but not repaired. Scope problems found by static analysis use five gate categories (QGATE-RUL-013 to 017). The fence repairs them itself, so they never go to the agentic repair loop (SelfFixer).
+
+**Preflight errors:** each one stops the run before it changes anything:
+
+- an unknown `vibe_scope` value;
+- a scoped value with an operation other than VOV or `new base model`;
+- a scoped value with an empty `business_domains`;
+- a `Some Domains` entry that contains a dot;
+- a `Some Subdomains` entry without exactly one dot, or with an empty domain or subdomain part;
+- an entry with no letters or digits;
+- a scoped VOV whose convention widgets differ from the base model's `model_conventions`. A scoped run cannot change conventions for the whole model. Set those widgets to the base values, or use `All Domains`.
+
+**Stale base:** a scoped VOV may edit a base version that is no longer the latest completed version. This logs a WARN (`vibe-scope-stale-base`) and the run continues. Changes made in later versions are not in this base, so the new version will not have them. The check runs at setup and again before `model.json` is written.
+
+**`_vibe_scope` in model.json:** a scoped run writes a root key `_vibe_scope` right after `agent_version`. `All Domains` runs do not write it. It holds the mode, the entries and the resolved scope, every permitted delta with its cause, the blocked and rejected requirements, the restores per checkpoint (a clean run has 0) and the stale-base result. If an out-of-scope problem is still present at the write, the write fails closed and `model.json` is not written.
+
+**Unity Catalog deploy:** a scoped run replaces only the in-scope tables that changed. Out-of-scope and unchanged tables get `CREATE TABLE IF NOT EXISTS`, so their rows and column tags stay. A P4 column is added with `ALTER TABLE ... ADD COLUMNS`. Stale-table cleanup drops only in-scope tables removed in this run. A later `install model` of a scoped `model.json` reads `_vibe_scope` and keeps the out-of-scope tables the same way.
+
+### Vibe Scope App Contract
+
+The model app integrates `vibe_scope` on its own. The agent side of the contract:
+
+- Pass `vibe_scope` as a job base parameter, set to one of the dropdown labels: `All Domains`, `Some Domains` or `Some Subdomains`.
+- Pass `business_domains` in the matching format: `d1, d2` for `Some Domains`, `d1.s1, d2.s2` for `Some Subdomains`. Under `All Domains` it keeps its current meaning.
+- Send a scoped value only with `vibe modeling of version` or `new base model`. For a scoped VOV, send the base model's convention values.
+- A launch without `vibe_scope` runs as `All Domains`, so existing launches behave as before.
+- A preflight error fails the run with a `ValueError` that lists each problem. Show that message to the user. Nothing was changed.
+- `model.json` from a scoped run has the extra `_vibe_scope` root key. The app can show it or ignore it.
+- The app is pinned to agent 4.9.9 (`model-app/src/app/vendored/agent/VERSIONS.json`). That agent has neither the `run_type` widget (`Dry Run`) nor `vibe_scope`, and it silently ignores both parameters. A `Dry Run` request would still deploy, and a scoped request would run without a fence. Re-vendor agent 5.1.4 or later before the app offers either option.
 
 ---
 

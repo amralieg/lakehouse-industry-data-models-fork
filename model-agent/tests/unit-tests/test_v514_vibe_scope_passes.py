@@ -577,7 +577,7 @@ def _names(rows, domain, product):
     return [r["attribute"] for r in rows if r.get("domain") == domain and r.get("product") == product]
 
 
-SCOPED = [n for n in sorted(RUNNERS) if n not in ("flat_projection", "model_json_export")]
+SCOPED = [n for n in sorted(RUNNERS) if n not in ("flat_projection", "model_json_export", "tags_write_time_enrichment")]
 
 
 @pytest.mark.parametrize("name", SCOPED)

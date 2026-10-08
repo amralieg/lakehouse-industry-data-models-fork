@@ -165,8 +165,6 @@ def exec_functions_namespace(
 
 
 def vov_ledger_globals() -> dict:
-    """The real rename-ledger dependencies (`_vov_*`, `vov_*`, `_VOV_*`, `logging`) from the full
-    agent_helpers module, for tests that exec notebook slices into an isolated namespace."""
     import logging
     import sys
     helpers = vars(sys.modules["agent_helpers"])

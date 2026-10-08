@@ -146,38 +146,10 @@ def test_preflight_domain_entry_must_not_contain_a_dot():
     assert len(errs) == 1 and "entry 'flight.ops' contains a dot" in errs[0]
 
 
-def test_preflight_scoped_vov_convention_mismatch():
-    widget_conventions = dict(RAW["model_requirements"]["model_conventions"], tag_prefix="zz_", primary_key_suffix="_key")
-    errs = _validate(vibe_scope="Some Domains", business_domains="crew", base_model=RAW, model_conventions=widget_conventions)
-    assert len(errs) == 1
-    assert "cannot change model conventions for the whole model" in errs[0]
-    assert "tag_prefix 'dbx_' (base) vs 'zz_' (widget)" in errs[0]
-    assert "primary_key_suffix '_id' (base) vs '_key' (widget)" in errs[0]
-
-
-def test_preflight_scoped_vov_matching_conventions_pass():
-    assert _validate(vibe_scope="Some Domains", business_domains="crew", base_model=RAW,
-                     model_conventions=RAW["model_requirements"]["model_conventions"]) == []
-
-
-def test_preflight_empty_convention_widget_falls_back_to_the_base_value():
-    widget_conventions = dict(RAW["model_requirements"]["model_conventions"], tag_prefix="")
-    assert _validate(vibe_scope="Some Domains", business_domains="crew", base_model=RAW, model_conventions=widget_conventions) == []
-
-
-def test_preflight_legacy_boolean_label_is_not_a_mismatch():
-    base = copy.deepcopy(RAW)
-    base["model"]["model_conventions"]["boolean_format"] = "boolean"
-    assert _validate(vibe_scope="Some Domains", business_domains="crew", base_model=base,
-                     model_conventions=RAW["model_requirements"]["model_conventions"]) == []
-
-
-def test_preflight_convention_check_reads_json_string_conventions():
-    base = copy.deepcopy(RAW)
-    base["model"]["model_conventions"] = json.dumps(base["model"]["model_conventions"])
-    errs = _validate(vibe_scope="Some Domains", business_domains="crew", base_model=base,
-                     model_conventions=dict(RAW["model_requirements"]["model_conventions"], tag_prefix="zz_"))
-    assert len(errs) == 1 and "tag_prefix" in errs[0]
+def test_preflight_no_longer_rejects_scoped_vov_convention_widgets():
+    assert _validate(vibe_scope="Some Domains", business_domains="crew") == []
+    with pytest.raises(TypeError):
+        _validate(vibe_scope="Some Domains", business_domains="crew", base_model=RAW, model_conventions={"tag_prefix": "zz_"})
 
 
 def test_base_conventions_come_only_from_a_real_base_model():
@@ -188,11 +160,6 @@ def test_base_conventions_come_only_from_a_real_base_model():
     widget_built = {"business_information": {"business": "A"}, "model_conventions": {"tag_prefix": "dbx_"}}
     assert ah._vibe_scope_model_conventions(widget_built) is None
     assert ah._vibe_scope_model_conventions(None) is None
-
-
-def test_preflight_convention_check_is_vov_only():
-    assert _validate(operation=NEW_BASE, vibe_scope="Some Domains", business_domains="crew", base_model=RAW,
-                     model_conventions={"tag_prefix": "zz_"}) == []
 
 
 def test_preflight_all_domains_and_absent_kwargs_add_no_errors():
@@ -218,7 +185,7 @@ def test_both_preflight_callers_pass_the_scope_kwargs():
     main_src = slice_function_source("main")
     assert 'w_vibe_scope = _safe_widget("vibe_scope", "All Domains")' in main_src
     assert "vibe_scope=w_vibe_scope," in main_src and "business_domains=_eff_domains," in main_src
-    assert "base_model=_context_file_data," in main_src and "model_conventions=_widget_model_conventions," in main_src
+    assert "base_model=_context_file_data," not in main_src and "model_conventions=_widget_model_conventions," not in main_src
     assert 'vibe_scope=_pf_w("vibe_scope"),' in main_src and 'business_domains=_pf_w("business_domains"),' in main_src
     assert '_widget_raw_values["vibe_scope"] = _eff_vibe_scope' in main_src
 
@@ -364,25 +331,23 @@ def test_setup_scoped_vov_current_base_is_not_stale(monkeypatch):
     assert wv["_vibe_scope_stale_base"]["stale"] is False
 
 
-def test_setup_scoped_vov_convention_mismatch_fails_fast(monkeypatch):
+def test_setup_scoped_vov_base_conventions_win_over_a_widget_mismatch(monkeypatch):
     wv = _vov_widgets()
     wv["business_context_data"]["model_conventions"]["tag_prefix"] = "zz_"
-    monkeypatch.setitem(ah.__dict__, "execute_sql", lambda spark, q, logger=None: _vov_sql()(q))
-    monkeypatch.setitem(ah.__dict__, "_ensure_catalog_exists", _stop)
-    wv["spark"] = _Spark(True)
-    with pytest.raises(ValueError, match=r"tag_prefix 'dbx_' \(base\) vs 'zz_' \(this run\)"):
-        ah.step_setup_and_clean(wv)
-    assert ah.get_vibe_scope_runtime() is None
+    config = _run_setup(monkeypatch, wv, sql=_vov_sql(), table_exists=True)
+    assert config["MODEL_CONVENTIONS"]["tag_prefix"] == "dbx_" and config["TAG_PREFIX"] == "dbx_"
+    assert "tag_prefix='zz_' (base 'dbx_')" in wv["_vov_conventions_override_warn"]
+    assert wv["has_convention_changes"] is False
+    assert isinstance(ah.get_vibe_scope_runtime(), ah.VibeScopeFence)
 
 
-def test_setup_scoped_vov_convention_mismatch_from_metamodel_when_no_base_json(monkeypatch):
+def test_setup_scoped_vov_uses_metamodel_conventions_when_no_base_json(monkeypatch):
     wv = _vov_widgets(with_model=False)
     stored = dict(RAW["model"]["model_conventions"], primary_key_suffix="_key")
-    monkeypatch.setitem(ah.__dict__, "execute_sql", lambda spark, q, logger=None: _vov_sql(stored_conventions=stored)(q))
-    monkeypatch.setitem(ah.__dict__, "_ensure_catalog_exists", _stop)
-    wv["spark"] = _Spark(True)
-    with pytest.raises(ValueError, match="primary_key_suffix"):
-        ah.step_setup_and_clean(wv)
+    config = _run_setup(monkeypatch, wv, sql=_vov_sql(stored_conventions=stored), table_exists=True)
+    assert config["MODEL_CONVENTIONS"]["primary_key_suffix"] == "_key"
+    assert "primary_key_suffix='_id' (base '_key')" in wv["_vov_conventions_override_warn"]
+    assert wv["has_convention_changes"] is False
 
 
 def test_setup_defers_the_fence_to_vov_engine_start_when_base_json_missing(monkeypatch):
@@ -409,7 +374,7 @@ def test_setup_all_domains_is_a_strict_noop(monkeypatch, operation):
         wv = _vov_widgets(scope=None)
         _run_setup(monkeypatch, wv, sql=_vov_sql(latest="3"), table_exists=True)
         assert wv["_user_specified_domains"] == _legacy_business_domains_parse(RAW["model"]["data_domains"])
-        assert wv["sizing_directives"]["user_domains_exhaustive"] is True
+        assert "user_domains_exhaustive" not in (wv.get("sizing_directives") or {})
     assert ah.get_vibe_scope_runtime() is None
     assert "_vibe_scope_spec" not in wv and "_vibe_scope_stale_base" not in wv
     assert not any("vibe-scope" in str(s) for s in wv.get("_vov_pending_sentinels", []))

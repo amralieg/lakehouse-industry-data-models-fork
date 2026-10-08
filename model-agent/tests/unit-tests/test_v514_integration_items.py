@@ -87,11 +87,10 @@ def test_scope_spec_alone_is_enough_when_the_fence_is_deferred_to_engine_start()
     assert not [s for s in spark.statements if s.startswith("DROP")]
 
 
-def test_unscoped_vov_teardown_is_unchanged_and_drops_every_non_protected_schema():
+def test_unscoped_vov_teardown_drops_no_schema_this_business_does_not_own():
     spark = _SqlSpark(schemas=["crew", "flight", "_metrics", "_metamodel", "default", "information_schema", "team_sandbox", "_install"])
     ah._early_clash_detection(spark, {"TARGET_CATALOG": "airlines_ecm"}, {"operation": VOV}, LOG)
-    drops = [s for s in spark.statements if s.startswith("DROP")]
-    assert drops == [f"DROP SCHEMA IF EXISTS `airlines_ecm`.`{s}` CASCADE" for s in ("crew", "flight", "_metrics", "team_sandbox", "_install")]
+    assert [s for s in spark.statements if s.startswith("DROP")] == []
 
 
 # ---------------------------------------------------------------- item 2: subdomain halt / settle

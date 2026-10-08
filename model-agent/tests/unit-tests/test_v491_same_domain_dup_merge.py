@@ -52,7 +52,8 @@ class _Log:
 def _run_collisions(products, attributes=None, domains=None):
     """Run the real collision autofix over flat pipeline lists, nothing stubbed."""
     src = cell_containing(COLLISION_ANCHOR)
-    ns = {"re": re}
+    ns = {"re": re, "_VIBE_SCOPE_RUNTIME": None}
+    exec(slice_function_source("_vibe_scope_product_test", cell_containing("def _vibe_scope_product_test")), ns)
     fns = ["_p074_qualified_rename", "_validate_product_name_collisions"]
     exec("\n\n".join(slice_function_source(f, src) for f in fns), ns)
     # deduplicate_attributes_in_place lives in an earlier cell; the merge path calls it.

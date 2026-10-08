@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Any, Optional
 
-from notebook_source_util import notebook_concat_source, slice_function_source
+from notebook_source_util import notebook_concat_source, slice_function_source, vov_ledger_globals
 
 
 SRC = notebook_concat_source()
@@ -71,6 +71,7 @@ class PipelineResult:
 
 def _exec_v251_namespace():
     ns = {
+        **vov_ledger_globals(),
         "__name__": "_v251_test_ns",
         "copy": copy,
         "re": re,

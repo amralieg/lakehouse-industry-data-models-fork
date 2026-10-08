@@ -312,18 +312,13 @@ def test_review_gate_only_restores_base_version_products():
     assert ah._vov_review_preservation_gate(wv, pre_qa, d, p, a) == 0
 
 
-def test_review_gate_honours_fence_renames(monkeypatch):
+def test_review_gate_honours_fence_renames():
     model = fu.small_model()
     d, p, a = _flat(model)
     wv = _vov_review_widgets(model)
     pre_qa = ah._vov_review_pre_qa_snapshot(wv, p, a)
     p[:] = [x for x in p if x["product"] != "invoice"] + [dict(next(x for x in p if x["product"] == "invoice"), product="bill")]
-
-    class _Fence:
-        def report(self):
-            return {"rename_ledger": [{"kind": "product", "old": "billing.invoice", "new": "billing.bill"}]}
-
-    monkeypatch.setitem(ah.__dict__, "get_vibe_scope_runtime", lambda: _Fence())
+    ah._vibe_scope_note_rename("product", "billing.invoice", "billing.bill", "VREQ-0001")
     assert ah._vov_review_preservation_gate(wv, pre_qa, d, p, a) == 0
     assert "invoice" not in {x["product"] for x in p}
 

@@ -64,7 +64,7 @@ def test_scoped_export_splices_out_of_scope_and_writes_the_vibe_scope_block():
                 "authorized_oos_links": [], "in_scope_vreq_count": 3, "adherence_in_scope_pct": 100.0}
     root, wv = P.export_model_json(P._flat(m), extra={"_vibe_scope_outcomes": outcomes})
     assert root is not None
-    assert list(root)[:4] == ["agent_version", "release_version", "_vibe_scope", "model_requirements"]
+    assert list(root)[:5] == ["agent_version", "release_version", "_vibe_scope", "entity_changes", "model_requirements"]
     facts = root["_vibe_scope"]
     assert facts == wv["_vibe_scope_facts"]
     assert CONTRACT_KEYS <= set(facts) and facts["outcomes"] == outcomes

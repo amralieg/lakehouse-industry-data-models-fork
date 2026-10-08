@@ -120,12 +120,13 @@ class _Log:
 def test_v452_guard_clears_mutual_fk_2cycles():
     """Behavioral: the production guard mutates the shipped 3 mutual-FK 2-cycles down to 0."""
     ns = slice_functions(
-        ["_is_convenience_fk", "_heuristic_edge_break_score", "_compute_edge_betweenness_for_cycles",
+        ["_vibe_scope_product_test", "_vibe_scope_frozen_edges",
+         "_is_convenience_fk", "_heuristic_edge_break_score", "_compute_edge_betweenness_for_cycles",
          "_detect_direct_bidirectional_links", "_detect_cycles_dfs", "_break_cycles_heuristic_internal",
          "_v403_break_cycles_in_serialized_model"],
         _SRC,
         extra_globals={"defaultdict": defaultdict, "Counter": Counter, "OrderedDict": OrderedDict,
-                       "re": re, "json": json, "itertools": itertools,
+                       "re": re, "json": json, "itertools": itertools, "_VIBE_SCOPE_RUNTIME": None,
                        **_module_consts(["_CONVENIENCE_FK_PREFIXES"])},
     )
     detect = ns["_detect_cycles_dfs"]

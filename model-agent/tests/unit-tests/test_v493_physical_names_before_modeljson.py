@@ -23,7 +23,7 @@ import pytest
 
 from notebook_source_util import (
     assert_agent_version_at_least,
-    exec_function_namespace,
+    exec_functions_namespace,
     notebook_concat_source,
     slice_function_source,
 )
@@ -36,11 +36,12 @@ def _align():
     """The FK-column aligner, executable in isolation."""
     from collections import defaultdict
 
-    ns = exec_function_namespace(
-        ALIGN,
+    ns = exec_functions_namespace(
+        ["_vibe_scope_product_test", "_vibe_scope_note_rename", ALIGN],
         extra_globals={
             "defaultdict": defaultdict,
             "apply_convention": lambda name, conv: name,
+            "_VIBE_SCOPE_RUNTIME": None,
         },
     )
     return ns[ALIGN]

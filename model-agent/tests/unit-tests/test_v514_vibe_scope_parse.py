@@ -318,12 +318,11 @@ def test_setup_scoped_vov_pins_scope_skips_exhaustive_and_closure_filter(monkeyp
     assert any("[vibe-scope-exhaustive-skip FIRED v5.1.4]" in s for s in wv["_vov_pending_sentinels"])
 
 
-def test_setup_scoped_vov_stale_base_warns_and_is_recorded(monkeypatch):
+def test_setup_scoped_vov_stale_base_is_refused_and_names_both_versions(monkeypatch):
     wv = _vov_widgets()
-    _run_setup(monkeypatch, wv, sql=_vov_sql(latest="3"), table_exists=True)
-    stale = wv["_vibe_scope_stale_base"]
-    assert stale["stale"] is True and stale["base_version"] == "1" and stale["latest_completed_version"] == "3"
-    assert ah.get_vibe_scope_runtime().report()["stale_base"]["stale"] is True
+    with pytest.raises(ValueError, match=r"vibe_scope run refused at setup: base v1 is behind v3"):
+        _run_setup(monkeypatch, wv, sql=_vov_sql(latest="3"), table_exists=True)
+    assert ah.get_vibe_scope_runtime() is None and "_vibe_scope_stale_base" not in wv
 
 
 def test_setup_scoped_vov_current_base_is_not_stale(monkeypatch):
@@ -353,7 +352,7 @@ def test_setup_scoped_vov_uses_metamodel_conventions_when_no_base_json(monkeypat
 
 def test_setup_defers_the_fence_to_vov_engine_start_when_base_json_missing(monkeypatch):
     wv = _vov_widgets(with_model=False)
-    _run_setup(monkeypatch, wv, sql=_vov_sql(latest="2"), table_exists=True)
+    _run_setup(monkeypatch, wv, sql=_vov_sql(latest="1"), table_exists=True)
     assert ah.get_vibe_scope_runtime() is None
     assert wv["_vibe_scope_spec"].active
     flat = ah.model_to_widgets_flat(RAW)
@@ -361,7 +360,7 @@ def test_setup_defers_the_fence_to_vov_engine_start_when_base_json_missing(monke
     fence = ah._vibe_scope_bind_engine_baseline(wv, initial_model, None)
     assert fence is ah.get_vibe_scope_runtime()
     assert fence.report()["bind"]["differing"] == 0
-    assert fence.report()["stale_base"]["stale"] is True
+    assert fence.report()["stale_base"]["stale"] is False
 
 
 @pytest.mark.parametrize("operation", [NEW_BASE, VOV])

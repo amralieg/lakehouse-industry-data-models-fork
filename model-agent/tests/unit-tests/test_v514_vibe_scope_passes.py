@@ -483,6 +483,8 @@ def model_json_export(model):
     root, _wv = export_model_json(_flat(model))
     root["_vibe_session_metadata"].pop("ai_usage", None)
     root["_vibe_session_metadata"].pop("duration_hours", None)
+    root.pop("input_outcomes", None)
+    root.pop("lineage", None)
     return {"model_json": root, "root_keys": list(root)}
 
 

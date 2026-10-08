@@ -64,7 +64,7 @@ def test_scoped_export_splices_out_of_scope_and_writes_the_vibe_scope_block():
                 "authorized_oos_links": [], "in_scope_vreq_count": 3, "adherence_in_scope_pct": 100.0}
     root, wv = P.export_model_json(P._flat(m), extra={"_vibe_scope_outcomes": outcomes})
     assert root is not None
-    assert list(root)[:4] == ["agent_version", "release_version", "_vibe_scope", "model_requirements"]
+    assert list(root)[:6] == ["agent_version", "release_version", "_vibe_scope", "input_outcomes", "lineage", "model_requirements"]
     facts = root["_vibe_scope"]
     assert facts == wv["_vibe_scope_facts"]
     assert CONTRACT_KEYS <= set(facts) and facts["outcomes"] == outcomes
@@ -98,7 +98,7 @@ def test_scoped_export_splices_out_of_scope_and_writes_the_vibe_scope_block():
 def test_unscoped_export_has_no_vibe_scope_block():
     root, wv = P.export_model_json(P._flat(copy.deepcopy(RAW)))
     assert "_vibe_scope" not in root and "_vibe_scope_facts" not in wv
-    assert list(root) == ["agent_version", "release_version", "model_requirements", "vreq_adherence_pct",
+    assert list(root) == ["agent_version", "release_version", "input_outcomes", "lineage", "model_requirements", "vreq_adherence_pct",
                           "native_quality_pct", "vov_quality_pct", "_vibe_session_metadata", "model"]
 
 
@@ -134,11 +134,13 @@ def test_stale_base_is_refreshed_right_before_the_write():
     latest = {"v": "1"}
     fence = _fence(probe=lambda: latest["v"])
     assert fence.report()["stale_base"]["stale"] is False
-    latest["v"] = "3"
     root, wv = P.export_model_json(P._flat(_scoped_edit_with_leaks()))
     stale = root["_vibe_scope"]["stale_base"]
-    assert stale["stale"] is True and stale["latest_completed_version"] == "3" and stale["checks"] == 2
-    assert wv["_vibe_scope_stale_base"]["stale"] is True
+    assert stale["stale"] is False and stale["latest_completed_version"] == "1" and stale["checks"] == 2
+    latest["v"] = "3"
+    with pytest.raises(ah.VibeScopeFenceError, match="v3 was completed while this run was working on base v1"):
+        P.export_model_json(P._flat(_scoped_edit_with_leaks()))
+    assert fence.report()["stale_base"]["stale"] is True and fence.report()["stale_base"]["checks"] == 3
 
 
 def test_gate_repairs_in_scope_fks_to_out_of_scope_targets_after_the_splice():

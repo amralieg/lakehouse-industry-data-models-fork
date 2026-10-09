@@ -197,6 +197,13 @@ def exec_functions_namespace(
     return ns
 
 
+def mv_ref_globals() -> dict:
+    """The real metric-view reference helpers (``_mv_*``) for isolated-namespace tests."""
+    import sys
+    helpers = vars(sys.modules["agent_helpers"])
+    return {k: v for k, v in helpers.items() if k.startswith("_mv_")}
+
+
 def vov_ledger_globals() -> dict:
     import logging
     import sys

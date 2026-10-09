@@ -2,7 +2,7 @@ import json
 import re
 import textwrap
 
-from notebook_source_util import cell_containing, vov_ledger_globals
+from notebook_source_util import cell_containing, mv_ref_globals, vov_ledger_globals
 
 
 def _cell_src(marker):
@@ -159,6 +159,8 @@ def _exec_mv_prune():
         + "    return _kept2, _drop_reasons2, _rename_reasons2\n"
     )
     ns = {
+        **mv_ref_globals(),
+        "logger": __import__("logging").getLogger("v345"),
         "_mvcp_re": re,
         "_mvcp_token_re": re.compile(r"\b([a-z_][a-z0-9_]*)\b"),
         # The notebook's own denylist, not a stub of it: a stub that omitted `distinct`

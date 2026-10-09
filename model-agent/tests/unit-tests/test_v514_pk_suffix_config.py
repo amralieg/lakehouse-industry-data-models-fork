@@ -423,11 +423,18 @@ def _render(m, name, sfx, explicit=False):
     return m.load_and_format_prompt(name, variables, _Log())
 
 
+MV_REF_RULE_LINE = ("   Every window 'order' value and every partition 'include' entry MUST be copied verbatim from the 'name' of a "
+                    "dimension in the SAME view, never from its 'display_name'; every AGG(`<measure>`) reference MUST be copied "
+                    "verbatim from the 'name' of a measure in the SAME view; a partition MUST carry 'outer_aggregate'. A window "
+                    "may not list the same dimension twice.")
+
+
 @pytest.mark.parametrize("name", PROMPTS)
 def test_prompt_renders_the_default_suffix_byte_identically_to_56ce1eb(name):
     _use(ah, "_id")
     old = _module_at(BASE_COMMIT)
     new_text = _render(ah, name, "_id", explicit=True).replace(SUFFIX_LINE.replace("{pk_suffix}", "_id") + "\n", "")
+    new_text = new_text.replace(MV_REF_RULE_LINE + "\n", "")
     assert new_text == _render(old, name, "_id", explicit=True)
 
 

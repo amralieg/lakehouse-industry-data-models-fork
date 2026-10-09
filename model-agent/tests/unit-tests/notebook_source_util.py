@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ast
+import functools
 import json
 import re
 from pathlib import Path
@@ -125,7 +126,7 @@ def slice_function_source(fn_name: str, source: Optional[str] = None) -> str:
             )
     else:
         for node in tree.body:
-            if isinstance(node, _func_types) and node.name == fn_name:
+            if isinstance(node, _func_types + (ast.ClassDef,)) and node.name == fn_name:
                 target = node
         if target is None:
             raise LookupError(f"module-level def {fn_name!r} not found in agent notebook")
@@ -157,6 +158,43 @@ def pk_suffix_globals(source: Optional[str] = None) -> dict:
         PK_SUFFIX_HELPERS, extra_globals={"_PIPELINE_CONFIG_RUNTIME": {}}, source=source
     )
     return {k: ns[k] for k in PK_SUFFIX_HELPERS + ("_PIPELINE_CONFIG_RUNTIME",)}
+
+
+PK_PREDICATE_HELPERS = PK_SUFFIX_HELPERS + (
+    "sanitize_name",
+    "apply_convention",
+    "NamingConvention",
+    "build_pk_name",
+    "build_pk_name_from_config",
+    "_is_pk_pattern",
+    "build_pk_map",
+    "_v516_is_pk_attr",
+    "_v516_is_pk_row",
+    "_v516_pk_present",
+)
+
+
+def pk_predicate_globals(source: Optional[str] = None) -> dict:
+    """Real shared PK predicate (and its naming helpers) for isolated-namespace tests."""
+    return dict(_pk_predicate_namespace(source or notebook_concat_source()))
+
+
+@functools.lru_cache(maxsize=2)
+def _pk_predicate_namespace(source: str) -> dict:
+    import re as _re
+    import warnings as _warnings
+
+    ns = exec_functions_namespace(
+        PK_PREDICATE_HELPERS,
+        extra_globals={
+            "_PIPELINE_CONFIG_RUNTIME": {},
+            "re": _re,
+            "warnings": _warnings,
+            "_disk_cached_call": lambda prefix, key_parts, compute_fn: compute_fn(),
+        },
+        source=source,
+    )
+    return {k: ns[k] for k in PK_PREDICATE_HELPERS + ("_PIPELINE_CONFIG_RUNTIME",)}
 
 
 def exec_functions_namespace(

@@ -13,7 +13,7 @@ NO hardcoding of "retail"/"customer" by using a DIFFERENT root domain name ("mem
 import re
 
 from v435_helpers import concat_source, slice_functions
-from notebook_source_util import pk_suffix_globals
+from notebook_source_util import pk_predicate_globals
 
 
 class _Log:
@@ -32,7 +32,7 @@ class _Log:
 
 def _finalize_ns():
     return slice_functions(["_v441_reviewer_finalization"], concat_source(),
-                           extra_globals={"re": re, **pk_suffix_globals()})
+                           extra_globals={"re": re, **pk_predicate_globals()})
 
 
 # Reviewer directive text mirroring the retail SME review shape, but the tests below also run a
@@ -329,7 +329,7 @@ def test_generic_root_domain_name():
 
 
 def _harden_ns():
-    return slice_functions(["_v443_structural_hardening"], concat_source(), extra_globals={"re": re, **pk_suffix_globals()})
+    return slice_functions(["_v443_structural_hardening"], concat_source(), extra_globals={"re": re, **pk_predicate_globals()})
 
 
 def _harden_model():

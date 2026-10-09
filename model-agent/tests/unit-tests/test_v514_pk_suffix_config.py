@@ -426,7 +426,8 @@ def _render(m, name, sfx, explicit=False):
 MV_REF_RULE_LINE = ("   Every window 'order' value and every partition 'include' entry MUST be copied verbatim from the 'name' of a "
                     "dimension in the SAME view, never from its 'display_name'; every AGG(`<measure>`) reference MUST be copied "
                     "verbatim from the 'name' of a measure in the SAME view; a partition MUST carry 'outer_aggregate'. A window "
-                    "may not list the same dimension twice.")
+                    "may not list the same dimension twice. A measure with a 'window' may not AGG() another measure that has "
+                    "its own 'window'.")
 
 
 @pytest.mark.parametrize("name", PROMPTS)

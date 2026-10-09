@@ -467,7 +467,7 @@ def export_model_json(flat_lists, operation=VOV, extra=None):
     try:
         import time as _time
         wv["_run_start_timestamp"] = _time.time()
-        ah.step_generate_data_model_json(wv)
+        _with_spark_type_stand_ins(lambda: ah.step_generate_data_model_json(wv))
     finally:
         for k, v in saved.items():
             if v is KeyError:

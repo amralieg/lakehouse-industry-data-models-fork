@@ -653,6 +653,25 @@ def test_a_word_count_copied_into_the_totals_is_overruled():
     sd = widgets["sizing_directives"]
     assert sd.get("max_total_products") is None and sd.get("min_total_products") is None, sd
     assert any("disagree" in l and "max_total_products=4" in l for l in rec.lines), rec.lines
+    assert any("[sizing-number-words FIRED v5.1.6]" in l and "four products per domain" in l for l in rec.lines), rec.lines
+
+
+@pytest.mark.parametrize("prose", [
+    "each domain must have at least one product",
+    "A silo whose domain has only one product cannot receive an inbound FK",
+    "zero tables were dropped",
+])
+def test_one_and_zero_in_prose_are_not_sizing(prose):
+    assert ah._sizing_literal_readings(prose) == [], prose
+    out = ah._extract_sizing_directives_from_text(prose)
+    assert out["max_total_products"] is None and out["min_total_products"] is None, (prose, out)
+    assert out["max_products_per_domain"] is None and out["min_products_per_domain"] is None, (prose, out)
+
+
+def test_compound_words_with_one_still_count():
+    out = ah._extract_sizing_directives_from_text("twenty-one tables in total")
+    assert [out["max_total_products"], out["min_total_products"]] == [21, 21], out
+    assert ah._sizing_count_value("one hundred") == 100 and ah._sizing_count_value("one dozen") == 12
 
 
 def test_ordinary_words_are_not_numbers():

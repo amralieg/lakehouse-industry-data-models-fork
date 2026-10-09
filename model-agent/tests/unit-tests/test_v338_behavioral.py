@@ -1,5 +1,7 @@
 import json, re, os, textwrap, pytest
 
+from notebook_source_util import pk_suffix_globals
+
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 NB = os.path.join(REPO, "agent", "dbx_vibe_modelling_agent.ipynb")
 NB_PRE = "/tmp/agent_pre_v338.ipynb"
@@ -31,7 +33,7 @@ class _Logger:
 
 def _bind_verify_requirement(path):
     src = _full_src(path)
-    ns = {"re": re}
+    ns = {"re": re, **pk_suffix_globals()}
     exec(_extract_fn(src, "_verify_requirement"), ns)
 
     class Dummy:

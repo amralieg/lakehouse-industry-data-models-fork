@@ -148,6 +148,17 @@ def exec_function_namespace(
     return ns
 
 
+PK_SUFFIX_HELPERS = ("_active_model_conventions", "get_pk_suffix", "get_fk_suffix")
+
+
+def pk_suffix_globals(source: Optional[str] = None) -> dict:
+    """Real key-suffix helpers for isolated-namespace tests that exec notebook slices."""
+    ns = exec_functions_namespace(
+        PK_SUFFIX_HELPERS, extra_globals={"_PIPELINE_CONFIG_RUNTIME": {}}, source=source
+    )
+    return {k: ns[k] for k in PK_SUFFIX_HELPERS + ("_PIPELINE_CONFIG_RUNTIME",)}
+
+
 def exec_functions_namespace(
     fn_names,
     extra_globals: Optional[dict] = None,

@@ -19,6 +19,7 @@ import conftest  # noqa: F401,E402
 import agent_helpers as ah  # noqa: E402
 import test_v514_vibe_scope_fence as F  # noqa: E402
 import test_v514_vibe_scope_passes as P  # noqa: E402
+import v514_feedback_util as fu  # noqa: E402
 
 RAW = P.RAW
 VOV = P.VOV
@@ -29,7 +30,8 @@ DELTA_KEYS = {"kind", "domain", "product", "attribute", "old_fk", "new_fk", "vie
 
 
 @pytest.fixture(autouse=True)
-def _reset_runtime():
+def _reset_runtime(monkeypatch):
+    fu.inject_spark_types(monkeypatch)
     ah.set_vibe_scope_runtime(None)
     yield
     ah.set_vibe_scope_runtime(None)

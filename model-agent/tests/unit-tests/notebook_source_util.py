@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ast
+import functools
 import json
 import re
 from pathlib import Path
@@ -95,6 +96,38 @@ def assert_agent_version_at_least(version: str) -> None:
     )
 
 
+@functools.lru_cache(maxsize=4)
+def source_def_index(source: str) -> dict:
+    """Line ranges of every module-level def, top-level class method, nested class method
+    and module-level assignment in ``source``, from ONE ast.parse.
+
+    Slicing used to re-parse the whole 7.5 MB notebook for every function it returned, so a
+    namespace of ~45 slices cost ~45 full parses and the VOV pipeline tests hit the 900 s
+    timeout under load. The index is small (no AST is kept), so caching it is cheap.
+    """
+    tree = ast.parse(source)
+    func_types = (ast.FunctionDef, ast.AsyncFunctionDef)
+    funcs, methods, walked, assigns = {}, {}, {}, {}
+    for node in tree.body:
+        if isinstance(node, func_types):
+            funcs[node.name] = (node.lineno, node.end_lineno)
+        elif isinstance(node, ast.ClassDef):
+            for sub in node.body:
+                if isinstance(sub, func_types):
+                    methods[(node.name, sub.name)] = (sub.lineno, sub.end_lineno)
+        elif isinstance(node, ast.Assign):
+            for tgt in node.targets:
+                if isinstance(tgt, ast.Name):
+                    assigns[tgt.id] = (node.lineno, node.end_lineno)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef):
+            for sub in node.body:
+                if isinstance(sub, ast.FunctionDef):
+                    walked[sub.name] = (sub.lineno, sub.end_lineno, sub.col_offset)
+    return {"funcs": funcs, "methods": methods, "walked_methods": walked, "assigns": assigns,
+            "lines": tuple(source.splitlines(keepends=True))}
+
+
 def slice_function_source(fn_name: str, source: Optional[str] = None) -> str:
     """Return source of the last module-level function named fn_name.
 
@@ -107,31 +140,20 @@ def slice_function_source(fn_name: str, source: Optional[str] = None) -> str:
     common method name (e.g. ``add``) defined in several classes resolves to the
     right one.
     """
-    source = source or notebook_concat_source()
-    lines = source.splitlines(keepends=True)
-    tree = ast.parse(source)
-    _func_types = (ast.FunctionDef, ast.AsyncFunctionDef)
-    target = None
+    index = source_def_index(source or notebook_concat_source())
     if "." in fn_name:
         class_name, method_name = fn_name.split(".", 1)
-        for node in tree.body:
-            if isinstance(node, ast.ClassDef) and node.name == class_name:
-                for sub in node.body:
-                    if isinstance(sub, _func_types) and sub.name == method_name:
-                        target = sub
-        if target is None:
+        span = index["methods"].get((class_name, method_name))
+        if span is None:
             raise LookupError(
                 f"method {fn_name!r} not found in agent notebook"
             )
     else:
-        for node in tree.body:
-            if isinstance(node, _func_types) and node.name == fn_name:
-                target = node
-        if target is None:
+        span = index["funcs"].get(fn_name)
+        if span is None:
             raise LookupError(f"module-level def {fn_name!r} not found in agent notebook")
-    start = target.lineno - 1
-    end = target.end_lineno
-    return "".join(lines[start:end])
+    start, end = span
+    return "".join(index["lines"][start - 1:end])
 
 
 def exec_function_namespace(

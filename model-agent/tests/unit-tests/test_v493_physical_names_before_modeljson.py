@@ -26,6 +26,7 @@ from notebook_source_util import (
     exec_functions_namespace,
     notebook_concat_source,
     slice_function_source,
+    vov_ledger_globals,
 )
 
 ALIGN = "_v493_align_fk_column_names_to_parent_pk"
@@ -39,6 +40,7 @@ def _align():
     ns = exec_functions_namespace(
         ["_vibe_scope_product_test", "_vibe_scope_note_rename", ALIGN],
         extra_globals={
+            **vov_ledger_globals(),
             "defaultdict": defaultdict,
             "apply_convention": lambda name, conv: name,
             "_VIBE_SCOPE_RUNTIME": None,

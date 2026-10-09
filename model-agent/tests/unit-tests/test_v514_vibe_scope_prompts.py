@@ -117,9 +117,16 @@ def test_every_llm_transport_applies_the_scope_block():
     assert sorted(key for key, applies in owners.items() if not applies) == []
 
 
+_EXTRACTION_TARGET_5D386ED = ("  - target: the entity, scope, or set the instruction applies to (e.g. \"all HR products derived from DDL "
+                              "emp_history\", \"domain count\", \"every CDE row attribute\")\n")
+
+
 def test_all_domains_prompts_are_byte_identical_to_5d386ed():
     assert _sha(ah._apply_vibe_scope_to_prompt(ah.SYNTHESIS_SYSTEM_PROMPT)) == GOLDEN_5D386ED["synthesis"]
-    assert _sha(ah._apply_vibe_scope_to_prompt(ah.EXTRACTION_SYSTEM_PROMPT.format(outline_json='{"sections": []}'))) == GOLDEN_5D386ED["extraction"]
+    extraction = ah._apply_vibe_scope_to_prompt(ah.EXTRACTION_SYSTEM_PROMPT.format(outline_json='{"sections": []}'))
+    fq_line = next(line for line in extraction.splitlines(keepends=True) if line.startswith("  - target: "))
+    assert "FULLY QUALIFIED" in fq_line and "'## Domain:' / '#### Product:' / '##### Attribute:'" in fq_line
+    assert _sha(extraction.replace(fq_line, _EXTRACTION_TARGET_5D386ED, 1)) == GOLDEN_5D386ED["extraction"]
     assert _sha(ah._apply_vibe_scope_to_prompt(ah._SELFFIXER_PROMPT)) == GOLDEN_5D386ED["selffixer"]
     plain = "a prompt without slots"
     assert ah._apply_vibe_scope_to_prompt(plain) is plain

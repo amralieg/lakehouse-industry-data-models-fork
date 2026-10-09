@@ -173,3 +173,12 @@ def exec_functions_namespace(
     blob = "\n\n".join(slice_function_source(n, source=source) for n in fn_names)
     exec(compile(blob, str(NOTEBOOK_PATH), "exec"), ns)
     return ns
+
+
+def vov_ledger_globals() -> dict:
+    import logging
+    import sys
+    helpers = vars(sys.modules["agent_helpers"])
+    out = {k: v for k, v in helpers.items() if k.startswith(("_vov_", "vov_", "_VOV_"))}
+    out["logging"] = logging
+    return out

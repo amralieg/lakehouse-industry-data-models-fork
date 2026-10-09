@@ -1,6 +1,8 @@
 import json, re, os, copy
 import pytest
 
+from notebook_source_util import vov_ledger_globals
+
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 NB = os.path.join(REPO, "agent", "dbx_vibe_modelling_agent.ipynb")
 NB_PRE = "/tmp/agent_pre_v337.ipynb"
@@ -25,7 +27,7 @@ def _extract_top_fn(src, name):
 
 def _bind():
     src = _full_src(NB)
-    ns = {"re": re, "copy": copy, "_VIBE_SCOPE_RUNTIME": None}
+    ns = {**vov_ledger_globals(), "re": re, "copy": copy, "_VIBE_SCOPE_RUNTIME": None}
     exec(_extract_top_fn(src, "_vibe_scope_note_rename"), ns)
     try:
         ns2 = {"re": re}

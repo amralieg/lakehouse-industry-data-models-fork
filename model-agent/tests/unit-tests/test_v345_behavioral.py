@@ -2,7 +2,7 @@ import json
 import re
 import textwrap
 
-from notebook_source_util import cell_containing
+from notebook_source_util import cell_containing, vov_ledger_globals
 
 
 def _cell_src(marker):
@@ -62,7 +62,7 @@ def _exec_hints():
     class _L:
         def info(self, *a, **k):
             pass
-    ns = {"logger": _L(), "re": re}
+    ns = {**vov_ledger_globals(), "logger": _L(), "re": re}
     exec(block, ns)
     return ns["_v204_ast_class_hints"]
 

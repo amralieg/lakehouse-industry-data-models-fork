@@ -67,6 +67,7 @@ class PipelineResult:
     coverage_pct: float
     rejected_handlers: list[tuple[str, str]]
     deferred_vreqs: list = None  # v2.9.6 alias=vov-defer-low-severity (defaulted for the test stub)
+    vibe_input_vreqs: dict = None
 
 
 def _exec_v251_namespace():
@@ -137,6 +138,8 @@ def _exec_v251_namespace():
         "_vibe_scope_apply_pass1",
         "_vibe_scope_apply_det_op",
         "_vibe_scope_engine_gate",
+        "_vibe_input_absorbed",
+        "_vibe_input_map_vreqs",
         "run_vov_pipeline",
     ]
     for name in ordered_defs:

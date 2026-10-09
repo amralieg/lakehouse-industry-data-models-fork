@@ -101,7 +101,7 @@ def _literal(token):
     if token.upper() == "NULL":
         return None
     if len(token) >= 2 and token.startswith("'") and token.endswith("'"):
-        return re.sub(r"\\(.)|''", lambda m: m.group(1) if m.group(1) is not None else "'", token[1:-1], flags=re.DOTALL)
+        return re.sub(r"\\(.)|''", lambda m: m.group(1) if m.group(1) is not None else "", token[1:-1], flags=re.DOTALL)
     match = re.match(r"TIMESTAMP\('(.*)'\)$", token)
     if match:
         return match.group(1)
@@ -152,8 +152,8 @@ def parse_insert(sql):
 
 def _where_matches(row, sql):
     where = sql.split(" WHERE ", 1)[1] if " WHERE " in sql else ""
-    biz = re.search(r"LOWER\(business\) = LOWER\('((?:[^']|'')*)'\)", where)
-    if biz and str(row.get("business") or "").lower() != biz.group(1).replace("''", "'").lower():
+    biz = re.search(r"LOWER\(business\) = LOWER\('((?:[^'\\]|\\.)*)'\)", where)
+    if biz and str(row.get("business") or "").lower() != re.sub(r"\\(.)", r"\1", biz.group(1)).lower():
         return False
     if re.search(r"\bversion IS NULL", where):
         if row.get("version") is not None:

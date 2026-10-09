@@ -511,6 +511,19 @@ REGISTRY_COLUMNS = ("business", "version", "model_scope", "completed_percent", "
                     "deploy_status")
 
 
+_SPARK_LITERAL_RUN = re.compile(r"'(?:[^'\\]|\\.)*'(?:\s*'(?:[^'\\]|\\.)*')*")
+
+
+def spark_literals_to_sqlite(sql):
+    """Rewrite Spark SQL string literals as sqlite literals. Spark reads a backslash as the escape
+    and concatenates adjacent literals ('a''b' is "ab"); sqlite reads '' as one quote. Translating
+    keeps the sqlite-backed fakes faithful to what Spark would have matched."""
+    def _one(match):
+        value = "".join(re.sub(r"\\(.)", r"\1", part) for part in re.findall(r"'((?:[^'\\]|\\.)*)'", match.group(0)))
+        return "'" + value.replace("'", "''") + "'"
+    return _SPARK_LITERAL_RUN.sub(_one, sql)
+
+
 class FakeRegistry(FakeMetastore):
     """A FakeMetastore that also holds the agent's `_metamodel.business` table.
 
@@ -546,7 +559,7 @@ class FakeRegistry(FakeMetastore):
         m = re.match(r"SELECT version FROM `[^`]+`\.`_metamodel`\.`business` WHERE (.*)$", flat)
         if m:
             return lambda: FakeResult(self.db.execute(
-                "SELECT version FROM business WHERE " + m.group(1)).fetchall())
+                "SELECT version FROM business WHERE " + spark_literals_to_sqlite(m.group(1))).fetchall())
         m = re.match(r"CREATE SCHEMA IF NOT EXISTS `([^`]+)`\.`([^`]+)`$", flat)
         if m:
             return lambda: self.schemas.setdefault(m.group(1), set()).add(m.group(2))

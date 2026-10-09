@@ -53,6 +53,7 @@ def _bind_verify_requirement(path):
         def _verify_state_diff(self, *a, **k): return dict(SENTINEL)
         def _verify_structural_target(self, *a, **k): return dict(SENTINEL)
         def _verify_via_llm(self, *a, **k): return dict(SENTINEL)
+        def _verify_count_shape(self, *a, **k): return None
 
     Dummy._verify_requirement = ns["_verify_requirement"]
     if "_verify_domain_structural_op" in ns:

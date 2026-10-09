@@ -35,11 +35,18 @@ def _bind_verify_requirement(path):
     src = _full_src(path)
     ns = {"re": re, **pk_suffix_globals()}
     exec(_extract_fn(src, "_verify_requirement"), ns)
+    if "def _verify_domain_structural_op(self" in src:
+        for name in ("_v337_negated_before", "_v337_extract_domain_rename", "_v337_extract_domain_merge",
+                     "_v337_extract_bulk_move", "_v407_resolve_dp"):
+            exec(re.search(rf"(?ms)^def {name}\(.*?(?=^\S)", src).group(0), ns)
+        exec(_extract_fn(src, "_verify_domain_structural_op"), ns)
 
     class Dummy:
         logger = _Logger()
         ai_agent = None
         _llm_verify_enabled = False
+        _step_snapshots = {}
+        widgets_values = {}
 
         def _verify_deterministic(self, *a, **k): return dict(SENTINEL)
         def _verify_state_diff(self, *a, **k): return dict(SENTINEL)
@@ -47,6 +54,8 @@ def _bind_verify_requirement(path):
         def _verify_via_llm(self, *a, **k): return dict(SENTINEL)
 
     Dummy._verify_requirement = ns["_verify_requirement"]
+    if "_verify_domain_structural_op" in ns:
+        Dummy._verify_domain_structural_op = ns["_verify_domain_structural_op"]
     return Dummy()
 
 

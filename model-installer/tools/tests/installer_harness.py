@@ -572,8 +572,9 @@ class FakeUC(FakeRegistry):
 
     def __init__(self, tables=None, fail=None, schemas=None, **registry):
         FakeRegistry.__init__(self, {"demo": set()} if schemas is None else schemas, **registry)
-        self.tables = {k: {"columns": set(v["columns"]), "fks": dict(v.get("fks", {})),
-                           "tags": {}} for k, v in (tables or {}).items()}
+        self.tables = {k: {"columns": set(v["columns"]), "fks": dict(v.get("fks", {})), "tags": {},
+                           "types": dict(v.get("types") or {c: "bigint" for c in v["columns"]})}
+                       for k, v in (tables or {}).items()}
         for name in self.tables:
             catalog, schema, _ = name.split(".")
             self.schemas.setdefault(catalog, set()).add(schema)
@@ -617,20 +618,33 @@ class FakeUC(FakeRegistry):
         if m:
             name = self._name(m.group(3))
             if not (m.group(2) and name in self.tables):
-                cols = set(self._name(part.split()[0]) for part in m.group(4).split(","))
-                self.tables[name] = {"columns": cols, "fks": {}, "tags": {}}
+                defs = [part.split() for part in m.group(4).split(",") if part.split()]
+                types = dict((self._name(d[0]), d[1].lower() if len(d) > 1 else "string") for d in defs)
+                self.tables[name] = {"columns": set(types), "fks": {}, "tags": {}, "types": types}
             return True, None
         m = re.match(r"ALTER TABLE (\S+) DROP CONSTRAINT IF EXISTS (\S+)$", flat)
         if m:
             self._table(self._name(m.group(1)))["fks"].pop(self._name(m.group(2)), None)
             return True, None
-        m = re.match(r"ALTER TABLE (\S+) ADD COLUMNS \((\S+) ", flat)
+        m = re.match(r"ALTER TABLE (\S+) ADD COLUMNS ?\((.*)\);?$", flat)
         if m:
-            table, col = self._table(self._name(m.group(1))), self._name(m.group(2))
-            if col in table["columns"]:
-                raise RuntimeError("[FIELD_ALREADY_EXISTS] Column `%s` already exists" % col)
-            table["columns"].add(col)
+            table = self._table(self._name(m.group(1)))
+            defs = [(self._name(c), t.lower()) for c, t in
+                    re.findall(r"(`?[A-Za-z_]\w*`?)\s+([A-Za-z_]\w*(?:\([^)]*\))?)(?:\s+COMMENT\s+'[^']*')?", m.group(2))]
+            existing = [c for c, _t in defs if c in table["columns"]]
+            if existing:
+                struct = ", ".join("%s: %s" % (c, table["types"].get(c, "bigint").upper()) for c in sorted(table["columns"]))
+                raise RuntimeError("[FIELD_ALREADY_EXISTS] Cannot add column, because `%s` already exists in \"STRUCT<%s>\". "
+                                   "SQLSTATE: 42710; line 1 pos 0" % (existing[0], struct))
+            for col, ctype in defs:
+                table["columns"].add(col)
+                table["types"][col] = ctype
             return True, None
+        m = re.match(r"SELECT LOWER\(column_name\), LOWER\(full_data_type\) FROM `([^`]+)`\.information_schema\.columns "
+                     r"WHERE LOWER\(table_schema\) = '([^']*)' AND LOWER\(table_name\) = '([^']*)'$", flat)
+        if m:
+            table = self.tables.get("%s.%s.%s" % m.groups()) or {"types": {}}
+            return True, FakeResult(sorted(table["types"].items()))
         m = re.match(r"ALTER TABLE (\S+) ADD CONSTRAINT (\S+) FOREIGN KEY \((\S+)\) "
                      r"REFERENCES (\S+) ", flat)
         if m:
@@ -639,8 +653,9 @@ class FakeUC(FakeRegistry):
             self._table(parent)
             name = self._name(m.group(2))
             if name in table["fks"]:
-                raise RuntimeError("[CONSTRAINT_ALREADY_EXISTS] Constraint '%s' already exists"
-                                   % name)
+                raise RuntimeError("[DELTA_CONSTRAINT_ALREADY_EXISTS] Constraint '%s' already exists. Please delete the old "
+                                   "constraint first.\nOld constraint:\n%s FOREIGN KEY (`%s`) REFERENCES %s (`%s`)\n"
+                                   % (name, name, self._name(m.group(3)), table["fks"][name], self._name(m.group(3))))
             table["fks"][name] = parent
             return True, None
         m = re.match(r"ALTER TABLE (\S+) ALTER COLUMN (\S+) SET TAGS", flat)

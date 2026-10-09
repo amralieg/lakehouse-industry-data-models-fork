@@ -733,7 +733,7 @@ Sample data is no longer an agent operation. Since agent 4.8.0 the standalone mo
 
 **Head version and Dry Runs.** The head of a business and scope is its latest completed version whose `deploy_status` is not `dry_run`. A Dry Run version is a draft: it never counts as head, and a `vibe modeling of version` with a blank widget 04 never picks it as its base. A scoped run (widget 06a) is refused when its base is behind the head; see [Vibe Scope Semantics](#vibe-scope-semantics-widget-06a).
 
-**Catalog teardown.** At setup, `vibe modeling of version`, `shrink ecm` and `enlarge mvm` clear the old schemas of this business from the target catalog before the new version is deployed. The teardown drops only schemas the business owns. It never runs on a Dry Run or in a scoped run. If the new model needs a schema name that already exists and is not owned by this business, the run is refused and nothing is dropped.
+**Catalog teardown.** At setup, `vibe modeling of version`, `shrink ecm` and `enlarge mvm` clear the old schemas of this business from the target catalog before the new version is deployed. The teardown drops only schemas the business owns, that is, schemas a version of this business that is not a Dry Run registered in `_metamodel.domain`. It never runs on a Dry Run or in a scoped run. If the new model needs a schema name that already exists and is not owned by this business, a Full Run is refused and nothing is dropped; a Dry Run only warns.
 
 ### Resize Rules
 **Shrink (ECM->MVM):**

@@ -1022,7 +1022,7 @@ A rename changes a product or column in place. Agent 5.1.4 or later holds three 
 - **Post-condition.** Wherever a change is accepted (the LLM sandbox, the deterministic path, the parallel merge and SelfFixer), a post-condition checks the rule above. A change that fails it is rejected and retried with an in-place hint, and is never counted as applied.
 - **Heading-anchored directives.** The model app compiles feedback under headings (`## Domain: d`, `### Subdomain: s`, `#### Product: p`, `##### Attribute: a`). A bullet such as `- (medium) Rename to new_name.` renames the product or attribute named by the nearest heading above it, even though the bullet itself never names it.
 
-The static gate `rename_leftover_original` (QGATE-RUL-018, see [Quality Gates](quality-gates.md#11-scope-fence-and-rename-gates)) catches an old-and-new pair that still reaches the model.
+The static gate `rename_leftover_original` (QGATE-RUL-018, see [Quality Gates](quality-gates.md#11-scope-fence-and-rename-gates)) catches an old-and-new pair that still reaches the model. Every pass that renames or moves a product, column or domain records it in the same rename ledger, so the gate, the entity_changes report and the scope fence all see the rename whichever pass made it.
 
 ### Rollout Modes
 

@@ -318,3 +318,9 @@ def test_the_sandbox_gate_verifies_with_the_batch_rename_pairs():
     body = src[start:src.index("\ndef ", start + 10)]
     assert "with (_vs_fence_inv.expect_renames(_pairs) if _vs_fence_inv is not None and _pairs else contextlib.nullcontext()):" in body
     assert body.index("expect_renames(_pairs)") < body.index("ok_inv, inv_diag = verify_invariants(new_model, invariants)")
+
+
+def test_a_new_product_the_text_names_is_admitted_even_under_a_misread_target():
+    vreq = _vreq("V1", "customer.campaign", "In the customer domain's loyalty_engagement area, add a new product store_credit with one row per credit")
+    spec, _ = ah._vibe_scope_requested_spec([vreq], {"model": _model()})
+    assert _keys(("customer", "store_credit"), ("customer", "campaign")) <= spec.products

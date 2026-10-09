@@ -7,6 +7,7 @@ from notebook_source_util import (
     exec_function_namespace as _exec_function_namespace,
     exec_functions_namespace as _exec_functions_namespace,
     notebook_concat_source,
+    pk_suffix_globals,
     slice_function_source as _slice_function_source,
 )
 
@@ -155,7 +156,7 @@ def _nested_function(outer_name, nested_name, globals_map):
         if isinstance(node, ast.FunctionDef) and node.name == nested_name
     )
     module = ast.fix_missing_locations(ast.Module(body=[target], type_ignores=[]))
-    namespace = dict(globals_map)
+    namespace = {**pk_suffix_globals(SOURCE), **globals_map}
     exec(compile(module, "<nested-function>", "exec"), namespace)
     return namespace[nested_name]
 

@@ -47,6 +47,7 @@ def _bind_verify_requirement(path):
         _llm_verify_enabled = False
         _step_snapshots = {}
         widgets_values = {}
+        config = {}
 
         def _verify_deterministic(self, *a, **k): return dict(SENTINEL)
         def _verify_state_diff(self, *a, **k): return dict(SENTINEL)

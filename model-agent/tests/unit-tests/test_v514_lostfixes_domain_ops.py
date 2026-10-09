@@ -277,14 +277,26 @@ def test_r8_domain_ops_that_cross_the_scope_fence_are_refused(caplog):
     assert "claims" in _names(m)
 
 
-def test_r8_in_scope_domain_ops_apply_and_call_the_domain_rename_ledger(monkeypatch):
-    calls = []
-    fence = _scope("claims, claim, claimfinancials")
-    monkeypatch.setattr(fence, "record_rename", lambda kind, old, new: calls.append((kind, old, new)))
-    m = _pc_model()
+def test_r8_in_scope_domain_ops_apply_and_call_the_domain_rename_ledger():
+    ah.vov_ledger_reset()
+    _scope("claims, claim, claimfinancials")
+    base = _pc_model()
+    m = copy.deepcopy(base)
     assert ah._v337_apply_rename_domain(m["model"], "claims", "claim", LOG).startswith("rename_domain claims->claim")
     assert ah._v337_apply_merge_domain(m["model"], "claimfinancials", "claim", LOG).startswith("merge_domain claimfinancials->claim")
-    assert calls == [("domain", "claims", "claim"), ("domain", "claimfinancials", "claim")]
+    assert [(e["kind"], e["old"], e["new"]) for e in ah.vov_rename_events()] == [
+        ("domain", "claims", "claim"), ("domain", "claimfinancials", "claim")]
+    changes = ah.vov_entity_changes(base, m, {"operation": VOV})
+    doms = {e["base_path"]: e for e in changes["entries"] if e["kind"] == "domain" and e.get("base_path")}
+    assert (doms["claims"]["status"], doms["claims"]["path"]) == ("renamed", "claim")
+    assert doms["claimfinancials"]["path"] == "claim"
+    assert doms["claimfinancials"]["status"] in ("renamed", "merged")
+    reserve = next(e for e in changes["entries"] if e["kind"] == "product" and e.get("base_path") == "claimfinancials.reserve")
+    assert reserve["path"] == "claim.reserve" and reserve["status"] != "dropped"
+    d, p, a, _mv = ah.model_to_widgets_flat(m, quiet=True)
+    assert not [i for i in ah.run_metamodel_static_analysis(d, p, a, {}, LOG)["issues"]
+                if i["category"] == "rename_leftover_original"]
+    ah.vov_ledger_reset()
 
 
 def test_r8_bulk_move_refuses_products_whose_move_crosses_the_fence():

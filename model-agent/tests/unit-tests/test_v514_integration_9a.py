@@ -18,6 +18,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import conftest  # noqa: F401,E402
 import agent_helpers as ah  # noqa: E402
+import v514_feedback_util as fu  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[3]
 RAW = json.loads((REPO / "data-models" / "airlines" / "v1" / "mvm" / "model.json").read_text())
@@ -28,7 +29,8 @@ REFERRERS = ("flight.cancellation.absence_id", "flight.delay_record.absence_id")
 
 
 @pytest.fixture(autouse=True)
-def _reset_runtime():
+def _reset_runtime(monkeypatch):
+    fu.inject_spark_types(monkeypatch)
     ah.set_vibe_scope_runtime(None)
     yield
     ah.set_vibe_scope_runtime(None)

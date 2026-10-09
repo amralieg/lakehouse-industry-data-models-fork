@@ -284,3 +284,15 @@ def test_task9_suffix_group_strips_the_pk_suffix_only_at_the_end(caplog):
         ah._create_missing_parent_tables_for_unlinked_fks(d, p, a, cfg, LOG)
     assert sorted(r["product"] for r in p) == ["order", "product_idea", "ticket"]
     assert any("[pk-suffix-trailing-strip FIRED v5.1.6]" in r.getMessage() for r in caplog.records)
+
+
+def test_anchored_pass_blanks_handled_lines_without_shifting_offsets():
+    import test_v514_contract_inputs as CI
+    ah.set_vibe_scope_runtime(None)
+    stripped, _imap = CI._input_map()
+    _model, vreqs, _outcomes, out = ah._vov_apply_anchored_directives(stripped, CI.E._engine(), LOG)
+    assert [v.vreq_id for v in vreqs] == ["ANCHOR-001"]
+    assert "Rename roster to duty_roster" not in out
+    assert len(out) == len(stripped)
+    tail = stripped.index("## Domain: fleet")
+    assert out[tail:] == stripped[tail:]

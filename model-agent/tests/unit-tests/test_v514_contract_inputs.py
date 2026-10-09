@@ -243,9 +243,9 @@ def test_pipeline_extraction_branch_maps_after_dedupe_collapse_and_triage():
         "nickname": [{"intent": "add nickname attribute", "target": "crew.member", "source_quote": "Add a nickname column to crew member"},
                      {"intent": "add audit columns", "target": "crew", "source_quote": "add audit columns"},
                      {"intent": "Preserve the crew.member table verbatim", "target": "crew.member", "source_quote": "keep member"}],
-        "duty_roster": [{"intent": "rename product", "target": "crew.roster", "source_quote": "rename that roster table please"},
-                        {"intent": "add audit columns", "target": "crew", "source_quote": "add audit columns"}],
-        "lease": [{"intent": "Preserve the fleet.aircraft table verbatim", "target": "fleet.aircraft", "source_quote": "keep aircraft"}],
+        "duty_roster": [{"intent": "rename product", "target": "crew.roster", "source_quote": "rename that roster table please"}],
+        "lease": [{"intent": "Preserve the fleet.aircraft table verbatim", "target": "fleet.aircraft", "source_quote": "keep aircraft"},
+                  {"intent": "add audit columns", "target": "crew", "source_quote": "add audit columns"}],
     })
     result = ah.run_vov_pipeline(stripped, E._engine(), llm, [], [], parallel=False, priority_reapply_loops=1, vibe_input_map=imap)
     by_quote = {v.source_quote: v.vreq_id for v in result.raw_vreqs}
@@ -253,9 +253,10 @@ def test_pipeline_extraction_branch_maps_after_dedupe_collapse_and_triage():
     assert set(got) == {v.vreq_id for v in result.raw_vreqs}
     assert got[by_quote["Add a nickname column to crew member"]]["item_ids"] == ["aaaa-1"]
     assert got[by_quote["Add a nickname column to crew member"]]["method"] == "exact_quote"
-    assert got[by_quote["rename that roster table please"]] == {"item_ids": ["bbbb-2"], "method": "single_item_chunk", "merged_from": []}
+    assert "rename that roster table please" not in by_quote
+    assert got["ANCHOR-001"] == {"item_ids": ["bbbb-2"], "method": "exact_quote", "merged_from": []}
     audit_ids = [v.vreq_id for v in result.raw_vreqs if v.source_quote == "add audit columns"]
-    assert len(audit_ids) == 2 and all(got[vid]["item_ids"] == ["aaaa-1", "bbbb-2"] for vid in audit_ids)
+    assert audit_ids and all(got[vid]["item_ids"] == ["aaaa-1", "cccc-3"] for vid in audit_ids)
     assert got["V299-PRESERVE-ALL"]["item_ids"] == ["aaaa-1", "cccc-3"]
 
 

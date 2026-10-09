@@ -303,3 +303,28 @@ def test_window_on_window_ignores_self_and_non_window_references():
 
 def test_the_metric_view_prompt_forbids_window_on_window():
     assert "A measure with a 'window' may not AGG() another measure that has its own 'window'." in notebook_concat_source()
+
+
+def _upload_calls(src):
+    for m in re.finditer(r"files\.upload\(", src):
+        depth, end = 0, None
+        for k in range(m.end() - 1, min(len(src), m.end() + 600)):
+            if src[k] == "(":
+                depth += 1
+            elif src[k] == ")":
+                depth -= 1
+                if depth == 0:
+                    end = k
+                    break
+        yield src[m.start():(end or m.end()) + 1]
+
+
+def test_every_files_upload_call_passes_a_stream_not_bytes():
+    installer = Path(__file__).resolve().parents[3] / "model-installer" / "data-model-installer.ipynb"
+    import json as _json
+    sources = {"agent": notebook_concat_source(),
+               "installer": "\n".join("".join(c["source"]) for c in _json.loads(installer.read_text())["cells"] if c.get("cell_type") == "code")}
+    calls = [(name, call) for name, src in sources.items() for call in _upload_calls(src)]
+    assert len(calls) >= 12
+    raw = [(name, call) for name, call in calls if re.search(r"\.encode\(|\bb['\"]", call) and "BytesIO" not in call]
+    assert raw == [], "WorkspaceClient.files.upload needs a binary stream; bytes fail with 'bytes' object has no attribute 'seekable'"

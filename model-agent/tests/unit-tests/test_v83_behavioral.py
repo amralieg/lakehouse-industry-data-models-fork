@@ -58,7 +58,11 @@ def _logger():
 
 @pytest.fixture(scope="module")
 def cell1_ns():
-    return _load_cell_namespace(1)
+    import agent_helpers as ah
+    ns = _load_cell_namespace(1)
+    ns["vov_rename_events"] = ah.vov_rename_events
+    ns["_vibe_scope_note_rename"] = ah._vibe_scope_note_rename
+    return ns
 
 
 # ───────────────────────────────────────────────────────────────────────────
@@ -101,11 +105,9 @@ def test_p50_record_and_check_round_trip(cell1_ns):
     ns = cell1_ns
     record = ns["_record_user_renamed_attribute"]
     check = ns["_is_user_renamed_attribute"]
-    runtime_set = ns["_USER_RENAMED_ATTRIBUTES_RUNTIME"]
-    runtime_set.clear()
 
     assert check("clinical", "note_template", "parent_note_template_id") is False
-    record("clinical", "note_template", "parent_note_template_id", logger=_logger(), source="test")
+    record("clinical", "note_template", "parent_note_template_id", logger=_logger(), source="test", old_attribute_name="parent_id")
     assert check("clinical", "note_template", "parent_note_template_id") is True
     assert check("clinical", "note_template", "OTHER_NAME") is False
     assert check("OTHER_DOMAIN", "note_template", "parent_note_template_id") is False
@@ -115,13 +117,12 @@ def test_p50_record_handles_empty_inputs(cell1_ns):
     ns = cell1_ns
     record = ns["_record_user_renamed_attribute"]
     check = ns["_is_user_renamed_attribute"]
-    runtime_set = ns["_USER_RENAMED_ATTRIBUTES_RUNTIME"]
-    runtime_set.clear()
 
-    record("", "p", "a")
-    record("d", "", "a")
-    record("d", "p", "")
-    assert len(runtime_set) == 0
+    record("", "p", "a", old_attribute_name="b")
+    record("d", "", "a", old_attribute_name="b")
+    record("d", "p", "", old_attribute_name="b")
+    record("d", "p", "a")
+    assert ns["vov_rename_events"]() == []
     assert check("", "", "") is False
 
 

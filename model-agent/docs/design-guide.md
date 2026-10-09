@@ -733,7 +733,7 @@ Sample data is no longer an agent operation. Since agent 4.8.0 the standalone mo
 
 **Head version and Dry Runs.** The head of a business and scope is its latest completed version whose `deploy_status` is not `dry_run`. A Dry Run version is a draft: it never counts as head, and a `vibe modeling of version` with a blank widget 04 never picks it as its base. A scoped run (widget 06a) is refused when its base is behind the head; see [Vibe Scope Semantics](#vibe-scope-semantics-widget-06a).
 
-**Catalog teardown.** At setup, `vibe modeling of version`, `shrink ecm` and `enlarge mvm` clear the old schemas of this business from the target catalog before the new version is deployed. The teardown drops only schemas the business owns. It never runs on a Dry Run or in a scoped run. If the new model needs a schema name that already exists and is not owned by this business, the run is refused and nothing is dropped.
+**Catalog teardown.** At setup, `vibe modeling of version`, `shrink ecm` and `enlarge mvm` clear the old schemas of this business from the target catalog before the new version is deployed. The teardown drops only schemas the business owns, that is, schemas a version of this business that is not a Dry Run registered in `_metamodel.domain`. It never runs on a Dry Run or in a scoped run. If the new model needs a schema name that already exists and is not owned by this business, a Full Run is refused and nothing is dropped; a Dry Run only warns.
 
 ### Resize Rules
 **Shrink (ECM->MVM):**
@@ -1022,7 +1022,7 @@ A rename changes a product or column in place. Agent 5.1.4 or later holds three 
 - **Post-condition.** Wherever a change is accepted (the LLM sandbox, the deterministic path, the parallel merge and SelfFixer), a post-condition checks the rule above. A change that fails it is rejected and retried with an in-place hint, and is never counted as applied.
 - **Heading-anchored directives.** The model app compiles feedback under headings (`## Domain: d`, `### Subdomain: s`, `#### Product: p`, `##### Attribute: a`). A bullet such as `- (medium) Rename to new_name.` renames the product or attribute named by the nearest heading above it, even though the bullet itself never names it.
 
-The static gate `rename_leftover_original` (QGATE-RUL-018, see [Quality Gates](quality-gates.md#11-scope-fence-and-rename-gates)) catches an old-and-new pair that still reaches the model.
+The static gate `rename_leftover_original` (QGATE-RUL-018, see [Quality Gates](quality-gates.md#11-scope-fence-and-rename-gates)) catches an old-and-new pair that still reaches the model. Every pass that renames or moves a product, column or domain records it in the same rename ledger, so the gate, the entity_changes report and the scope fence all see the rename whichever pass made it.
 
 ### Rollout Modes
 

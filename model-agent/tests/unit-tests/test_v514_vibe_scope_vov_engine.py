@@ -304,8 +304,8 @@ def test_parallel_merge_gate_rejects_a_leaking_merge(monkeypatch):
     fence = _fence()
     real_merge = ah._merge_partial
 
-    def _leaky_merge(base, candidate, targets):
-        merged = real_merge(base, candidate, targets)
+    def _leaky_merge(base, candidate, targets, renames=()):
+        merged = real_merge(base, candidate, targets, renames)
         _product(merged, "fleet", "aircraft")["description"] = "LEAK via merge"
         return merged
 

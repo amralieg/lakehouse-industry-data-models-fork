@@ -132,7 +132,7 @@ def test_move_hook_inside_the_scope_is_p1():
     fence = _fence("crew, safety")
     m = _model()
     assert ah._v337_apply_move_product(m["model"], "crew", "absence", "safety") == "move crew.absence->safety"
-    assert fence.report()["rename_ledger"] == [{"kind": "product", "old": "crew.absence", "new": "safety.absence"}]
+    assert fence.report()["rename_ledger"] == [{"kind": "move", "old": "crew.absence", "new": "safety.absence"}]
     result = fence.check(m)
     assert result.ok and _kinds(result) == {"P1": 2}
 
@@ -145,7 +145,8 @@ def test_hooks_are_noops_without_a_runtime():
     ah._v337_apply_rename_product(without["model"], "crew", "member", "crew_member")
     assert without == with_fence
     assert len(fence.report()["rename_ledger"]) == 2
-    assert ah._vibe_scope_note_rename("product", "a.b", "a.c") is None
+    assert ah._vibe_scope_note_rename("product", "a.b", "a.c")["new_p"] == "c"
+    assert {"kind": "product", "old": "a.b", "new": "a.c", "cause": ""} in ah.vov_rename_events()
     assert ah._vibe_scope_active() is False and ah.get_vibe_scope_runtime() is None
 
 
@@ -529,7 +530,9 @@ def test_frozen_edge_keys_use_the_cycle_breaker_key_format():
 def test_record_rename_validates_its_input():
     fence = _fence()
     with pytest.raises(ValueError):
-        fence.record_rename("domain", "a", "b")
+        fence.record_rename("domain", "crew.member", "crew_ops")
+    with pytest.raises(ValueError):
+        fence.record_rename("subdomain", "crew", "crew_ops")
     with pytest.raises(ValueError):
         fence.record_rename("attribute", "crew.member", "crew.member2")
     assert ah._vibe_scope_note_rename("attribute", "crew.member", "crew.member2") is None

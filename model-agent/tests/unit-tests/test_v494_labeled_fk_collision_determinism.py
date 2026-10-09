@@ -18,6 +18,7 @@ from collections import defaultdict
 from notebook_source_util import (
     assert_agent_version_at_least,
     exec_functions_namespace,
+    pk_predicate_globals,
     slice_function_source,
     vov_ledger_globals,
 )
@@ -28,7 +29,7 @@ ALIGN = "_v493_align_fk_column_names_to_parent_pk"
 def _align():
     ns = exec_functions_namespace(
         ["_vibe_scope_product_test", "_vibe_scope_note_rename", ALIGN],
-        extra_globals={**vov_ledger_globals(), "defaultdict": defaultdict, "apply_convention": lambda n, c: n, "_VIBE_SCOPE_RUNTIME": None},
+        extra_globals={**vov_ledger_globals(), **pk_predicate_globals(), "defaultdict": defaultdict, "apply_convention": lambda n, c: n, "_VIBE_SCOPE_RUNTIME": None},
     )
     return ns[ALIGN]
 

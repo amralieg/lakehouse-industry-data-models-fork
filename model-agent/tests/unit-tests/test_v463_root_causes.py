@@ -7,6 +7,7 @@ from notebook_source_util import (
     exec_function_namespace as _exec_function_namespace,
     exec_functions_namespace as _exec_functions_namespace,
     notebook_concat_source,
+    pk_predicate_globals,
     pk_suffix_globals,
     slice_function_source as _slice_function_source,
 )
@@ -298,7 +299,8 @@ def test_smart_worker_non_mutating_validator_is_unchanged_and_invalid_retries():
 
 def test_post_create_sweep_skips_own_pk_without_blocking_external_or_labeled_self_refs():
     predicate = exec_function_namespace(
-        "_v463_is_own_pk_for_created_table"
+        "_v463_is_own_pk_for_created_table",
+        extra_globals=pk_predicate_globals(SOURCE),
     )["_v463_is_own_pk_for_created_table"]
     supplier_pk = {
         "domain": "supplier",

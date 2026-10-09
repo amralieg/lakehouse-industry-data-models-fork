@@ -453,7 +453,7 @@ def test_the_post_create_sweep_never_links_a_tables_own_primary_key():
     assert totals["created"] == 1, totals
     own = next(a for a in attrs if a["domain"] == "customer" and a["product"] == "promotion")
     assert not own.get("foreign_key_to"), own
-    assert any("stub-single-owner FIRED v5.1.6" in l and "customer.promotion.promotion_id" in l for l in lines), lines
+    assert any("create-sweep-own-pk-skip FIRED v5.1.6" in l and "customer.promotion.promotion_id" in l for l in lines), lines
 
 
 def test_create_missing_parents_respects_the_cap_and_alphabetical_owner():

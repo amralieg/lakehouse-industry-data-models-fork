@@ -19,7 +19,7 @@ the gate does NOT fire and the function proceeds to the LLM path.
 import textwrap
 from collections import defaultdict
 import pytest
-from notebook_source_util import notebook_concat_source, exec_function_namespace
+from notebook_source_util import notebook_concat_source, exec_function_namespace, pk_predicate_globals
 
 
 def _helper_namespace():
@@ -30,6 +30,7 @@ def _helper_namespace():
     block = src[start:end]
     ns = {"defaultdict": defaultdict, "_vibe_scope_frozen_edges": exec_function_namespace(
         "_vibe_scope_frozen_edges", extra_globals={"_VIBE_SCOPE_RUNTIME": None}, source=src)["_vibe_scope_frozen_edges"]}
+    ns["_v516_is_pk_attr"] = pk_predicate_globals(src)["_v516_is_pk_attr"]
     exec(compile(block, "<cyclebreak_helpers>", "exec"), ns)
     return ns
 

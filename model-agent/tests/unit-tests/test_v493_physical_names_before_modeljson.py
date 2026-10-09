@@ -25,6 +25,7 @@ from notebook_source_util import (
     assert_agent_version_at_least,
     exec_functions_namespace,
     notebook_concat_source,
+    pk_predicate_globals,
     slice_function_source,
     vov_ledger_globals,
 )
@@ -41,6 +42,7 @@ def _align():
         ["_vibe_scope_product_test", "_vibe_scope_note_rename", ALIGN],
         extra_globals={
             **vov_ledger_globals(),
+            **pk_predicate_globals(),
             "defaultdict": defaultdict,
             "apply_convention": lambda name, conv: name,
             "_VIBE_SCOPE_RUNTIME": None,

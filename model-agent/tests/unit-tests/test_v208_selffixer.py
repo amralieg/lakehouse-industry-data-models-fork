@@ -105,10 +105,11 @@ class _FakeAIAgent:
 def _build_selffixer_namespace():
     """Execute the SelfFixer cell in an isolated namespace and return it."""
     src = _load_selffixer_cell()
-    from notebook_source_util import vov_ledger_globals
+    from notebook_source_util import pk_predicate_globals, vov_ledger_globals
 
     ns = {**vov_ledger_globals(), "__name__": "__test_selffixer__", "_VIBE_SCOPE_RUNTIME": None, "_USER_SIZING_BOUNDS_RUNTIME": {}, "re": re}
     from notebook_source_util import notebook_concat_source, slice_function_source
+    ns.update(pk_predicate_globals())
     for name in ("_vibe_scope_digest_marks", "_vibe_scope_digest_state", "shrink_is_user_requested", "_v490_user_product_bounds",
                  "_vov_text_allows_attribute_removal"):
         exec(compile(slice_function_source(name), f"<{name}>", "exec"), ns)

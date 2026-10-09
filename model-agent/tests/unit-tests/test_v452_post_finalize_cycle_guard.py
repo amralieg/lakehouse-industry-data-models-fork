@@ -27,6 +27,7 @@ from pathlib import Path
 import pytest
 
 from v435_helpers import concat_source, slice_functions, NOTEBOOK_PATH
+from notebook_source_util import pk_predicate_globals
 
 _SRC = concat_source()
 
@@ -127,6 +128,7 @@ def test_v452_guard_clears_mutual_fk_2cycles():
         _SRC,
         extra_globals={"defaultdict": defaultdict, "Counter": Counter, "OrderedDict": OrderedDict,
                        "re": re, "json": json, "itertools": itertools, "_VIBE_SCOPE_RUNTIME": None,
+                       **pk_predicate_globals(),
                        **_module_consts(["_CONVENIENCE_FK_PREFIXES"])},
     )
     detect = ns["_detect_cycles_dfs"]

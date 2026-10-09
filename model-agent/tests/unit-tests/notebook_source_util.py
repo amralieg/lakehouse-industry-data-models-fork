@@ -98,8 +98,8 @@ def assert_agent_version_at_least(version: str) -> None:
 
 @functools.lru_cache(maxsize=4)
 def source_def_index(source: str) -> dict:
-    """Line ranges of every module-level def, top-level class method, nested class method
-    and module-level assignment in ``source``, from ONE ast.parse.
+    """Line ranges of every module-level def and class, top-level class method, nested class
+    method and module-level assignment in ``source``, from ONE ast.parse.
 
     Slicing used to re-parse the whole 7.5 MB notebook for every function it returned, so a
     namespace of ~45 slices cost ~45 full parses and the VOV pipeline tests hit the 900 s
@@ -107,11 +107,12 @@ def source_def_index(source: str) -> dict:
     """
     tree = ast.parse(source)
     func_types = (ast.FunctionDef, ast.AsyncFunctionDef)
-    funcs, methods, walked, assigns = {}, {}, {}, {}
+    funcs, classes, methods, walked, assigns = {}, {}, {}, {}, {}
     for node in tree.body:
         if isinstance(node, func_types):
             funcs[node.name] = (node.lineno, node.end_lineno)
         elif isinstance(node, ast.ClassDef):
+            classes[node.name] = (node.lineno, node.end_lineno)
             for sub in node.body:
                 if isinstance(sub, func_types):
                     methods[(node.name, sub.name)] = (sub.lineno, sub.end_lineno)
@@ -124,12 +125,12 @@ def source_def_index(source: str) -> dict:
             for sub in node.body:
                 if isinstance(sub, ast.FunctionDef):
                     walked[sub.name] = (sub.lineno, sub.end_lineno, sub.col_offset)
-    return {"funcs": funcs, "methods": methods, "walked_methods": walked, "assigns": assigns,
+    return {"funcs": funcs, "classes": classes, "methods": methods, "walked_methods": walked, "assigns": assigns,
             "lines": tuple(source.splitlines(keepends=True))}
 
 
 def slice_function_source(fn_name: str, source: Optional[str] = None) -> str:
-    """Return source of the last module-level function named fn_name.
+    """Return source of the last module-level function (or class) named fn_name.
 
     Also supports a dotted ``"ClassName.method"`` form: it walks the matching
     ClassDef and returns the last method of that name defined inside it. This is
@@ -149,7 +150,7 @@ def slice_function_source(fn_name: str, source: Optional[str] = None) -> str:
                 f"method {fn_name!r} not found in agent notebook"
             )
     else:
-        span = index["funcs"].get(fn_name)
+        span = index["funcs"].get(fn_name) or index["classes"].get(fn_name)
         if span is None:
             raise LookupError(f"module-level def {fn_name!r} not found in agent notebook")
     start, end = span
@@ -179,6 +180,43 @@ def pk_suffix_globals(source: Optional[str] = None) -> dict:
         PK_SUFFIX_HELPERS, extra_globals={"_PIPELINE_CONFIG_RUNTIME": {}}, source=source
     )
     return {k: ns[k] for k in PK_SUFFIX_HELPERS + ("_PIPELINE_CONFIG_RUNTIME",)}
+
+
+PK_PREDICATE_HELPERS = PK_SUFFIX_HELPERS + (
+    "sanitize_name",
+    "apply_convention",
+    "NamingConvention",
+    "build_pk_name",
+    "build_pk_name_from_config",
+    "_is_pk_pattern",
+    "build_pk_map",
+    "_v516_is_pk_attr",
+    "_v516_is_pk_row",
+    "_v516_pk_present",
+)
+
+
+def pk_predicate_globals(source: Optional[str] = None) -> dict:
+    """Real shared PK predicate (and its naming helpers) for isolated-namespace tests."""
+    return dict(_pk_predicate_namespace(source or notebook_concat_source()))
+
+
+@functools.lru_cache(maxsize=2)
+def _pk_predicate_namespace(source: str) -> dict:
+    import re as _re
+    import warnings as _warnings
+
+    ns = exec_functions_namespace(
+        PK_PREDICATE_HELPERS,
+        extra_globals={
+            "_PIPELINE_CONFIG_RUNTIME": {},
+            "re": _re,
+            "warnings": _warnings,
+            "_disk_cached_call": lambda prefix, key_parts, compute_fn: compute_fn(),
+        },
+        source=source,
+    )
+    return {k: ns[k] for k in PK_PREDICATE_HELPERS + ("_PIPELINE_CONFIG_RUNTIME",)}
 
 
 def exec_functions_namespace(

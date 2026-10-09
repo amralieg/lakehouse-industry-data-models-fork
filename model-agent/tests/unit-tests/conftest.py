@@ -203,6 +203,9 @@ def _vov_ledger_isolation():
     if reset is not None:
         reset()
     yield
+    fence_reset = getattr(sys.modules.get("agent_helpers"), "set_vibe_scope_runtime", None)
+    if fence_reset is not None:
+        fence_reset(None)
 
 
 @pytest.fixture(scope="session")

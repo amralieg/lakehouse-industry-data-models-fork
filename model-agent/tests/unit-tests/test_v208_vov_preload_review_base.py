@@ -212,6 +212,7 @@ def _build_shim_namespace_with_stubs():
         # defines it in production; the extracted-function shim must inject it too.
         "__RELEASE_VERSION__": "0.8.0",
         "_VIBE_SCOPE_RUNTIME": None,
+        "_vov_note_pass_changes": lambda *args, **kwargs: 0,
     }
     # Order matters: helpers first
     exec(compile(_extract_function_block(_notebook_source(), "_vibe_scope_bind_engine_baseline"), "<vibe-scope-bind>", "exec"), ns)

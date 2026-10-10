@@ -160,3 +160,61 @@ def test_k4_entity_changes_sits_right_after_vibe_scope_in_model_json():
     j = src.index('**({"entity_changes": _entity_changes} if _entity_changes is not None else {}),', i)
     k = src.index('"model_requirements": model_requirements,', i)
     assert i < j < k and src[i:j].count("\n") == 1
+
+
+def _flat(model):
+    return ah.model_to_widgets_flat(copy.deepcopy(model), quiet=True)
+
+
+def _set_attr(rows_or_model, domain, product, attribute, field, value):
+    if isinstance(rows_or_model, list):
+        row = next(r for r in rows_or_model if (r["domain"], r["product"], r["attribute"]) == (domain, product, attribute))
+        row[field] = value
+        return
+    attr = next(a for a in _product(rows_or_model, domain, product)["attributes"] if a["name"] == attribute)
+    attr[field] = value
+
+
+def test_k4_a_change_no_requirement_explains_cites_the_pass_stage_that_made_it():
+    ah.vov_ledger_reset()
+    d, p, a, mv = _flat(RAW)
+    ah._vov_note_pass_changes("vov_start", d, p, a, mv)
+    _set_attr(a, "crew", "roster", "approval_status", "type", "INT")
+    ah._vov_note_pass_changes("vov_engine", d, p, a, mv)
+    _set_attr(a, "crew", "base", "base_name", "business_glossary_term", "Crew Base Name")
+    ah._vov_note_pass_changes("logical_schema_review", d, p, a, mv)
+    cur = copy.deepcopy(RAW)
+    _set_attr(cur, "crew", "roster", "approval_status", "type", "INT")
+    _set_attr(cur, "crew", "base", "base_name", "business_glossary_term", "Crew Base Name")
+    changes = ah.vov_entity_changes(RAW, cur, _widgets())
+    assert _entry(changes, "attribute", path="crew.base.base_name")["cause"] == ["pass:logical_schema_review"]
+    assert _entry(changes, "product", path="crew.base")["cause"] == ["pass:logical_schema_review"]
+    vreq = _entry(changes, "attribute", path="crew.roster.approval_status")["cause"]
+    assert "VREQ-0001" in vreq and not [c for c in vreq if c.startswith("pass:")]
+    assert all(e["cause"] for e in changes["entries"] if e["status"] != "unchanged")
+    ah.vov_ledger_reset()
+
+
+def test_k4_an_engine_round_trip_marks_no_untouched_row():
+    ah.vov_ledger_reset()
+    d, p, a, mv = _flat(RAW)
+    ah._vov_note_pass_changes("vov_start", d, p, a, mv)
+    model = ah.widgets_flat_to_model(d, p, a, mv, agent_version=ah.__AGENT_VERSION__)
+    assert ah._vov_note_pass_changes("vov_engine", *_flat(model)) == 0
+    ah.vov_ledger_reset()
+
+
+def test_k4_checkpoints_and_the_serializer_record_pass_stages_with_or_without_a_fence():
+    ah.vov_ledger_reset()
+    d, p, a, mv = _flat(RAW)
+    wv = {"operation": VOV, "domains": d, "products": p, "attributes": a, "metric_views": mv}
+    ah._vov_note_pass_changes("vov_engine", d, p, a, mv)
+    _set_attr(a, "crew", "base", "base_name", "description", "where crews are based")
+    assert ah._vibe_scope_checkpoint_widgets("after_subdomains", wv, LOG) == 0
+    assert ah._vov_pass_causes("attribute", "crew.base.base_name") == ["pass:after_subdomains"]
+    _set_attr(a, "crew", "base", "base_name", "description", "home base of a crew")
+    ah._vov_note_widgets_pass("finalize", wv, LOG)
+    assert ah._vov_pass_causes("attribute", "crew.base.base_name") == ["pass:after_subdomains", "pass:finalize"]
+    assert ah._vov_note_widgets_pass("finalize", {"operation": "new base model", "attributes": a}, LOG) == 0
+    ah.vov_ledger_reset()
+    assert ah._vov_pass_causes("attribute", "crew.base.base_name") == []

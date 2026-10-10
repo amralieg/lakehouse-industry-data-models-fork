@@ -116,6 +116,7 @@ def _exec_v251_namespace():
         "_v415_complete_connect_details",
         "_v251_prevalidate_priority",
         "_v327_infer_coltype",
+        "_vibe_scope_note_rename",
         "_v251_apply_priority_deterministic",
         "_v310_apply_rename_ledger",
         "_v251_apply_pass1_priorities",

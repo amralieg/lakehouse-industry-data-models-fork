@@ -409,3 +409,23 @@ def test_the_completeness_auditor_cannot_re_add_a_quote_the_extractor_already_ho
     out, recovered = ah._v292_audit_extraction_completeness("vibe text", existing, _Auditor(), log, max_passes=1)
     assert recovered == 0 and [v.vreq_id for v in out] == ["VREQ-0002"]
     assert any("vov-extract-audit-dedupe FIRED v5.1.6" in m for m in log.infos)
+
+
+def test_batch_targets_that_name_a_subdomain_fall_back_to_the_requirement_text():
+    targets, named = ah._vov_batch_targets_without_subdomains((("product", "merchandise_catalog"), ("product", "sku")), MODEL)
+    assert targets == (("product", "*"), ("product", "sku")) and named == ["product.merchandise_catalog"]
+    assert ah._vov_batch_targets_without_subdomains((("product", "sku"),), MODEL) == ((("product", "sku"),), [])
+    assert ah._vov_batch_targets_without_subdomains((("product", "pricing"),), MODEL) == ((("product", "pricing"),), [])
+
+
+class _SubdomainBatcherLLM:
+    def complete_json(self, **_kw):
+        return {"batches": [{"batch_id": "B1", "vreq_ids": ["VREQ-0001"], "intent_summary": "add size_chart",
+                             "target_entities": [["product", "merchandise_catalog"]]}]}
+
+
+def test_the_batcher_never_hands_a_subdomain_to_the_mutator_as_a_product():
+    vreqs = [ah.RawVREQ(vreq_id="VREQ-0001", intent="In the product domain's merchandise_catalog area, add a column to the sku table",
+                        target="product.sku", source_quote="add a column to the sku table", source_chunk_id="c")]
+    batches = ah.batch_vreqs(vreqs, llm=_SubdomainBatcherLLM(), model_snapshot=MODEL)
+    assert all(t != ("product", "merchandise_catalog") for b in batches for t in b.target_entities), [b.target_entities for b in batches]

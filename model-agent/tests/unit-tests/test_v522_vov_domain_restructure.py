@@ -397,3 +397,75 @@ def test_a_subdomain_moved_by_a_domain_rename_cites_the_rename():
     sub = next(e for e in changes["entries"] if e["kind"] == "subdomain" and e["base_path"] == "vendor.vendor_core")
     assert sub["status"] == "renamed" and "VREQ-0001" in sub["cause"]
     ah.vov_ledger_reset()
+
+
+def _flat_rows():
+    return ah.model_to_widgets_flat(copy.deepcopy(_model()), quiet=True)
+
+
+def test_the_fallback_validator_reads_the_dotted_ref_inside_a_prose_target():
+    d, p, a, _mv = _flat_rows()
+    hint = {"check_type": "existence", "target_description": "performance.tracking_pixel table in performance domain",
+            "expected_outcome": "performance.tracking_pixel exists after move"}
+    assert ah._llm_fallback_validate(hint, d, p, a, _Log()) is True
+    hint["target_description"] = "media.tracking_pixel table in media domain"
+    assert ah._llm_fallback_validate(hint, d, p, a, _Log()) is False
+
+
+def test_a_fallback_mutation_cannot_write_a_dotted_table_name_or_key():
+    d, p, a, _mv = _flat_rows()
+    log = _Log()
+    muts = [{"entity_type": "product", "operation": "modify", "entity_ref": "performance.tracking_pixel", "field": "table_name",
+             "new_value": "media.tracking_pixel"},
+            {"entity_type": "product", "operation": "modify", "entity_ref": "performance.tracking_pixel", "field": "primary_key",
+             "new_value": "tracking pixel id"}]
+    row = next(r for r in p if r["product"] == "tracking_pixel")
+    before = (row.get("table_name"), row.get("primary_key"))
+    assert ah._llm_fallback_apply_mutations(muts, d, p, a, [], log) == 0
+    assert (row.get("table_name"), row.get("primary_key")) == before and before[1] == "tracking_pixel_id"
+    assert any("P0.91-PROSE-REJECT" in m for m in log.lines)
+
+
+def test_a_priority_rename_moves_the_table_name_and_key_with_the_product():
+    model = _model()
+    for d in model["model"]["domains"]:
+        for prod in d["products"]:
+            prod["table_name"] = prod["name"]
+    ok, why = ah._v251_apply_priority_deterministic({"action": "rename_product", "target": "campaign.ad"}, {"new_name": "advert"}, model, _Log())
+    assert (ok, why) == (True, "applied")
+    advert = next(prod for d in model["model"]["domains"] for prod in d["products"] if prod["name"] == "advert")
+    assert advert["table_name"] == "advert" and advert["primary_key"] == "advert_id"
+    pixel = next(prod for d in model["model"]["domains"] for prod in d["products"] if prod["name"] == "tracking_pixel")
+    assert next(x for x in pixel["attributes"] if x["name"] == "ad_id")["foreign_key_to"] == "campaign.advert.advert_id"
+
+
+def test_a_domain_rename_keeps_a_schema_prefix_and_repairs_a_foreign_schema_name():
+    model = _model()
+    vendor = next(d for d in model["model"]["domains"] if d["name"] == "vendor")
+    vendor["database_name"] = "dbx_vendor"
+    media = next(d for d in model["model"]["domains"] if d["name"] == "media")
+    media["database_name"] = "project"
+    ah._v337_apply_rename_domain(model["model"], "vendor", "partner")
+    ah._v337_apply_rename_domain(model["model"], "media", "channel")
+    names = {d["name"]: d["database_name"] for d in model["model"]["domains"] if d.get("database_name")}
+    assert names == {"partner": "dbx_partner", "channel": "channel"}
+
+
+def test_a_domain_whose_schema_names_another_domain_is_flagged():
+    d, p, a, _mv = _flat_rows()
+    for row in d:
+        row["database_name"] = {"vendor": "dbx_vendor", "media": "project"}.get(row["domain"], row["domain"])
+    issues = ah.run_metamodel_static_analysis(d, p, a, {}, _Log())["issues"]
+    hits = [i for i in issues if i["category"] == "domain_database_name_mismatch"]
+    assert [h["details"]["domain"] for h in hits] == ["media"]
+
+
+def test_a_merged_domain_is_reported_as_merged_not_renamed():
+    base = _model()
+    cur = copy.deepcopy(base)
+    ah.vov_ledger_reset()
+    assert ah._v337_apply_merge_domain(cur["model"], "vendor", "media") is not None
+    changes = ah.vov_entity_changes(base, cur, {"operation": "vibe modeling of version"})
+    entry = next(e for e in changes["entries"] if e["kind"] == "domain" and e["base_path"] == "vendor")
+    assert (entry["status"], entry["path"]) == ("merged", "media")
+    ah.vov_ledger_reset()

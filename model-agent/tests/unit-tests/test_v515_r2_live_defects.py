@@ -11,6 +11,7 @@
    that finding ("product.promotion_sku still exists next to product.describe").
 4. Two metric views fell back to a row count with METRIC_VIEW_WINDOW_MEASURE_REFERENCES_WINDOW_MEASURE.
 """
+import json
 import logging
 import re
 import sys
@@ -321,10 +322,27 @@ def _upload_calls(src):
 
 def test_every_files_upload_call_passes_a_stream_not_bytes():
     installer = Path(__file__).resolve().parents[3] / "model-installer" / "data-model-installer.ipynb"
-    import json as _json
     sources = {"agent": notebook_concat_source(),
-               "installer": "\n".join("".join(c["source"]) for c in _json.loads(installer.read_text())["cells"] if c.get("cell_type") == "code")}
+               "installer": "\n".join("".join(c["source"]) for c in json.loads(installer.read_text())["cells"] if c.get("cell_type") == "code")}
     calls = [(name, call) for name, src in sources.items() for call in _upload_calls(src)]
     assert len(calls) >= 12
     raw = [(name, call) for name, call in calls if re.search(r"\.encode\(|\bb['\"]", call) and "BytesIO" not in call]
     assert raw == [], "WorkspaceClient.files.upload needs a binary stream; bytes fail with 'bytes' object has no attribute 'seekable'"
+
+
+def test_an_attribute_rename_carries_the_cause_its_pass_recorded():
+    import copy as _copy
+    repo = Path(__file__).resolve().parents[3]
+    raw = json.loads((repo / "data-models" / "airlines" / "v1" / "mvm" / "model.json").read_text())
+    dom = raw["model"]["domains"][0]
+    prod = dom["products"][0]
+    old = prod["attributes"][1]["name"]
+    cur = _copy.deepcopy(raw)
+    cur["model"]["domains"][0]["products"][0]["attributes"][1]["name"] = "primary_" + old
+    ah.vov_ledger_reset()
+    ah._vov_record_rename("attribute", f"{dom['name']}.{prod['name']}.{old}", f"{dom['name']}.{prod['name']}.primary_{old}",
+                          "pass:p016_ambiguous_fk_rename")
+    changes = ah.vov_entity_changes(raw, cur, {"operation": "vibe modeling of version"})
+    hit = [e for e in changes["entries"] if e["kind"] == "attribute" and e["status"] == "renamed"]
+    assert len(hit) == 1 and hit[0]["base_path"].endswith(f".{old}"), hit
+    assert "pass:p016_ambiguous_fk_rename" in hit[0]["cause"], hit[0]

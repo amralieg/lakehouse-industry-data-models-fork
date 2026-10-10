@@ -304,3 +304,17 @@ def test_a_frozen_metric_view_is_left_to_the_fence_p5():
         assert "`cat`.`campaign`.`advert`" in _view(model, "campaign_ad")["sql"]
     finally:
         ah.set_vibe_scope_runtime(None)
+
+
+def test_a_move_the_directive_expander_applies_leaves_the_llm_loop(monkeypatch):
+    import test_v514_rename_integrity as RI
+    text = "Move the product roster from the crew domain to the flight domain."
+    vreq = ah.RawVREQ(vreq_id="VREQ-0001", intent=text, target="crew.roster", source_quote="- " + text, source_chunk_id="c1",
+                      is_user_directive=True)
+    monkeypatch.setitem(ah.__dict__, "extract_all", lambda *a, **k: [vreq])
+    monkeypatch.setattr(ah, "logger", RI.LOG, raising=False)
+    llm = RI._FakeLLM()
+    result = ah.run_vov_pipeline("## crew\n- " + text + "\n", RI._engine(), llm, [], [], parallel=False, priority_reapply_loops=1)
+    assert RI._has(result.final_model, "flight", "roster") and not RI._has(result.final_model, "crew", "roster")
+    assert RI._statuses(result)["VREQ-0001"] == ["applied"]
+    assert not [system for system, _user in llm.prompts if "group VREQs into BATCHES" in system]

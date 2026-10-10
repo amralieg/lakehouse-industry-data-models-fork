@@ -188,7 +188,15 @@ def compare(base_model, new_model, scope):
         if [k for k in battrs if k in nattrs] != [k for k in nattrs if k in battrs]:
             problems.append(f"out-of-scope product {path} column order changed")
 
+    renamed_from = {}
+    for event in ((new_model.get("_vibe_scope") or {}).get("rename_ledger") or []):
+        old, target = _fk_product(event.get("old")), _fk_product(event.get("new"))
+        if event.get("kind") in ("product", "move") and old in base_p and target:
+            renamed_from[target] = old
     for key, (ndom, nprod) in new_p.items():
+        old = renamed_from.get(key)
+        if old is not None and scope.product_in(old[0], old[1], base_p[old][1].get("subdomain")):
+            continue
         if key not in base_p and not scope.product_in(key[0], key[1], nprod.get("subdomain")):
             problems.append(f"new product {ndom.get('name')}.{nprod.get('name')} outside the scope")
 

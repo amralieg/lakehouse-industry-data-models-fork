@@ -1847,7 +1847,7 @@ The agent enforces these rules. A broken rule fails the run before anything chan
 - A VOV needs `model_vibes`. An empty value fails preflight. The agent never applies a version's `next_vibes.txt` on its own, so the compiled text must carry every item the user selected, next-vibes suggestions included. A path to a `next_vibes.txt` file also works.
 - A scoped VOV is refused when its base is behind the head version (16.6). The error names the base and the head.
 - At setup, a VOV, shrink or enlarge run clears the old schemas of this business from the target catalog. It drops only schemas the business owns: a schema is owned when a version of this business that is not a Dry Run registered it in `_metamodel.domain`. It drops nothing on a Dry Run or in a scoped run. If the new model needs a schema that already exists and is not owned by this business, a Full Run is refused before anything is dropped; a Dry Run only warns, because it deploys nothing.
-- `install model` of a scoped `model.json` is accepted only when the catalog's latest installed version is the scoped run's base (`_vibe_scope.base_version`), or when the catalog holds none of the model's schemas.
+- `install model` of a scoped `model.json` is accepted only when the catalog's latest installed version is the scoped run's base (`_vibe_scope.base_version`), or when the catalog holds none of the model's schemas. A failed install reverts the registry row it wrote, so a Dry Run that fails to install stays a draft.
 
 For a VOV, send the base model's convention values or leave them blank. The base model's `model_conventions` win, and a WARN lists every value the agent ignored. `primary_key_suffix` applies to every primary key and FK column the agent writes.
 

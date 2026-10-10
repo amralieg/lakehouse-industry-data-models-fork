@@ -53,7 +53,9 @@ def _install(monkeypatch, tmp_path, raw, widget_overrides=None, fake=None, real_
     def _registrar(*args, **kwargs):
         calls["registrar"].append((args, kwargs))
         if real_registrar:
-            return ah._register_model_json_in_metamodel(*args, **kwargs)
+            result = ah._register_model_json_in_metamodel(*args, **kwargs)
+            calls["registered_rows"] = copy.deepcopy(fake.rows)
+            return result
         return {"success": True, "metamodel_db": "x", "errors": [], "domain_count": 0, "product_count": 0, "attribute_count": 0}
 
     ns["_register_model_json_in_metamodel"] = _registrar
@@ -101,11 +103,15 @@ def test_install_widget_version_with_scope_suffix_is_normalized(monkeypatch, tmp
 
 
 def test_install_writes_installed_rows_into_the_registry(monkeypatch, tmp_path):
-    _calls, _error, fake, _ = _install(monkeypatch, tmp_path, fu.small_model("v1_mvm"), {"metamodel_catalog": "mm_cat"}, real_registrar=True)
-    [biz] = fake.rows["mm_cat._metamodel.business"]
+    calls, error, fake, logger = _install(monkeypatch, tmp_path, fu.small_model("v1_mvm"), {"metamodel_catalog": "mm_cat"}, real_registrar=True)
+    written = calls["registered_rows"]
+    [biz] = written["mm_cat._metamodel.business"]
     assert (biz["version"], biz["deploy_status"], biz["catalog"]) == ("1", "installed", "inst_cat")
-    assert {r["product"] for r in fake.rows["mm_cat._metamodel.product"]} == {"customer", "invoice", "payment"}
-    assert "inst_cat._metamodel.business" not in fake.rows
+    assert {r["product"] for r in written["mm_cat._metamodel.product"]} == {"customer", "invoice", "payment"}
+    assert "inst_cat._metamodel.business" not in written
+    assert isinstance(error, ValueError) and "Physical model creation failed" in str(error)
+    assert fake.rows["mm_cat._metamodel.business"] == [] and fake.rows["mm_cat._metamodel.product"] == [], \
+        "a failed physical step leaves no installed version in the registry"
 
 
 def _scoped(raw, base_version=2, base_scope="mvm", operation="vibe modeling of version"):

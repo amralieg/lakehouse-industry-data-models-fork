@@ -255,6 +255,91 @@ def test_a_real_product_rename_still_classifies():
     assert ah._v413_vreq_to_det_op(vreq, MODEL) == ("rename_product", "order", "sales_order", "order_header")
 
 
+INVOICE_MODEL = {"model": {"domains": [{"name": "finance", "products": [
+    {"name": "customer_invoice", "primary_key": "customer_invoice_id",
+     "attributes": [{"name": "customer_invoice_id"}, {"name": "invoice_channel"}, {"name": "status"}]}]}]}}
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("Rename the column invoice_channel in the product customer_invoice to delivery_channel.", ("invoice_channel", "delivery_channel")),
+    ("In the finance domain, rename the column 'invoice_channel' in the product 'customer_invoice' to 'delivery_channel'.",
+     ("invoice_channel", "delivery_channel")),
+    ("Rename the attribute status of the customer_invoice table to invoice_status", ("status", "invoice_status")),
+    ("Rename the field invoice_channel in table customer_invoice to delivery_channel", ("invoice_channel", "delivery_channel")),
+])
+def test_a_column_rename_that_names_its_table_renames_the_column(text, expected):
+    vreq = types.SimpleNamespace(source_quote=text, intent=text, target="finance.customer_invoice")
+    op = ah._v413_vreq_to_det_op(vreq, INVOICE_MODEL)
+    assert op == ("rename_attribute", "finance", "customer_invoice") + expected, (
+        "live R25 79132951735533 renamed the product finance.customer_invoice to delivery_channel")
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("Rename the product customer_invoice to client_invoice", ("rename_product", "finance", "customer_invoice", "client_invoice")),
+    ("Rename the product customer_invoice in the finance domain to client_invoice",
+     ("rename_product", "finance", "customer_invoice", "client_invoice")),
+    ("Rename the product customer_invoice to client_invoice and update the attribute descriptions", None),
+])
+def test_a_product_rename_is_still_a_product_rename_unless_a_column_is_named(text, expected):
+    vreq = types.SimpleNamespace(source_quote=text, intent=text, target="finance.customer_invoice")
+    assert ah._v413_vreq_to_det_op(vreq, INVOICE_MODEL) == expected
+
+
+@pytest.mark.parametrize("text", [
+    "Rename the customer_invoice table's invoice_channel column to delivery_channel",
+    "Rename the invoice_channel column in the customer_invoice table to delivery_channel",
+])
+def test_a_column_rename_is_never_applied_as_a_product_rename(text):
+    vreq = types.SimpleNamespace(source_quote=text, intent=text, target="finance.customer_invoice")
+    op = ah._v413_vreq_to_det_op(vreq, INVOICE_MODEL)
+    assert op is None or op[0] == "rename_attribute"
+
+
+def _rename_rows():
+    return [{"domain": "finance", "product": "delivery_channel", "attribute": "delivery_channel_id", "foreign_key_to": ""},
+            {"domain": "finance", "product": "delivery_channel", "attribute": "invoice_channel", "foreign_key_to": ""},
+            {"domain": "finance", "product": "payment", "attribute": "channel_ref", "foreign_key_to": "finance.delivery_channel.invoice_channel"}]
+
+
+def _rename(attrs, column, new_name, log):
+    action = {"action": "rename", "scope": "attribute", "name": f"finance.delivery_channel.{column}", "target_state": new_name}
+    products = [{"domain": "finance", "product": "delivery_channel", "primary_key": "delivery_channel_id"}]
+    return ah.apply_mutation_command(action, [{"domain": "finance"}], products, attrs, {}, log)
+
+
+@pytest.fixture
+def _ledger():
+    ah.vov_ledger_reset()
+    yield
+    ah.vov_ledger_reset()
+
+
+def test_a_rename_to_a_sentence_is_refused(_ledger):
+    attrs, log = _rename_rows(), logging.getLogger("t")
+    prose = "Column renamed from invoice_channel to dispatch_channel in finance.delivery_channel."
+    assert _rename(attrs, "invoice_channel", prose, log) == (True, {"applied": 0, "reason": "invalid_new_name"}), (
+        "live R26 824350583887071 recorded a rename to that sentence")
+    assert [a["attribute"] for a in attrs][:2] == ["delivery_channel_id", "invoice_channel"]
+    assert ah.vov_rename_events() == []
+
+
+def test_a_rename_of_a_missing_column_records_nothing(_ledger):
+    attrs, log = _rename_rows(), logging.getLogger("t")
+    attrs[2]["foreign_key_to"] = "finance.delivery_channel.no_such_column"
+    assert _rename(attrs, "no_such_column", "dispatch_channel", log) == (True, {"applied": 0, "reason": "source_missing"})
+    assert ah.vov_rename_events() == [] and attrs[2]["foreign_key_to"] == "finance.delivery_channel.no_such_column"
+
+
+def test_a_rename_that_already_landed_is_protected_and_a_new_one_applies(_ledger):
+    attrs, log = _rename_rows(), logging.getLogger("t")
+    ok, meta = _rename(attrs, "invoice_channel", "dispatch_channel", log)
+    assert ok and meta["applied"] == 1 and attrs[1]["attribute"] == "dispatch_channel"
+    assert attrs[2]["foreign_key_to"] == "finance.delivery_channel.dispatch_channel"
+    ok, meta = _rename(attrs, "invoice_channel", "dispatch_channel", log)
+    assert ok and meta["applied"] == 0 and meta["renamed_attribute"]["new"] == "finance.delivery_channel.dispatch_channel"
+    assert ah._is_user_renamed_attribute("finance", "delivery_channel", "dispatch_channel")
+
+
 WINDOW_ON_WINDOW = [
     {"name": "Return Count", "expr": "COUNT(1)"},
     {"name": "Returns CM", "expr": "COUNT(1)", "window": [{"order": "return_requested_month", "range": "current", "semiadditive": "last"}]},

@@ -356,10 +356,28 @@ def _reset_runtime():
             m._PIPELINE_CONFIG_RUNTIME.clear()
 
 
+def _without_tag_list_pk_flags(out):
+    out = copy.deepcopy(out)
+    dropped = 0
+    for d in out["model"]["domains"]:
+        for p in d["products"]:
+            for a in p["attributes"]:
+                if "primary_key" in [t.strip() for t in str(a.get("tags") or "").split(",")] and a.pop("is_primary_key", None):
+                    dropped += 1
+    out["result"]["g1_pk"] -= dropped
+    return out
+
+
+INTENDED_CHANGES = {"structural_hardening": _without_tag_list_pk_flags}
+
+
 @pytest.mark.parametrize("name", sorted(RUNNERS))
 def test_default_id_output_is_byte_identical_to_56ce1eb(name):
     old = _module_at(BASE_COMMIT)
-    assert _canonical(RUNNERS[name](ah, "_id")[0]) == _canonical(RUNNERS[name](old, "_id")[0])
+    new_out, old_out = RUNNERS[name](ah, "_id")[0], RUNNERS[name](old, "_id")[0]
+    if name in INTENDED_CHANGES:
+        new_out, old_out = INTENDED_CHANGES[name](new_out), INTENDED_CHANGES[name](old_out)
+    assert _canonical(new_out) == _canonical(old_out)
 
 
 FAIL_PRE = {"strip_product_prefix", "make_product_dict", "validator_products", "validator_attributes",

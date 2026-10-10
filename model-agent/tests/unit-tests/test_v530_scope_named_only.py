@@ -141,3 +141,86 @@ def test_an_all_domains_requested_fence_is_unchanged():
     fence = ah._vibe_scope_start_requested([RENAME_MEMBER], raw, log, copy.deepcopy(raw))
     assert fence is not None and fence.spec.mode == "requested" and not fence.spec.named_only
     assert fence.is_frozen_product("crew", "pairing") and not fence.is_frozen_product("crew", "member")
+
+
+def _product(model, domain, name):
+    return next(p for d in model["model"]["domains"] if d["name"] == domain for p in d["products"] if p["name"] == name)
+
+
+def test_the_model_json_check_ignores_working_fields_the_engine_baseline_carries():
+    fence, _returned, log, raw = _scoped([RENAME_MEMBER])
+    engine = copy.deepcopy(raw)
+    pairing = _product(engine, "crew", "pairing")
+    next(a for a in pairing["attributes"] if a["name"] == pairing["primary_key"])["is_primary_key"] = True
+    assert fence.bind_engine_baseline(engine, log)["rebound_to_engine"]
+    serialized = copy.deepcopy(raw)
+    assert fence.check(serialized).ok, "live R18 710756936383949 failed closed on order.order_note.order_note_id (fields is_primary_key)"
+    _product(serialized, "crew", "pairing")["description"] = "rewritten by a pass"
+    assert [v["kind"] for v in fence.check(serialized).violations] == ["frozen_product_changed"]
+
+
+def test_the_serialize_gate_restores_unnamed_in_scope_products_from_the_base():
+    fence, _returned, log, raw = _scoped([RENAME_MEMBER])
+    serialized = copy.deepcopy(raw)
+    assert ah._v337_apply_rename_product(serialized["model"], "crew", "member", "crew_member") is not None
+    pairing = _product(serialized, "crew", "pairing")
+    pairing["description"] = "rewritten by a pass"
+    next(a for a in pairing["attributes"] if a["name"] == pairing["primary_key"])["is_primary_key"] = True
+    fence.splice_and_verify(serialized, log)
+    assert _product(serialized, "crew", "pairing") == _product(raw, "crew", "pairing")
+    crew = {p["name"] for d in serialized["model"]["domains"] if d["name"] == "crew" for p in d["products"]}
+    assert "crew_member" in crew and "member" not in crew
+
+
+def test_the_metric_view_oracle_freezes_views_of_unnamed_in_scope_products():
+    fence, _returned, _log, _raw = _scoped([RENAME_MEMBER])
+    assert fence.is_frozen_metric_view({"owner_domain": "crew", "owner_product": "pairing"})
+    assert not fence.is_frozen_metric_view({"owner_domain": "crew", "owner_product": "member"})
+    assert not fence.is_frozen_metric_view({"owner_domain": "crew", "owner_product": "crew_member"})
+    wide, _returned, _log, _raw = _scoped([_vreq("VREQ-0001", "", "Improve the descriptions")])
+    assert not wide.is_frozen_metric_view({"owner_domain": "crew", "owner_product": "pairing"})
+
+
+def _crew_plan(raw):
+    crew = [p["name"] for d in raw["model"]["domains"] if d["name"] == "crew" for p in d["products"]]
+    plan = ah._scope_deploy_plan({"changed_in_scope_products": [], "preserved_products": [f"crew.{p}" for p in crew],
+                                  "permitted_deltas": []}, raw, None)
+    plan.bind({plan.key("crew", p): f"`cat`.`crew`.`{p}`" for p in crew})
+    return plan
+
+
+def test_schema_tags_follow_the_domain_record_rule():
+    stmt = "ALTER SCHEMA `cat`.`crew` SET TAGS ('dbx_domain' = 'crew');"
+    _fence, _returned, _log, raw = _scoped([RENAME_MEMBER])
+    assert not _crew_plan(raw).keep_statement(stmt)
+    _fence, _returned, _log, raw = _scoped([_vreq("VREQ-0001", "crew", "Add an audit_status column to every product in the crew domain")])
+    assert _crew_plan(raw).keep_statement(stmt)
+    _fence, _returned, _log, raw = _scoped([_vreq("VREQ-0001", "", "Improve the descriptions")])
+    assert _crew_plan(raw).keep_statement(stmt)
+
+
+def test_the_install_plan_oracle_keeps_the_named_only_rule():
+    import json
+    fence, _returned, _log, _raw = _scoped([RENAME_MEMBER])
+    facts = json.loads(json.dumps(fence.report(), default=str))
+    assert ["crew", "member"] in facts["named"]["products"]
+    oracle = ah._vibe_scope_deploy_oracle(facts, use_runtime=False)
+    assert oracle.spec.mode == "domains" and oracle.spec.named_only
+    assert oracle.is_frozen_metric_view({"owner_domain": "crew", "owner_product": "pairing"})
+    assert not oracle.is_frozen_metric_view({"owner_domain": "crew", "owner_product": "crew_member"})
+    assert oracle.is_frozen_metric_view({"owner_domain": "flight", "owner_product": "scheduled_flight"})
+    wide, _returned, _log, _raw = _scoped([_vreq("VREQ-0001", "", "Improve the descriptions")])
+    plain = ah._vibe_scope_deploy_oracle(json.loads(json.dumps(wide.report(), default=str)), use_runtime=False)
+    assert not plain.spec.named_only and not plain.is_frozen_metric_view({"owner_domain": "crew", "owner_product": "pairing"})
+
+
+def test_entity_changes_ignore_working_fields_model_json_does_not_store():
+    fence, _returned, _log, raw = _scoped([RENAME_MEMBER])
+    cur = copy.deepcopy(raw)
+    pairing = _product(cur, "crew", "pairing")
+    next(a for a in pairing["attributes"] if a["name"] == pairing["primary_key"])["is_primary_key"] = True
+    changed = [e for e in ah.vov_entity_changes(raw, cur, {"operation": VOV})["entries"] if e["status"] != "unchanged"]
+    assert changed == [], "live R20 361205040527084 reported order.order_note.order_note_id modified ['is_primary_key']"
+    _product(cur, "crew", "pairing")["description"] = "rewritten by a pass"
+    changed = [e for e in ah.vov_entity_changes(raw, cur, {"operation": VOV})["entries"] if e["status"] != "unchanged"]
+    assert [(e["kind"], e["path"], e["fields"]) for e in changed] == [("product", "crew.pairing", ["description"])]

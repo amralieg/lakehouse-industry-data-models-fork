@@ -401,6 +401,23 @@ def test_frozen_metric_views_from_another_catalog_are_recreated_in_the_deploy_ca
     assert any("vibe-scope-mv-retarget FIRED v5.1.6" in m for m in log.infos)
 
 
+class _PresentPlan(_KeepPlan):
+    def metric_view_action(self, name, rec=None, fqn=None):
+        return "keep" if fqn and "vibe_lane2" in str(fqn) else "materialize"
+
+
+def test_a_frozen_view_statement_from_another_catalog_is_kept_when_installed_in_the_deploy_catalog():
+    sql = ("CREATE OR REPLACE VIEW `advertising_ecm`.`_metrics`.`campaign_flight`\nWITH METRICS\nLANGUAGE YAML\nAS $$\n"
+           "  version: 1.1\n  source: \"`advertising_ecm`.`campaign`.`flight`\"\n$$")
+    plan, log = _PresentPlan(), _Log()
+    statements = [sql]
+    deploy, kept, frozen = ah._vibe_scope_metric_view_deploy_set(plan, statements, [{"view_name": "campaign_flight", "sql": sql}], None, log, "vibe_lane2")
+    assert deploy == [], "live R19/R21/R23 re-created 29-31 frozen views every run: the statement kept the base catalog"
+    assert kept == ["campaign_flight"] and frozen == ["campaign_flight"]
+    assert statements == [sql]
+    assert all("advertising_ecm" not in f for f in plan.fqns if f)
+
+
 class _MissingCatalogSpark:
     def sql(self, statement):
         raise RuntimeError("[TABLE_OR_VIEW_NOT_FOUND] The table or view `advertising_ecm`.`information_schema`.`tables` cannot be found.")

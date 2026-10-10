@@ -397,6 +397,25 @@ def test_g1_asserts_pk_on_table_missing_flag():
     assert pk.get("is_primary_key") is True, "G1 must flag <product>_id as PK when none present"
 
 
+def test_g1_reads_the_primary_key_tag_inside_a_tag_list():
+    ns = _harden_ns()
+    dm = _harden_model()
+    party = next(d for d in dm["model"]["domains"] if d["name"] == "party")
+    party["products"].append({"name": "party_note", "attributes": [
+        {"name": "party_note_id", "type": "BIGINT", "tags": "primary_key,role=primary_key"},
+        {"name": "note_text", "type": "STRING"},
+    ]})
+    party["products"].append({"name": "party_address", "attributes": [
+        {"name": "party_address_id", "type": "BIGINT", "tags": "primary_key,restricted,pii_address"},
+    ]})
+    ns["_v443_structural_hardening"](dm, _Log())
+    for prod in ("party_note", "party_address"):
+        pk = _find_prod(dm, "party", prod)["attributes"][0]
+        assert "is_primary_key" not in pk, f"live R20 361205040527084 wrote is_primary_key into model.json for {prod}"
+    acct = _find_prod(dm, "party", "party_account")
+    assert next(a for a in acct["attributes"] if a["name"] == "party_account_id").get("is_primary_key") is True
+
+
 def test_g3_coerces_fk_type_to_target_pk_type():
     ns = _harden_ns()
     dm = _harden_model()

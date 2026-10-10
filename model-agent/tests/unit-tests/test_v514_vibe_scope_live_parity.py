@@ -31,6 +31,26 @@ def _norm(name):
     return re.sub(r"[^a-z0-9]", "", str(name or "").lower())
 
 
+_KEY_ALIASES = {"references": "reference"}
+_SERIALIZER_DEFAULTS = {"nullable": True, "is_nullable": True}
+
+
+def _canon(record, drop=()):
+    """The record as the contract sees it: a key the serializer adds with an empty or default value, or renames
+    (references -> reference), is not a change."""
+    out = {}
+    for key, value in (record or {}).items():
+        if key in drop:
+            continue
+        key = _KEY_ALIASES.get(key, key)
+        if value is None or value == "" or value == [] or value == {} or value is False:
+            continue
+        if key in _SERIALIZER_DEFAULTS and value == _SERIALIZER_DEFAULTS[key]:
+            continue
+        out[key] = value
+    return out
+
+
 def _root(model):
     return model.get("model") if isinstance(model.get("model"), dict) else model
 
@@ -112,7 +132,7 @@ def compare(base_model, new_model, scope):
         if ndom is None:
             problems.append(f"domain {bdom.get('name')} is missing")
             continue
-        strip = lambda d: {k: v for k, v in d.items() if k not in ("products", "data_products", "subdomains")}
+        strip = lambda d: _canon(d, drop=("products", "data_products", "subdomains", "association_edges"))
         if strip(bdom) != strip(ndom):
             changed = sorted(k for k in set(strip(bdom)) | set(strip(ndom)) if strip(bdom).get(k) != strip(ndom).get(k))
             problems.append(f"domain record {bdom.get('name')} changed: {changed}")
@@ -128,8 +148,8 @@ def compare(base_model, new_model, scope):
             problems.append(f"out-of-scope product {path} is missing")
             continue
         nprod = new_p[key][1]
-        brow = {k: v for k, v in bprod.items() if k != "attributes"}
-        nrow = {k: v for k, v in nprod.items() if k != "attributes"}
+        brow = _canon(bprod, drop=("attributes",))
+        nrow = _canon(nprod, drop=("attributes",))
         if brow != nrow:
             changed = sorted(k for k in set(brow) | set(nrow) if brow.get(k) != nrow.get(k))
             problems.append(f"out-of-scope product {path} changed fields {changed}")
@@ -141,10 +161,10 @@ def compare(base_model, new_model, scope):
             if nattr is None:
                 problems.append(f"out-of-scope column {apath} is missing")
                 continue
-            if battr == nattr:
+            if _canon(battr) == _canon(nattr):
                 continue
-            rest_b = {k: v for k, v in battr.items() if k != "foreign_key_to"}
-            rest_n = {k: v for k, v in nattr.items() if k != "foreign_key_to"}
+            rest_b = _canon(battr, drop=("foreign_key_to",))
+            rest_n = _canon(nattr, drop=("foreign_key_to",))
             kinds = declared.get(apath, set())
             if rest_b != rest_n:
                 changed = sorted(k for k in set(rest_b) | set(rest_n) if rest_b.get(k) != rest_n.get(k))
@@ -183,8 +203,9 @@ def compare(base_model, new_model, scope):
         name = bmv.get("view_name") or bmv.get("name")
         if nmv is None:
             problems.append(f"out-of-scope metric view {name} is missing")
-        elif bmv != nmv:
-            changed = sorted(k for k in set(bmv) | set(nmv) if bmv.get(k) != nmv.get(k))
+        elif _canon(bmv) != _canon(nmv):
+            cb, cn = _canon(bmv), _canon(nmv)
+            changed = sorted(k for k in set(cb) | set(cn) if cb.get(k) != cn.get(k))
             if changed != ["sql"] or "P5" not in declared.get(str(name), set()):
                 problems.append(f"out-of-scope metric view {name} changed fields {changed}")
     return problems
@@ -262,6 +283,18 @@ def test_any_other_out_of_scope_change_is_reported(mutate, needle):
     mutate(new)
     problems = compare(_base(), new, Scope("domains", ["order"]))
     assert any(needle in p for p in problems), problems
+
+
+def test_serializer_defaults_and_key_renames_are_not_changes():
+    new = json.loads(json.dumps(_base()))
+    prof = new["model"]["domains"][2]["products"][0]
+    prof["attributes"][0].update(nullable=True, is_nullable=True, sample_values=[], classification="", data_type="")
+    prof.update(natural_keys=[], row_estimate="")
+    new["model"]["domains"][2]["association_edges"] = []
+    base = _base()
+    base["model"]["domains"][2]["references"] = "ISO"
+    new["model"]["domains"][2]["reference"] = "ISO"
+    assert compare(base, new, Scope("domains", ["order"])) == []
 
 
 def test_a_requested_run_freezes_every_product_it_does_not_name():

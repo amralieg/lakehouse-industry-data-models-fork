@@ -324,3 +324,54 @@ def test_a_new_product_the_text_names_is_admitted_even_under_a_misread_target():
     vreq = _vreq("V1", "customer.campaign", "In the customer domain's loyalty_engagement area, add a new product store_credit with one row per credit")
     spec, _ = ah._vibe_scope_requested_spec([vreq], {"model": _model()})
     assert _keys(("customer", "store_credit"), ("customer", "campaign")) <= spec.products
+
+
+def _engine_result():
+    model = _model()
+    for dom in model["domains"]:
+        for prod in dom["products"]:
+            if dom["name"] == "product" and prod["name"] == "digital_asset":
+                prod["attributes"].append({"name": "season_code", "type": "STRING", "description": "Merchandising season."})
+        if dom["name"] == "customer":
+            dom["products"].append({"name": "gift_card", "primary_key": "gift_card_id", "subdomain": "loyalty_engagement",
+                                    "description": "One row per gift card.",
+                                    "attributes": [{"name": "gift_card_id", "type": "STRING"}, {"name": "gift_card_code", "type": "STRING"}]})
+    return model
+
+
+def test_after_the_engine_no_pass_may_change_a_named_base_product_until_the_selffixer(fence):
+    f, log = fence
+    d, p, a, mv = _flat(_engine_result())
+    f.requested_snapshot(d, p, a, mv, log)
+    assert any("vov-strict-engine-snapshot FIRED v5.1.6" in m for m in log.all())
+    named_before = [r["attribute"] for r in a if r["product"] == "digital_asset"]
+    for row in a:
+        if row["product"] == "digital_asset" and row["attribute"] == "season_code":
+            row["attribute"] = "digital_asset_season_code"
+        if row["product"] == "gift_card" and row["attribute"] == "gift_card_code":
+            row["attribute"] = "code"
+    a[:] = [r for r in a if not (r["product"] == "digital_asset" and r["attribute"] == "campaign_id")]
+    a.append({"domain": "product", "product": "digital_asset", "attribute": "taxonomy_id", "type": "STRING",
+              "foreign_key_to": "product.collection.collection_id"})
+    restored = f.restore_to_engine_snapshot(d, p, a, mv, "after_subdomains")
+    assert restored >= 1
+    assert [r["attribute"] for r in a if r["product"] == "digital_asset"] == named_before
+    assert ("customer", "gift_card", "code") in {(r["domain"], r["product"], r["attribute"]) for r in a}
+
+
+def test_the_checkpoints_before_the_selffixer_apply_the_engine_snapshot():
+    assert ah._VOV_STRICT_ENGINE_SNAPSHOT_LABELS == ("logical_schema_review", "after_subdomains", "after_metric_views")
+    src = notebook_concat_source()
+    start = src.index("def _vibe_scope_checkpoint_widgets(")
+    body = src[start:src.index("\nclass ", start)]
+    assert "fence.restore_to_engine_snapshot(domains, products, attributes, records, label)" in body
+    start = src.index("def run_vov_2_against_widgets(")
+    body = src[start:src.index("\ndef ", start + 10)]
+    assert body.index('_vibe_scope_checkpoint("vov_writeback"') < body.index("_VIBE_SCOPE_RUNTIME.requested_snapshot(new_domains, new_products, new_attrs, new_mvs, logger)")
+
+
+def test_a_scoped_fence_takes_no_engine_snapshot():
+    scoped = ah.build_vibe_scope_fence(ah.parse_vibe_scope("Some Domains", "order"), {"model": _model()}, "vibe modeling of version", _Log())
+    d, p, a, mv = _flat(_model())
+    assert scoped.requested_snapshot(d, p, a, mv) is None
+    assert scoped.restore_to_engine_snapshot(d, p, a, mv, "after_subdomains") == 0

@@ -167,7 +167,7 @@ def test_a_dry_run_never_grounds_adherence_on_the_previous_physical_catalog():
     ah._run_ground_truth_audit(wv)
     assert spark.queries == []
     assert "_ground_truth_scorecard" not in wv
-    assert any("gt-skip-dry-run FIRED v5.2.0" in m for m in log.infos)
+    assert any("gt-skip-dry-run FIRED v5.2.1" in m for m in log.infos)
 
 
 def test_a_full_run_still_reads_the_physical_catalog():

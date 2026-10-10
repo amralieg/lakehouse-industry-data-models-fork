@@ -253,10 +253,10 @@ def _pipeline_body():
 
 def test_both_extraction_paths_start_the_requested_fence_before_triage():
     body = _pipeline_body()
-    raw = body.index("_vibe_scope_start_requested(list(deduped) + list(_anchored_vreqs), initial_model, logger)")
+    raw = body.index("_vibe_scope_start_requested(list(deduped) + list(_anchored_vreqs), scope_base_model or initial_model, logger, initial_model)")
     assert body.index("deduped = _vov_normalize_vreq_targets(deduped, model, logger)") < raw
     assert raw < body.index("_vibe_scope_triage_vreqs(_VIBE_SCOPE_RUNTIME, _vs_work, model, logger)")
-    prio = body.index("_vibe_scope_start_requested(list(deduped) + list(_user_free) + list(_anchored_vreqs), initial_model, logger)")
+    prio = body.index("_vibe_scope_start_requested(list(deduped) + list(_user_free) + list(_anchored_vreqs), scope_base_model or initial_model, logger, initial_model)")
     assert prio < body.index("_vibe_scope_triage_vreqs(_VIBE_SCOPE_RUNTIME, _user_free, model, logger)")
     assert prio < body.index("_vibe_scope_triage_priorities(_VIBE_SCOPE_RUNTIME, _parsed_priorities, model, logger)")
 
@@ -266,6 +266,7 @@ def test_the_widgets_runner_records_the_requested_spec_for_lineage():
     start = src.index("def run_vov_2_against_widgets(")
     body = src[start:src.index("\ndef ", start + 10)]
     assert 'widgets_values["_vibe_scope_spec"] = _VIBE_SCOPE_RUNTIME.spec' in body
+    assert "scope_base_model=_vibe_scope_raw_base(widgets_values)," in body
     assert body.index("result = run_vov_pipeline(") < body.index('widgets_values["_vibe_scope_spec"] = _VIBE_SCOPE_RUNTIME.spec')
 
 
@@ -409,3 +410,28 @@ def test_a_missing_catalog_counts_as_absent_not_as_installed():
     plan._probe(_MissingCatalogSpark(), ["advertising_ecm._metrics.campaign_flight"], _Log())
     assert "advertising_ecm" not in plan.unknown_catalogs
     assert not plan._present("advertising_ecm._metrics.campaign_flight")
+
+
+def test_frozen_products_keep_the_base_tag_set_when_the_engine_model_has_none():
+    raw = {"model": _model()}
+    for dom in raw["model"]["domains"]:
+        dom["tag_set"] = [{"key": "dbx_domain", "value": dom["name"], "kind": "key_value", "source": "derived"}]
+        for prod in dom["products"]:
+            prod["tag_set"] = [{"key": "dbx_subdomain", "value": prod.get("subdomain", ""), "kind": "key_value", "source": "derived"}]
+    engine = {"model": _model()}
+    log = _Log()
+    f = ah._vibe_scope_start_requested(R2_VREQS, raw, log, engine)
+    try:
+        written = {"model": _model()}
+        f.splice_and_verify(written, log)
+        frozen = [p for d in written["model"]["domains"] for p in d["products"] if d["name"] == "customer" and p["name"] == "session"][0]
+        assert frozen.get("tag_set"), "the splice copies the frozen product from the raw base model.json, tag_set included"
+    finally:
+        ah.set_vibe_scope_runtime(None)
+
+
+def test_the_raw_base_is_the_business_context_model_json():
+    raw = {"model": _model()}
+    assert ah._vibe_scope_raw_base({"business_context_raw": raw}) is raw
+    assert ah._vibe_scope_raw_base({"business_context_raw": {"business_information": {}}}) is None
+    assert ah._vibe_scope_raw_base({}) is None

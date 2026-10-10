@@ -359,3 +359,15 @@ def test_model_json_lineage_for_a_scoped_run_uses_the_gate_head_and_the_scope():
     assert lineage["head_at_write"] == "1" and lineage["stale"] is False
     assert wv["_vibe_scope_stale_base"]["checks"] == 2
     assert list(root).index("_vibe_scope") < list(root).index("lineage") < list(root).index("model_requirements")
+
+
+def test_get_widget_values_lets_an_empty_version_reach_the_default_base():
+    import ast
+    import v514_feedback_util as fu
+    tree = ast.parse(fu.nested_main_function("get_widget_values"))
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.If):
+            continue
+        test = ast.unparse(node.test)
+        sets_exit = any(isinstance(n, ast.Constant) and n.value == "exit_with_warning" for n in ast.walk(ast.Module(body=node.body, type_ignores=[])))
+        assert not ("not _eff_version" in test and sets_exit), f"an empty '04. Version' stops the run before the default base resolves: if {test}"

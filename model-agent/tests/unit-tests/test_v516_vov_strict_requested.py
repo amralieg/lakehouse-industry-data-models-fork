@@ -474,3 +474,91 @@ def test_the_corrective_loop_records_its_changes_with_the_fence():
     window = src[i - 400:i + 2600]
     assert "_vs_before_keys = _vibe_scope_product_keys(products_data) if _VIBE_SCOPE_RUNTIME is not None else None" in window
     assert "_vibe_scope_note_corrective_changes(_VIBE_SCOPE_RUNTIME, _vs_before_keys, products_data" in window
+
+
+def _model_with_namesake_product():
+    model = _model()
+    customer = next(d for d in model["domains"] if d["name"] == "customer")
+    attrs = [{"name": n, "column_name": n, "type": t, "description": n, "foreign_key_to": ""}
+             for n, t in (("customer_id", "BIGINT"), ("loyalty_tier", "STRING"))]
+    customer["products"].append({"name": "customer", "table_name": "customer", "primary_key": "customer_id",
+                                 "subdomain": "loyalty_engagement", "description": "customer master", "attributes": attrs})
+    customer["products"].append({"name": "tier_rule", "table_name": "tier_rule", "primary_key": "tier_rule_id",
+                                 "subdomain": "loyalty_engagement", "description": "tier rules",
+                                 "attributes": [{"name": "tier_rule_id", "column_name": "tier_rule_id", "type": "BIGINT",
+                                                 "description": "id", "foreign_key_to": ""}]})
+    return model
+
+
+@pytest.mark.parametrize("text,refs", [
+    ("customer.customer.loyalty_tier", [("customer", "customer", "loyalty_tier")]),
+    ("vibe_scope_v514_live.order.order_promotion", [("order", "order_promotion", None)]),
+    ("customer.campaign, order.order_promotion.campaign_id", [("customer", "campaign", None), ("order", "order_promotion", "campaign_id")]),
+    ("see v5.1.6, e.g. the order domain.", []),
+])
+def test_a_dotted_chain_yields_one_domain_product_reference(text, refs):
+    assert ah._vibe_scope_dotted_refs(text, {"customer", "order", "product"}) == refs
+
+
+def test_a_requirement_on_a_product_named_like_its_domain_is_not_split():
+    model = _model_with_namesake_product()
+    vreqs = [_vreq("VREQ-0001", "customer.customer.loyalty_tier", "change loyalty_tier on the customer table to an INT code")]
+    log = _Log()
+    fence = ah._vibe_scope_start_requested(vreqs, {"model": model}, log)
+    try:
+        kept, rejected, outcomes = ah._vibe_scope_triage_vreqs(fence, vreqs, {"model": model}, log)
+        assert [(v.vreq_id, v.target) for v in kept] == [("VREQ-0001", "customer.customer.loyalty_tier")]
+        assert rejected == [] and outcomes == []
+    finally:
+        ah.set_vibe_scope_runtime(None)
+
+
+def test_a_finding_on_a_new_attribute_is_not_read_as_a_base_product():
+    model = _model_with_namesake_product()
+    vreqs = [_vreq("VREQ-0001", "customer.customer.tier_rule", "add a column tier_rule to the customer table")]
+    fence = ah._vibe_scope_start_requested(vreqs, {"model": model}, _Log())
+    try:
+        issue = _issue("customer.customer.tier_rule has no description")
+        assert ah._vibe_scope_issue_verdict(fence, issue, {"customer", "order", "product"}) == "in"
+        base = _issue("customer.customer.loyalty_tier has no description")
+        assert ah._vibe_scope_issue_verdict(fence, base, {"customer", "order", "product"}) == "out"
+    finally:
+        ah.set_vibe_scope_runtime(None)
+
+
+@pytest.mark.parametrize("target,text,qualified", [
+    ("session.browser", "", "customer.session.browser"),
+    ("customer.session", "", "customer.session"),
+    ("campaign.campaign_id", "", "campaign.campaign_id"),
+    ("loyalty_engagement.campaign", "", "loyalty_engagement.campaign"),
+    ("session.session_note", "create a new domain session with a product session_note", "session.session_note"),
+    ("session", "", "customer.session"),
+])
+def test_a_target_without_its_domain_is_qualified_from_its_unique_product(target, text, qualified):
+    assert ah._vov_qualify_target(target, {"model": _model()}, text=text) == qualified
+
+
+def test_a_one_part_target_that_names_a_domain_stays_a_domain_for_the_spec_only():
+    model = {"model": _model_with_namesake_product()}
+    assert ah._vov_qualify_target("customer", model) == "customer.customer"
+    assert ah._vov_qualify_target("customer", model, prefer_domain=True) == "customer"
+    spec, _ = ah._vibe_scope_requested_spec([_vreq("V1", "customer", "rewrite the customer domain description")], model)
+    assert spec.whole_domains == {"customer"}
+
+
+def test_a_product_attribute_target_admits_the_product_and_no_phantom_domain():
+    vreqs = [_vreq("VREQ-0001", "session.browser", "rewrite the description of browser so it lists the allowed values"),
+             _vreq("VREQ-0002", "customer.session.browser", "rewrite the description of browser so it lists the allowed values")]
+    spec, wide = ah._vibe_scope_requested_spec(vreqs, {"model": _model()})
+    assert wide == []
+    assert spec.products == _keys(("customer", "session"))
+    assert spec.domains == {"customer"} and spec.whole_domains == frozenset() and spec.new_names == frozenset()
+    log = _Log()
+    fence = ah._vibe_scope_start_requested(vreqs, {"model": _model()}, log)
+    try:
+        kept, rejected, outcomes = ah._vibe_scope_triage_vreqs(fence, vreqs, {"model": _model()}, log)
+        assert [v.vreq_id for v in kept] == ["VREQ-0001", "VREQ-0002"] and rejected == [] and outcomes == []
+        assert fence.is_frozen_product("session", "browser"), "a product.attribute target never admits a new domain named after the product"
+        assert not fence.is_frozen_product("customer", "session")
+    finally:
+        ah.set_vibe_scope_runtime(None)

@@ -367,3 +367,45 @@ def test_a_type_change_is_a_real_change_for_the_noop_guard():
 def test_an_identity_mutator_is_still_a_noop():
     diff = ah.diff_models_summary(_one_product_model(), _one_product_model())
     assert int(diff.get("n_products_modified", 0)) == 0 and not diff.get("products_added"), diff
+
+
+@pytest.mark.parametrize("raw,expected,fixes", [
+    (["VREQ-0001", "VREQ-0002"], ("VREQ-0001", "VREQ-0002"), []),
+    (["VREQ-001", "VREQ-0002"], ("VREQ-0001", "VREQ-0002"), [("VREQ-001", "VREQ-0001")]),
+    (["VREQ-9", "AUDIT-P1-02"], ("AUDIT-P1-2",), [("VREQ-9", None), ("AUDIT-P1-02", "AUDIT-P1-2")]),
+    (["VREQ-001", "VREQ-0001"], ("VREQ-0001",), [("VREQ-001", "VREQ-0001")]),
+])
+def test_batcher_ids_are_reconciled_to_the_input_requirements(raw, expected, fixes):
+    lookup = {"VREQ-0001": 1, "VREQ-0002": 2, "AUDIT-P1-2": 3}
+    assert ah._vov_reconcile_batch_ids(raw, lookup) == (expected, fixes)
+
+
+class _BatcherLLM:
+    def __init__(self, ids):
+        self.ids = ids
+
+    def complete_json(self, **_kw):
+        return {"batches": [{"batch_id": "B1", "vreq_ids": self.ids, "intent_summary": "add a product", "target_entities": [["customer", "gift_card"]]}]}
+
+
+def test_a_batch_naming_a_three_digit_id_carries_the_real_requirement():
+    vreqs = [ah.RawVREQ(vreq_id="VREQ-0001", intent="add product gift_card", target="customer.gift_card", source_quote="add product gift_card", source_chunk_id="c")]
+    batches = ah.batch_vreqs(vreqs, llm=_BatcherLLM(["VREQ-001"]))
+    assert [b.vreq_ids for b in batches] == [("VREQ-0001",)]
+
+
+def test_the_completeness_auditor_cannot_re_add_a_quote_the_extractor_already_holds():
+    existing = [ah.RawVREQ(vreq_id="VREQ-0002", intent="add FK", target="order.sales_order",
+                           source_quote="In sales_order add a foreign key column gift_card_id that references customer.gift_card.", source_chunk_id="c")]
+    assert ah._v292_duplicate_of("In sales_order add a foreign key column gift_card_id that references customer.gift_card", existing) == "VREQ-0002"
+    assert ah._v292_duplicate_of("In sku add a STRING attribute season_code", existing) is None
+
+    class _Auditor:
+        def complete_json(self, **_kw):
+            return {"missing": [{"intent": "add FK gift_card_id", "target": "order.sales_order",
+                                 "source_quote": "In sales_order add a foreign key column gift_card_id that references customer.gift_card."}]}
+
+    log = _Log()
+    out, recovered = ah._v292_audit_extraction_completeness("vibe text", existing, _Auditor(), log, max_passes=1)
+    assert recovered == 0 and [v.vreq_id for v in out] == ["VREQ-0002"]
+    assert any("vov-extract-audit-dedupe FIRED v5.1.6" in m for m in log.infos)

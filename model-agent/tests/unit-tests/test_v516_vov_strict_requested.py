@@ -375,3 +375,37 @@ def test_a_scoped_fence_takes_no_engine_snapshot():
     d, p, a, mv = _flat(_model())
     assert scoped.requested_snapshot(d, p, a, mv) is None
     assert scoped.restore_to_engine_snapshot(d, p, a, mv, "after_subdomains") == 0
+
+
+class _KeepPlan:
+    def __init__(self):
+        self.fqns = []
+
+    def bind_views(self, spark, fqns, logger=None):
+        self.fqns = list(fqns)
+        return self
+
+    def metric_view_action(self, name, rec=None, fqn=None):
+        return "materialize"
+
+
+def test_frozen_metric_views_from_another_catalog_are_recreated_in_the_deploy_catalog():
+    sql = ("CREATE OR REPLACE VIEW `advertising_ecm`.`_metrics`.`campaign_flight`\nWITH METRICS\nLANGUAGE YAML\nAS $$\n"
+           "  version: 1.1\n  source: \"`advertising_ecm`.`campaign`.`flight`\"\n$$")
+    plan, log = _KeepPlan(), _Log()
+    deploy, kept, frozen = ah._vibe_scope_metric_view_deploy_set(plan, [], [{"view_name": "campaign_flight", "sql": sql}], None, log, "vibe_lane2")
+    assert len(deploy) == 1 and "`vibe_lane2`.`_metrics`.`campaign_flight`" in deploy[0] and "advertising_ecm" not in deploy[0]
+    assert any("vibe_lane2" in f for f in plan.fqns if f)
+    assert any("vibe-scope-mv-retarget FIRED v5.1.6" in m for m in log.infos)
+
+
+class _MissingCatalogSpark:
+    def sql(self, statement):
+        raise RuntimeError("[TABLE_OR_VIEW_NOT_FOUND] The table or view `advertising_ecm`.`information_schema`.`tables` cannot be found.")
+
+
+def test_a_missing_catalog_counts_as_absent_not_as_installed():
+    plan = ah.VibeScopeDeployPlan({}, {"model": {"domains": []}})
+    plan._probe(_MissingCatalogSpark(), ["advertising_ecm._metrics.campaign_flight"], _Log())
+    assert "advertising_ecm" not in plan.unknown_catalogs
+    assert not plan._present("advertising_ecm._metrics.campaign_flight")

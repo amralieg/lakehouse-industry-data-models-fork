@@ -702,7 +702,7 @@ erDiagram
     └── {business}/v{N}/{scope}/ (info and error logs)
 ```
 
-> `{metamodel_catalog}` is widget 10; blank means the installation catalog. The layout is `v{N}/{scope}/` since agent 3.5.2. To apply a version's suggestions in a later `vibe modeling of version`, pass `.../business/{business}/v{N}/{scope}/vibes/next_vibes.txt` in widget 08.
+> `{metamodel_catalog}` is widget 10; blank means the installation catalog. The layout is `v{N}/{scope}/` since agent 3.5.2. To apply a version's suggestions in a later `vibe modeling of version`, pass `.../business/{business}/v{N}/{scope}/vibes/next_vibes.txt` in widget 08. A PRIORITY that asks for a rename the run already applied, or restates an applied domain or product rename under the old name, is dropped from `next_vibes.txt` (`next-vibes-landed-drop`, agent 5.2.9).
 
 ### Diagram: Operation State Machine
 

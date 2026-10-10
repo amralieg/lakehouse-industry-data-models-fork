@@ -601,3 +601,46 @@ def test_a_base_that_stores_is_primary_key_is_not_flagged_when_the_working_rows_
     for row in a:
         row.pop("is_primary_key", None)
     assert not [i for i in ah._vibe_scope_sa_issues(fence, d, p, a, log) if i["category"] == "vibe_scope_out_of_scope_change"]
+
+
+NEXT_VIBES = """**Model Quality Score: 87/100**
+
+**PRIORITY 1 \u2014 rename_product: campaign.ad** \u2014 rename to advert because the user vibe directive asks for it; verify the product is named advert
+**PRIORITY 2 \u2014 rename_attribute: performance.tracking_pixel** \u2014 rename column ad_id to advert_id because it points at campaign.advert
+"""
+
+
+def test_next_vibes_drop_a_priority_for_a_rename_this_run_applied():
+    ah.vov_ledger_reset()
+    model = _model()
+    assert ah._v337_apply_rename_product(model["model"], "campaign", "ad", "advert") is not None
+    ah._vibe_scope_note_rename("product", "campaign.ad", "campaign.advert", "VREQ-0001")
+    text, dropped = ah._vov_drop_landed_priorities(NEXT_VIBES, model)
+    assert len(dropped) == 1 and "rename_product: campaign.ad" in dropped[0]
+    assert "PRIORITY 1" not in text and "PRIORITY 2" in text and "Model Quality Score" in text
+    ah.vov_ledger_reset()
+
+
+def test_next_vibes_keep_a_rename_priority_that_did_not_land():
+    ah.vov_ledger_reset()
+    model = _model()
+    text, dropped = ah._vov_drop_landed_priorities(NEXT_VIBES, model)
+    assert dropped == [] and text == NEXT_VIBES
+    ah._vibe_scope_note_rename("product", "campaign.ad", "campaign.advert", "VREQ-0001")
+    assert ah._vov_drop_landed_priorities(NEXT_VIBES, model)[1] == [], "a recorded rename the model does not show has not landed"
+    ah.vov_ledger_reset()
+    renamed_earlier = _model()
+    next(p for d in renamed_earlier["model"]["domains"] for p in d["products"] if p["name"] == "ad")["name"] = "advert"
+    assert ah._vov_drop_landed_priorities(NEXT_VIBES, renamed_earlier)[1] == [], "a name that was already there is not this run's rename"
+
+
+def test_next_vibes_drop_a_priority_that_restates_a_domain_rename_as_a_product_rename():
+    ah.vov_ledger_reset()
+    model = _model()
+    assert ah._v337_apply_rename_domain(model["model"], "vendor", "partner") is not None
+    text = ("**PRIORITY 1 \u2014 rename_product: vendor.publisher** \u2014 rename to partner because the user vibe directive renames the vendor domain to partner\n"
+            "**PRIORITY 2 \u2014 connect_table: partner.publisher** \u2014 add column placement_id (BIGINT) with FK to media.placement.placement_id because publishers own placements\n")
+    kept, dropped = ah._vov_drop_landed_priorities(text, model)
+    assert len(dropped) == 1 and "vendor.publisher" in dropped[0]
+    assert "PRIORITY 2" in kept and "PRIORITY 1" not in kept
+    ah.vov_ledger_reset()

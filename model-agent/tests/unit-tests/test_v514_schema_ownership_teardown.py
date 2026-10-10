@@ -122,6 +122,12 @@ def _history():
     return biz, dom
 
 
+def _stale_history():
+    """_history() plus an installed Airlines v3, so a VOV on base v1 is not on the installed head and still tears down."""
+    biz, dom = _history()
+    return biz + [_biz("Airlines", "3")], dom + [_dom("Airlines", "3", "crew"), _dom("Airlines", "3", "flight")]
+
+
 ALL_SCHEMAS = INTERNAL + ["crew", "flight", "loyalty", "partner_hub", "cargo", "team_sandbox"]
 
 
@@ -185,10 +191,20 @@ def test_schema_shared_with_another_business_is_never_dropped_and_refused_when_t
 # ---------------------------------------------------------------- unrelated + owned
 
 
-def test_owned_schemas_are_dropped_and_unrelated_internal_and_foreign_schemas_are_untouched():
+def test_a_vov_on_its_installed_head_keeps_the_owned_schemas():
     spark = _spark(ALL_SCHEMAS, *_history())
     log = _Log()
+    wv = _vov_wv()
+    ah._early_clash_detection(spark, _config(), wv, log)
+    assert spark.drops() == [] and wv["_vov_keep_tables"] is True
+    assert "[vov-keep-unchanged-tables FIRED v5.3.0] base v1 vs latest installed v1" in log.text()
+
+
+def test_owned_schemas_are_dropped_and_unrelated_internal_and_foreign_schemas_are_untouched():
+    spark = _spark(ALL_SCHEMAS, *_stale_history())
+    log = _Log()
     ah._early_clash_detection(spark, _config(), _vov_wv(), log)
+    assert "not the installed head" in log.text()
     assert spark.drops() == [
         f"DROP SCHEMA IF EXISTS `{CAT}`.`crew` CASCADE",
         f"DROP SCHEMA IF EXISTS `{CAT}`.`flight` CASCADE",

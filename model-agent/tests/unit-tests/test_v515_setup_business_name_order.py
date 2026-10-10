@@ -45,6 +45,6 @@ def test_without_the_business_name_the_gate_refuses_the_business_own_schemas():
 
 
 def test_with_the_business_name_the_same_vov_tears_down_only_its_own_schemas():
-    spark = own._spark(own.ALL_SCHEMAS, *own._history())
+    spark = own._spark(own.ALL_SCHEMAS, *own._stale_history())
     ah._early_clash_detection(spark, own._config(), own._vov_wv(pins=("crew", "flight")), own._Log())
     assert {d.split("`.`")[1].split("`")[0] for d in spark.drops() if d.startswith("DROP SCHEMA")} == {"crew", "flight"}

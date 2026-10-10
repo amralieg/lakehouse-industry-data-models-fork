@@ -118,12 +118,13 @@ def test_a_move_lets_the_destination_domain_receive_the_product():
     assert "customer" in spec.domains and _keys(("order", "order_promotion")) <= spec.products
 
 
-def test_a_scoped_run_keeps_its_own_fence():
+def test_a_scoped_run_keeps_its_own_fence_and_narrows_it_to_what_the_vibe_names():
     scoped = ah.build_vibe_scope_fence(ah.parse_vibe_scope("Some Domains", "order"), {"model": _model()}, "vibe modeling of version", _Log())
     ah.set_vibe_scope_runtime(scoped)
     try:
-        assert ah._vibe_scope_start_requested(R2_VREQS, {"model": _model()}, _Log()) is None
-        assert ah.get_vibe_scope_runtime() is scoped
+        assert ah._vibe_scope_start_requested(R2_VREQS, {"model": _model()}, _Log()) is scoped
+        assert ah.get_vibe_scope_runtime() is scoped and scoped.spec.mode == "domains" and scoped.spec.named_only
+        assert scoped.spec.entries == ("order",)
     finally:
         ah.set_vibe_scope_runtime(None)
 

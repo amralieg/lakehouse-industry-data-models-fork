@@ -228,3 +228,13 @@ def test_a_null_catalog_row_counts_only_in_a_co_located_registry():
         row["catalog"] = None
     assert ah._latest_installed_version(fake, "inst_cat", "Airlines", "mvm", catalog="inst_cat") == "2"
     assert ah._latest_installed_version(fake, "inst_cat", "Airlines", "mvm", catalog="other_cat") is None
+
+
+def test_precondition_skips_a_failed_run_that_registered_no_domains():
+    fake = _existing_install(2)
+    failed = dict(fake.rows["inst_cat._metamodel.business"][0], version="3", deploy_status=None)
+    fake.rows["inst_cat._metamodel.business"].append(failed)
+    log = fu.RecordingLogger()
+    assert ah._latest_installed_version(fake, "inst_cat", "Airlines", "mvm", catalog="inst_cat", logger=log) == "2"
+    assert "[registry-unregistered-skip FIRED v5.2.7] Airlines (mvm) versions ['3']" in log.text("warning")
+    assert ah._scoped_install_precondition(fake, _scoped(fu.small_model()), fu.small_model()["model"], "inst_cat", "Airlines", "mvm", "inst_cat", _resolver()) == "base_match"

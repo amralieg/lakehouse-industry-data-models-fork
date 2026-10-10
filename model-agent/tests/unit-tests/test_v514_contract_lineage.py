@@ -56,6 +56,9 @@ class _Registry:
         cols = ["business", "version", "model_scope", "completed_percent", "completion_date", "location"]
         return [(c, "string", None) for c in cols + (["deploy_status"] if self.has_deploy_status else [])]
 
+    def registered(self):
+        return [PS._Row(version=r["version"]) for r in self.rows if r.get("registered", True)]
+
     def _installed(self, query):
         rows = [r for r in self.rows if r.get("completed_percent", 100.0) == 100.0]
         if NOT_DRY_RUN in query:
@@ -69,7 +72,7 @@ class _Registry:
             raise RuntimeError("[UNRESOLVED_COLUMN] deploy_status")
         if q.startswith("SELECT version FROM") and "ORDER BY TRY_CAST(version AS DOUBLE) DESC NULLS LAST, completion_date DESC NULLS LAST" in q:
             rows = sorted(self._installed(q), key=lambda r: (float(r["version"]), r["completion_date"]), reverse=True)
-            return [PS._Row(version=rows[0]["version"])] if rows else []
+            return [PS._Row(version=r["version"]) for r in rows]
         if q.startswith("SELECT version,"):
             return [PS._Row(version=r["version"], deploy_status=r.get("deploy_status"), location=r.get("location"))
                     for r in self._installed(q)]
@@ -95,12 +98,15 @@ class _RegistrySpark:
     def sql(self, query):
         if query.strip().upper().startswith("DESCRIBE"):
             return _Rows(self.registry.describe())
+        if ".`domain`" in query:
+            self.registry.queries.append(" ".join(query.split()))
+            return _Rows(self.registry.registered())
         return _Rows([])
 
 
-def _row(version, deploy_status="installed", day=None, location=None):
+def _row(version, deploy_status="installed", day=None, location=None, registered=True):
     return {"version": str(version), "deploy_status": deploy_status, "completed_percent": 100.0,
-            "completion_date": day if day is not None else int(version), "location": location}
+            "completion_date": day if day is not None else int(version), "location": location, "registered": registered}
 
 
 def _setup(monkeypatch, wv, registry):
@@ -376,3 +382,73 @@ def test_get_widget_values_lets_an_empty_version_reach_the_default_base():
 def test_head_is_the_highest_version_even_when_an_older_row_was_touched_later(monkeypatch):
     registry = _Registry([_row(1, day=1), _row(5, day=99), _row(6, day=10), _row(7, "dry_run", day=100)])
     assert _latest(monkeypatch, registry) == "6"
+
+
+def test_head_skips_a_newer_run_that_never_registered_its_domains(monkeypatch):
+    registry = _Registry([_row(1), _row(2, None, registered=False)])
+    assert _latest(monkeypatch, registry) == "1"
+    assert any(".`domain`" in q for q in registry.queries)
+
+
+def test_a_scoped_vov_on_the_last_finished_version_is_not_refused_after_a_failed_run(monkeypatch):
+    wv = _setup(monkeypatch, PS._vov_widgets(), _Registry([_row(1), _row(2, None, registered=False)]))
+    assert wv["_run_lineage_start"]["head_at_start"] == "1" and wv["_run_lineage_start"]["stale"] is False
+    assert isinstance(ah.get_vibe_scope_runtime(), ah.VibeScopeFence)
+    note = next(s for s in wv["_vov_pending_sentinels"] if "[registry-unregistered-skip FIRED v5.2.7]" in s)
+    assert "v2 (mvm)" in note and "not counted as a completed version" in note
+    assert sum("[registry-unregistered-skip FIRED v5.2.7]" in s for s in wv["_vov_pending_sentinels"]) == 1
+
+
+def test_default_base_skips_a_failed_run_and_numbers_past_it(monkeypatch):
+    wv = PS._vov_widgets(scope=None)
+    wv["model_version"] = ""
+    _setup(monkeypatch, wv, _Registry([_row(1), _row(2, None, registered=False)]))
+    assert wv["base_version_for_review"] == "1"
+    assert wv["current_version"] == "3"
+
+
+def test_registry_versions_list_only_versions_with_registered_domains(monkeypatch):
+    registry = _Registry([_row(1), _row(2, None, location="/v2", registered=False), _row(3, location="/v3")])
+    monkeypatch.setitem(ah.__dict__, "execute_sql", lambda spark, q, logger=None: registry(q))
+    got = ah._run_lineage_registry_versions(_RegistrySpark(registry), "c._metamodel.business", "Airlines", "mvm")
+    assert sorted(got) == [1, 3]
+
+
+def test_no_version_counts_when_the_registry_has_no_domain_table(monkeypatch):
+    registry = _Registry([_row(1), _row(2)])
+    spark = _RegistrySpark(registry)
+    spark.catalog = type("C", (), {"tableExists": lambda self, name: not str(name).endswith(".`domain`")})()
+    assert ah._registry_registered_versions(spark, "c._metamodel.business", "Airlines", "mvm") == set()
+    monkeypatch.setitem(ah.__dict__, "execute_sql", lambda spark_, q, logger=None: registry(q))
+    assert ah._run_lineage_registry_versions(spark, "c._metamodel.business", "Airlines", "mvm") == {}
+
+
+def _overview_with_sibling(monkeypatch, registered):
+    import v514_feedback_util as fu
+    fake = fu.FakeSpark()
+    fake.add_table("c._metamodel.business", ["business", "version", "model_scope", "completed_percent"],
+                   [{"business": "Airlines", "version": "3", "model_scope": "ecm", "completed_percent": 100.0}])
+    fake.add_table("c._metamodel.domain", ["business", "version", "model_scope", "domain"],
+                   [{"business": "Airlines", "version": "3", "model_scope": "ecm", "domain": "crew"}] if registered else [])
+    sibling_queries = []
+
+    def _execute_sql(_spark, query, logger=None):
+        if sibling_queries:
+            raise RuntimeError("past the sibling check")
+        sibling_queries.append(query)
+        return fake.sql(query).collect()
+
+    monkeypatch.setitem(ah.__dict__, "execute_sql", _execute_sql)
+    log = fu.RecordingLogger()
+    ah.step_generate_model_overview_md({"operation": "shrink ecm", "spark": fake, "logger": log, "model_scope": "mvm",
+                                        "current_version": "3", "business_name": "Airlines",
+                                        "config": {"MAIN_METAMODEL_TABLES": {"BUSINESS": "c._metamodel.business"}}})
+    return log.text()
+
+
+def test_model_overview_skips_a_sibling_scope_that_never_registered_its_domains(monkeypatch):
+    text = _overview_with_sibling(monkeypatch, registered=False)
+    assert "[registry-unregistered-skip FIRED v5.2.7] Model overview MD: sibling scope 'ecm' v3" in text
+    assert "past the sibling check" not in text
+    text = _overview_with_sibling(monkeypatch, registered=True)
+    assert "registry-unregistered-skip" not in text and "past the sibling check" in text

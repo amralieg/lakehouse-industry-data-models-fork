@@ -204,11 +204,22 @@ class _Catalog:
         return self.exists
 
 
+class _Collect:
+    def __init__(self, rows):
+        self.rows = rows
+
+    def collect(self):
+        return list(self.rows)
+
+
 class _Spark:
-    def __init__(self, exists):
+    def __init__(self, exists, handler=None):
         self.catalog = _Catalog(exists)
+        self.handler = handler
 
     def sql(self, query):
+        if self.handler is not None and ".`domain`" in query:
+            return _Collect(self.handler(query))
         return None
 
 
@@ -250,7 +261,7 @@ def _run_setup(monkeypatch, wv, sql=None, table_exists=False):
     monkeypatch.setitem(ah.__dict__, "execute_sql", (lambda spark, q, logger=None: sql(q)) if sql else (lambda *a, **k: []))
     monkeypatch.setitem(ah.__dict__, "_ensure_catalog_exists", _stop)
     monkeypatch.setitem(ah.__dict__, "apply_vibe_authority_overrides", _capture)
-    wv["spark"] = _Spark(table_exists)
+    wv["spark"] = _Spark(table_exists, sql)
     with pytest.raises(_StopAfterBranching):
         ah.step_setup_and_clean(wv)
     return captured["config"]

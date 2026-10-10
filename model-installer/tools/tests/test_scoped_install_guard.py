@@ -106,6 +106,26 @@ def test_a_registry_from_before_deploy_status_counts_every_completed_row():
     assert not any("deploy_status" in q for q in spark.queries)
 
 
+def test_a_failed_run_that_registered_no_domains_is_not_an_installed_version():
+    rows = [registry_row(1), registry_row(2, deploy_status=None)]
+    spark = FakeRegistry(USED, REGISTRY_COLUMNS, rows, domain_rows=[registry_row(1)])
+    result, ns = guard(spark, scoped_model())
+    assert result == 1
+    assert any("[installer-unregistered-skip FIRED] 'Airlines' (mvm) versions ['2']" in line
+               for line in ns["_log_lines"])
+
+
+def test_a_registry_with_no_registered_domains_has_no_installed_version():
+    spark = FakeRegistry(USED, REGISTRY_COLUMNS, [registry_row(1)], domain_rows=[])
+    assert "not recorded" in refused(spark, scoped_model())
+
+
+def test_a_registry_without_a_domain_table_has_no_installed_version():
+    spark = FakeRegistry(USED, REGISTRY_COLUMNS, [registry_row(1)], domain_columns=())
+    assert "not recorded" in refused(spark, scoped_model())
+    assert not any("`domain` WHERE" in q for q in spark.queries)
+
+
 def test_an_incomplete_run_is_not_an_installed_version():
     rows = [registry_row(1), registry_row(2, completed_percent=40.0)]
     assert guard(FakeRegistry(USED, REGISTRY_COLUMNS, rows), scoped_model())[0] == 1

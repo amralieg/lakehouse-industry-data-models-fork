@@ -533,9 +533,11 @@ class FakeRegistry(FakeMetastore):
     """
 
     def __init__(self, schemas, columns=(), rows=(), tables=(), volumes=("vol_root",),
-                 fail_on=()):
+                 fail_on=(), domain_rows=None, domain_columns=None):
         FakeMetastore.__init__(self, schemas, fail_on)
         self.columns = list(columns)
+        self.domain_columns = list(("business", "version", "model_scope") if domain_columns is None and columns
+                                   else domain_columns or ())
         self.metamodel_tables = list(tables)
         self.metamodel_volumes = list(volumes)
         self.db = sqlite3.connect(":memory:", check_same_thread=False)
@@ -544,22 +546,28 @@ class FakeRegistry(FakeMetastore):
             for row in rows:
                 self.db.execute("INSERT INTO business (%s) VALUES (%s)"
                                 % (", ".join(row), ", ".join("?" for _ in row)), list(row.values()))
+            self.db.execute("CREATE TABLE domain (business, version, model_scope)")
+            for row in (rows if domain_rows is None else domain_rows):
+                self.db.execute("INSERT INTO domain VALUES (?, ?, ?)",
+                                [row.get("business"), row.get("version"), row.get("model_scope")])
 
     @property
     def queries(self):
         return self.statements
 
     def _handler(self, flat):
+        if "information_schema.columns" in flat and "table_name = 'domain'" in flat:
+            return lambda: FakeResult([(c,) for c in self.domain_columns])
         if "information_schema.columns" in flat:
             return lambda: FakeResult([(c,) for c in self.columns])
         if "information_schema.tables" in flat:
             return lambda: FakeResult([(t,) for t in self.metamodel_tables])
         if "information_schema.volumes" in flat:
             return lambda: FakeResult([(v,) for v in self.metamodel_volumes])
-        m = re.match(r"SELECT version FROM `[^`]+`\.`_metamodel`\.`business` WHERE (.*)$", flat)
+        m = re.match(r"SELECT version FROM `[^`]+`\.`_metamodel`\.`(business|domain)` WHERE (.*)$", flat)
         if m:
             return lambda: FakeResult(self.db.execute(
-                "SELECT version FROM business WHERE " + spark_literals_to_sqlite(m.group(1))).fetchall())
+                "SELECT version FROM %s WHERE %s" % (m.group(1), spark_literals_to_sqlite(m.group(2)))).fetchall())
         m = re.match(r"CREATE SCHEMA IF NOT EXISTS `([^`]+)`\.`([^`]+)`$", flat)
         if m:
             return lambda: self.schemas.setdefault(m.group(1), set()).add(m.group(2))

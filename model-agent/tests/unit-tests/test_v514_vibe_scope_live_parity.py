@@ -16,6 +16,7 @@ Live use: set VS_PARITY_BASE and VS_PARITY_NEW to the two model.json paths, VS_P
 subdomains or requested, and VS_PARITY_ENTRIES to the scope entries (for requested runs, the entries of
 _vibe_scope in the new model.json are used when VS_PARITY_ENTRIES is empty).
 """
+import copy
 import json
 import os
 import re
@@ -117,12 +118,23 @@ def compare(base_model, new_model, scope):
     base_p, new_p = _products(base_model), _products(new_model)
     created_in_scope = {k for k, (dom, prod) in new_p.items() if k not in base_p and scope.product_in(k[0], k[1], prod.get("subdomain"))}
 
+    renamed_from = {}
+    for event in ((new_model.get("_vibe_scope") or {}).get("rename_ledger") or []):
+        old, target = _fk_product(event.get("old")), _fk_product(event.get("new"))
+        if event.get("kind") in ("product", "move") and old in base_p and target:
+            renamed_from[target] = old
+
+    def _in_scope(key, rec):
+        old = renamed_from.get(key)
+        if old is not None and scope.product_in(old[0], old[1], base_p[old][1].get("subdomain")):
+            return True
+        return rec is not None and scope.product_in(key[0], key[1], rec[1].get("subdomain"))
+
     def _points_in(fk):
         key = _fk_product(fk)
         if key is None:
             return False
-        rec = new_p.get(key) or base_p.get(key)
-        return rec is not None and scope.product_in(key[0], key[1], rec[1].get("subdomain"))
+        return _in_scope(key, new_p.get(key) or base_p.get(key))
 
     base_domains = {_norm(d.get("name")): d for d in _root(base_model).get("domains") or []}
     new_domains = {_norm(d.get("name")): d for d in _root(new_model).get("domains") or []}
@@ -188,16 +200,8 @@ def compare(base_model, new_model, scope):
         if [k for k in battrs if k in nattrs] != [k for k in nattrs if k in battrs]:
             problems.append(f"out-of-scope product {path} column order changed")
 
-    renamed_from = {}
-    for event in ((new_model.get("_vibe_scope") or {}).get("rename_ledger") or []):
-        old, target = _fk_product(event.get("old")), _fk_product(event.get("new"))
-        if event.get("kind") in ("product", "move") and old in base_p and target:
-            renamed_from[target] = old
     for key, (ndom, nprod) in new_p.items():
-        old = renamed_from.get(key)
-        if old is not None and scope.product_in(old[0], old[1], base_p[old][1].get("subdomain")):
-            continue
-        if key not in base_p and not scope.product_in(key[0], key[1], nprod.get("subdomain")):
+        if key not in base_p and not _in_scope(key, (ndom, nprod)):
             problems.append(f"new product {ndom.get('name')}.{nprod.get('name')} outside the scope")
 
     base_mvs = {_norm(mv.get("view_name") or mv.get("name")): mv for mv in _root(base_model).get("metric_views") or []}
@@ -312,3 +316,28 @@ def test_a_requested_run_freezes_every_product_it_does_not_name():
     new["model"]["domains"][0]["products"][1]["attributes"].append({"name": "reason", "type": "STRING"})
     problems = compare(_base(), new, Scope("requested", ["order.sales_order"]))
     assert problems == ["new column order.return_line.reason on an out-of-scope product without a valid P4"]
+
+
+def test_a_declared_p1_into_a_moved_in_scope_product_is_accepted():
+    base = _base()
+    profile = next(p for d in base["model"]["domains"] for p in d["products"] if p["name"] == "profile")
+    profile["attributes"].append({"name": "last_order_id", "type": "STRING", "foreign_key_to": "order.sales_order.sales_order_id"})
+    new = copy.deepcopy(base)
+    order = next(d for d in new["model"]["domains"] if d["name"] == "order")
+    moved = next(p for p in order["products"] if p["name"] == "sales_order")
+    order["products"].remove(moved)
+    next(d for d in new["model"]["domains"] if d["name"] == "customer")["products"].append(moved)
+    pointing = [(d["name"], p["name"], a["name"]) for d in new["model"]["domains"] for p in d["products"] for a in p["attributes"]
+                if str(a.get("foreign_key_to") or "").startswith("order.sales_order.")]
+    for d in new["model"]["domains"]:
+        for p in d["products"]:
+            for a in p["attributes"]:
+                if str(a.get("foreign_key_to") or "").startswith("order.sales_order."):
+                    a["foreign_key_to"] = "customer.sales_order." + a["foreign_key_to"].split(".", 2)[2]
+    new["_vibe_scope"] = {"rename_ledger": [{"kind": "move", "old": "order.sales_order", "new": "customer.sales_order"}],
+                          "permitted_deltas": [{"kind": "P1", "path": f"{d}.{p}.{a}"} for d, p, a in pointing]}
+    assert pointing == [("customer", "profile", "last_order_id")]
+    problems = compare(base, new, Scope("requested", ["order.sales_order"]))
+    assert not [x for x in problems if "re-pointed" in x], problems
+    new["_vibe_scope"]["permitted_deltas"] = []
+    assert [x for x in compare(base, new, Scope("requested", ["order.sales_order"])) if "re-pointed" in x]

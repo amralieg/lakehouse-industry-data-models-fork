@@ -469,3 +469,31 @@ def test_a_merged_domain_is_reported_as_merged_not_renamed():
     entry = next(e for e in changes["entries"] if e["kind"] == "domain" and e["base_path"] == "vendor")
     assert (entry["status"], entry["path"]) == ("merged", "media")
     ah.vov_ledger_reset()
+
+
+def test_a_table_name_that_is_not_an_identifier_is_an_error():
+    d, p, a, _mv = _flat_rows()
+    for row in p:
+        row["table_name"] = "media.tracking_pixel" if row["product"] == "tracking_pixel" else row["product"]
+    issues = ah.run_metamodel_static_analysis(d, p, a, {}, _Log())["issues"]
+    bad = [i for i in issues if i["category"] == "invalid_table_name"]
+    assert [(i["details"]["table"], i["severity"]) for i in bad] == [("performance.tracking_pixel", "error")]
+    assert not [i for i in issues if i["category"] == "table_name_product_mismatch" and i["details"]["table"] == "performance.tracking_pixel"]
+
+
+def test_subdomains_of_a_deterministically_renamed_domain_cite_the_rename():
+    base = _model()
+    for d in base["model"]["domains"]:
+        for prod in d["products"]:
+            prod["subdomain"] = d["name"] + "_core"
+    cur = copy.deepcopy(base)
+    ah.vov_ledger_reset()
+    assert ah._v337_apply_rename_domain(cur["model"], "vendor", "partner") is not None
+    ah.vov_ledger_reset()
+    ah._vov_record_rename("domain", "vendor", "partner", "VREQ-0007")
+    wv = {"operation": "vibe modeling of version",
+          "_vov_2_pipeline_result": {"outcomes": [{"status": "applied", "vreq_ids": ["VREQ-0007"], "target_entities": []}]}}
+    changes = ah.vov_entity_changes(base, cur, wv)
+    sub = next(e for e in changes["entries"] if e["kind"] == "subdomain" and e["base_path"] == "vendor.vendor_core")
+    assert sub["status"] == "renamed" and "VREQ-0007" in sub["cause"]
+    ah.vov_ledger_reset()

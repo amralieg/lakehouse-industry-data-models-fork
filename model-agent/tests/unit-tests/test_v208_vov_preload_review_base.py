@@ -218,6 +218,7 @@ def _build_shim_namespace_with_stubs():
     exec(compile(_extract_function_block(_notebook_source(), "_metamodel_log"), "<metamodel-log>", "exec"), ns)
     exec(compile(_extract_function_block(_notebook_source(), "_resolve_base_model_json"), "<base-model-json>", "exec"), ns)
     exec(compile(_extract_function_block(_notebook_source(), "_vibe_scope_checkpoint"), "<vibe-scope-checkpoint>", "exec"), ns)
+    exec(compile(_extract_function_block(_notebook_source(), "_vibe_scope_raw_base"), "<vibe-scope-raw-base>", "exec"), ns)
     exec(compile(model_to_flat, "<model_to_widgets_flat>", "exec"), ns)
     exec(compile(flat_to_model, "<widgets_flat_to_model>", "exec"), ns)
     exec(compile(fn_block, "<run_vov_2_against_widgets>", "exec"), ns)

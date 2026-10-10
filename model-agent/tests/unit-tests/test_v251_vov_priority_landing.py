@@ -95,7 +95,7 @@ def _exec_v251_namespace():
         "_VOV_BRIDGE_CALL_LOCK": __import__("threading").Lock(),
         "_VOV_BRIDGE_CALL_COUNT": 0,
         "_VIBE_SCOPE_RUNTIME": None,
-        "_vibe_scope_start_requested": lambda vreqs, base_model, logger=None: None,
+        "_vibe_scope_start_requested": lambda *args, **kwargs: None,
     }
     ordered_defs = [
         "_V251_PRIORITY_LINE_RE",

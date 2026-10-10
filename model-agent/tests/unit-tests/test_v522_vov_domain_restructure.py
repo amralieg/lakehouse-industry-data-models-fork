@@ -230,3 +230,77 @@ def test_a_scoped_install_still_refuses_a_schema_another_business_owns():
 def test_a_full_install_over_existing_schemas_is_still_refused():
     with pytest.raises(ValueError, match="PHYSICAL DEPLOYMENT CLASH"):
         ah._check_physical_deployment_clash(_Spark([]), [("cat", "customer")], {"operation": "install model"}, logger=_Log())
+
+
+def _mv(view, dom, prod, body):
+    return {"view_name": view, "owner_domain": dom, "owner_product": prod,
+            "sql": f"CREATE OR REPLACE VIEW `cat`.`_metrics`.`{view}`\nWITH METRICS\nLANGUAGE YAML\nAS $$\n{body}\n$$"}
+
+
+def _model_with_views():
+    model = _model()
+    model["model"]["metric_views"] = [
+        _mv("vendor_publisher", "vendor", "publisher", '  source: "`cat`.`vendor`.`publisher`"\n  joins:\n    - name: s\n      source: "`cat`.`vendor`.`supplier`"\n      on: source.supplier_id = s.supplier_id'),
+        _mv("campaign_ad", "campaign", "ad", '  source: "`cat`.`campaign`.`ad`"\n  dimensions:\n    - name: "ad"\n      expr: ad_id'),
+        _mv("performance_tracking_pixel", "performance", "tracking_pixel", '  source: "`cat`.`performance`.`tracking_pixel`"\n  joins:\n    - name: a\n      source: "`cat`.`campaign`.`ad`"\n      on: source.ad_id = a.ad_id'),
+    ]
+    return model
+
+
+def _view(model, name):
+    return next(mv for mv in model["model"]["metric_views"] if mv["view_name"] == name)
+
+
+def test_a_domain_rename_carries_its_metric_views():
+    model = _model_with_views()
+    assert ah._v337_apply_rename_domain(model["model"], "vendor", "partner") is not None
+    mv = _view(model, "vendor_publisher")
+    assert (mv["owner_domain"], mv["owner_product"]) == ("partner", "publisher")
+    assert "`cat`.`partner`.`publisher`" in mv["sql"] and "`cat`.`partner`.`supplier`" in mv["sql"] and "`vendor`" not in mv["sql"]
+    assert _view(model, "campaign_ad")["sql"] == _view(_model_with_views(), "campaign_ad")["sql"]
+
+
+def test_a_domain_merge_carries_its_metric_views():
+    model = _model_with_views()
+    assert ah._v337_apply_merge_domain(model["model"], "vendor", "media") is not None
+    mv = _view(model, "vendor_publisher")
+    assert (mv["owner_domain"], mv["owner_product"]) == ("media", "publisher")
+    assert "`cat`.`media`.`publisher`" in mv["sql"] and "`cat`.`media`.`supplier`" in mv["sql"]
+
+
+def test_a_product_move_carries_its_metric_view():
+    model = _model_with_views()
+    assert ah._v337_apply_move_product(model["model"], "performance", "tracking_pixel", "media") is not None
+    mv = _view(model, "performance_tracking_pixel")
+    assert (mv["owner_domain"], mv["owner_product"]) == ("media", "tracking_pixel")
+    assert "`cat`.`media`.`tracking_pixel`" in mv["sql"] and "`cat`.`campaign`.`ad`" in mv["sql"]
+
+
+def test_a_product_rename_carries_its_views_and_the_renamed_key():
+    model = _model_with_views()
+    assert ah._v337_apply_rename_product(model["model"], "campaign", "ad", "advert") is not None
+    own, joined = _view(model, "campaign_ad"), _view(model, "performance_tracking_pixel")
+    assert (own["owner_domain"], own["owner_product"]) == ("campaign", "advert")
+    assert "`cat`.`campaign`.`advert`" in own["sql"] and "expr: advert_id" in own["sql"]
+    assert "`cat`.`campaign`.`advert`" in joined["sql"] and "a.advert_id" in joined["sql"] and "source.ad_id" in joined["sql"]
+
+
+def test_an_attribute_rename_carries_the_column_into_metric_views():
+    model = _model_with_views()
+    assert ah._v337_apply_rename_attribute(model["model"], "campaign", "ad", "ad_id", "advert_key") is not None
+    assert "expr: advert_key" in _view(model, "campaign_ad")["sql"]
+    assert "a.advert_key" in _view(model, "performance_tracking_pixel")["sql"]
+
+
+def test_a_frozen_metric_view_is_left_to_the_fence_p5():
+    model = _model_with_views()
+    spec = ah.parse_vibe_scope("Some Domains", "campaign")
+    fence = ah.build_vibe_scope_fence(spec, model, "vibe modeling of version", _Log())
+    ah.set_vibe_scope_runtime(fence)
+    try:
+        frozen_before = _view(model, "performance_tracking_pixel")["sql"]
+        assert ah._v337_apply_rename_product(model["model"], "campaign", "ad", "advert") is not None
+        assert _view(model, "performance_tracking_pixel")["sql"] == frozen_before
+        assert "`cat`.`campaign`.`advert`" in _view(model, "campaign_ad")["sql"]
+    finally:
+        ah.set_vibe_scope_runtime(None)

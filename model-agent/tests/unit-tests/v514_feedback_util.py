@@ -246,6 +246,8 @@ class FakeSpark:
             rows = [r for r in self.rows.get(key, []) if _where_matches(r, text)]
             if "ORDER BY completion_date DESC" in text:
                 rows.sort(key=lambda r: (str(r.get("completion_date") or ""), int(float(r.get("version") or 0))), reverse=True)
+            if "ORDER BY TRY_CAST(version AS DOUBLE) DESC" in text:
+                rows.sort(key=lambda r: (float(r.get("version") or 0), str(r.get("completion_date") or "")), reverse=True)
             limit = re.search(r"\bLIMIT\s+(\d+)", text)
             if limit:
                 rows = rows[:int(limit.group(1))]

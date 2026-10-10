@@ -53,6 +53,16 @@ def _bind():
         "_v337_apply_move_product",
         "_v337_apply_rename_attribute",
         "_v337_deterministic_mutate",
+        "_v337_move_names_product",
+        "_v337_table_pairs",
+        "_v337_rewire_metric_views",
+        "_vov285_san",
+        "_v251_model_root",
+        "_v251_find_domain",
+        "_mv_sql_qualified_ref_pattern",
+        "_mv_sql_apply_rename_map",
+        "_mv_sql_table_qualifiers",
+        "_mv_sql_apply_column_renames",
     ):
         exec(_extract_top_fn(src, fn), ns)
     return ns

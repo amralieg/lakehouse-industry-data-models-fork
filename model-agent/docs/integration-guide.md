@@ -107,7 +107,7 @@ When the UI creates the job, it **MUST** set these exact tag keys. All values mu
 | `business_description` | Business description |
 | `operation` | Operation type |
 | `run_type` | `Full Run` (default) or `Dry Run`. A Dry Run builds the model and every volume artifact but deploys nothing to Unity Catalog, and registers the version with `deploy_status = dry_run`. Its adherence comes from the model verdicts: the physical ground-truth audit is skipped because Unity Catalog still holds the previous version. Applies to the generative operations; `install model` and `uninstall model version` always deploy |
-| `model_version` | Model version number. For `vibe modeling of version` it is the base version; blank means the latest completed version that is not a Dry Run |
+| `model_version` | Model version number. For `vibe modeling of version` it is the base version; blank means the highest-numbered completed version that is not a Dry Run |
 | `data_model_scopes` | `Minimum Viable Model - MVM` or `Expanded Coverage Model - ECM` |
 | `business_domains` | Comma-separated domain hints (optional). Under a scoped `vibe_scope` it is required and is the scope list: `d1, d2` for `Some Domains`, `d1.s1, d2.s2` for `Some Subdomains` |
 | `vibe_scope` | `All Domains` (default), `Some Domains` or `Some Subdomains`. Only `vibe modeling of version` and `new base model` accept a scoped value. Under `All Domains`, agent 5.1.6 or later changes only what the vibe names in a `vibe modeling of version`; see [Vibe Scope Semantics](design-guide.md#vibe-scope-semantics-widget-06a). See [16. Model App Contract](#16-model-app-contract) |
@@ -1885,7 +1885,7 @@ Agent 5.1.4 or later adds these root keys to `model.json`:
 
 ### 16.6 Head, drafts and branches
 
-- The head is the latest completed version of a business and scope whose `deploy_status` is not `dry_run`.
+- The head is the highest-numbered completed version of a business and scope whose `deploy_status` is not `dry_run`.
 - A Dry Run version (`deploy_status = dry_run`) is a draft. It is never head and never the default base, and links carried onto it are disposable.
 - A version's base is `lineage.base_version`, which is not always the previous number. Diff against the base and relink along it.
 - A scoped VOV is refused when its base is behind the head. An `All Domains` VOV may still branch from an older version.

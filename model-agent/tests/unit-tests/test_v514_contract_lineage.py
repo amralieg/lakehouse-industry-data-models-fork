@@ -67,8 +67,8 @@ class _Registry:
         self.queries.append(q)
         if "deploy_status" in q and not self.has_deploy_status:
             raise RuntimeError("[UNRESOLVED_COLUMN] deploy_status")
-        if q.startswith("SELECT version FROM") and "ORDER BY completion_date" in q:
-            rows = sorted(self._installed(q), key=lambda r: (r["completion_date"], int(r["version"])), reverse=True)
+        if q.startswith("SELECT version FROM") and "ORDER BY TRY_CAST(version AS DOUBLE) DESC NULLS LAST, completion_date DESC NULLS LAST" in q:
+            rows = sorted(self._installed(q), key=lambda r: (float(r["version"]), r["completion_date"]), reverse=True)
             return [PS._Row(version=rows[0]["version"])] if rows else []
         if q.startswith("SELECT version,"):
             return [PS._Row(version=r["version"], deploy_status=r.get("deploy_status"), location=r.get("location"))
@@ -371,3 +371,8 @@ def test_get_widget_values_lets_an_empty_version_reach_the_default_base():
         test = ast.unparse(node.test)
         sets_exit = any(isinstance(n, ast.Constant) and n.value == "exit_with_warning" for n in ast.walk(ast.Module(body=node.body, type_ignores=[])))
         assert not ("not _eff_version" in test and sets_exit), f"an empty '04. Version' stops the run before the default base resolves: if {test}"
+
+
+def test_head_is_the_highest_version_even_when_an_older_row_was_touched_later(monkeypatch):
+    registry = _Registry([_row(1, day=1), _row(5, day=99), _row(6, day=10), _row(7, "dry_run", day=100)])
+    assert _latest(monkeypatch, registry) == "6"

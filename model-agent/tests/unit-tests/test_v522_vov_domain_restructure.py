@@ -318,3 +318,82 @@ def test_a_move_the_directive_expander_applies_leaves_the_llm_loop(monkeypatch):
     assert RI._has(result.final_model, "flight", "roster") and not RI._has(result.final_model, "crew", "roster")
     assert RI._statuses(result)["VREQ-0001"] == ["applied"]
     assert not [system for system, _user in llm.prompts if "group VREQs into BATCHES" in system]
+
+
+def _strict_fence(vreqs):
+    ah.vov_ledger_reset()
+    fence = ah._vibe_scope_start_requested(vreqs, _model(), _Log())
+    assert fence is not None and fence.spec.mode == "requested"
+    return fence
+
+
+def _relocated_flat():
+    d, p, a, mv = ah.model_to_widgets_flat(copy.deepcopy(_model()), quiet=True)
+    for rows in (d, p, a):
+        for row in rows:
+            if row.get("domain") == "vendor":
+                row["domain"] = "partner"
+    p.append({"domain": "partner", "product": "partner_note", "primary_key": "partner_note_id"})
+    a.append({"domain": "partner", "product": "partner_note", "attribute": "partner_note_id", "type": "BIGINT"})
+    return d, p, a, mv
+
+
+def test_a_renamed_domain_keeps_its_base_lineage_and_stays_protected_from_autofix():
+    fence = _strict_fence([_vreq("vendor", "[vendor] Rename the domain vendor to partner.")])
+    try:
+        ah._vibe_scope_note_rename("domain", "vendor", "partner", "VREQ-0001")
+        ah._vibe_scope_note_rename("move", "performance.attribution_model", "media.attribution_model", "VREQ-0002")
+        assert fence.base_key_of("partner", "supplier") == ("vendor", "supplier")
+        assert fence.base_key_of("media", "attribution_model") == ("performance", "attributionmodel")
+        assert fence.base_key_of("partner", "partner_note") is None
+        assert fence.in_base_lineage("partner", "supplier", "supplier_name") and not fence.in_base_lineage("partner", "supplier", "new_col")
+        assert fence.base_domain_of("partner") == "vendor" and fence.base_domain_of("brand_new") is None
+        d, p, a, mv = _relocated_flat()
+        with ah._vibe_scope_contain(d, p, a, _Log(), "autofix:pre_sa_naming_convention"):
+            for row in a:
+                if (row["domain"], row["product"], row["attribute"]) == ("partner", "supplier", "supplier_name"):
+                    row["attribute"] = "name"
+                if (row["domain"], row["product"], row["attribute"]) == ("partner", "partner_note", "partner_note_id"):
+                    row["attribute"] = "note_id"
+        names = {(r["domain"], r["product"], r["attribute"]) for r in a}
+        assert ("partner", "supplier", "supplier_name") in names and ("partner", "supplier", "name") not in names
+        assert ("partner", "partner_note", "note_id") in names, "a product created this run is still shaped by autofix passes"
+        fence.requested_snapshot(d, p, a, mv, _Log())
+        spec, _baseline = fence._engine_snapshot
+        assert spec.products == {("partner", "partnernote")} and spec.whole_domains == frozenset()
+    finally:
+        ah.set_vibe_scope_runtime(None)
+        ah.vov_ledger_reset()
+
+
+def test_a_duplicate_requirement_for_a_landed_rename_counts_as_already_satisfied():
+    ah.vov_ledger_reset()
+    model = _model()
+    op = ("rename_domain", "vendor", "partner")
+    assert ah._vov_det_op_already_landed(op, model) is False
+    assert ah._v337_apply_rename_domain(model["model"], "vendor", "partner") is not None
+    assert ah._vov_det_op_already_landed(op, model) is True
+    assert ah._vov_det_op_already_landed(("rename_domain", "campaign", "promo"), model) is False
+    ah.vov_ledger_reset()
+
+
+def test_a_subdomain_moved_by_a_domain_rename_cites_the_rename():
+    base = _model()
+    for d in base["model"]["domains"]:
+        for p in d["products"]:
+            p["subdomain"] = d["name"] + "_core"
+    cur = copy.deepcopy(base)
+    next(d for d in cur["model"]["domains"] if d["name"] == "vendor")["name"] = "partner"
+    for d in cur["model"]["domains"]:
+        for p in d["products"]:
+            for a in p["attributes"]:
+                if a["foreign_key_to"].startswith("vendor."):
+                    a["foreign_key_to"] = "partner." + a["foreign_key_to"].split(".", 1)[1]
+    ah.vov_ledger_reset()
+    ah._vov_record_rename("domain", "vendor", "partner", "VREQ-0001")
+    wv = {"operation": "vibe modeling of version", "_vov_2_raw_vreqs": [{"vreq_id": "VREQ-0001", "target": "vendor"}],
+          "_vov_2_pipeline_result": {"outcomes": [{"status": "applied", "vreq_ids": ["VREQ-0001"], "target_entities": [["vendor", "*"]]}]}}
+    changes = ah.vov_entity_changes(base, cur, wv)
+    sub = next(e for e in changes["entries"] if e["kind"] == "subdomain" and e["base_path"] == "vendor.vendor_core")
+    assert sub["status"] == "renamed" and "VREQ-0001" in sub["cause"]
+    ah.vov_ledger_reset()

@@ -105,7 +105,8 @@ class Scope:
 def _declared(new_model):
     deltas = {}
     for item in ((new_model.get("_vibe_scope") or {}).get("permitted_deltas") or []):
-        deltas.setdefault(str(item.get("path") or ""), set()).add(str(item.get("kind") or ""))
+        path = item.get("path") or item.get("view_name") or ".".join(str(item.get(k) or "") for k in ("domain", "product", "attribute") if item.get(k))
+        deltas.setdefault(str(path or ""), set()).add(str(item.get("kind") or ""))
     return deltas
 
 

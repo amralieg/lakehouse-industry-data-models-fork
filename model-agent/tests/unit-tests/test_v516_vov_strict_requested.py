@@ -435,3 +435,42 @@ def test_the_raw_base_is_the_business_context_model_json():
     assert ah._vibe_scope_raw_base({"business_context_raw": raw}) is raw
     assert ah._vibe_scope_raw_base({"business_context_raw": {"business_information": {}}}) is None
     assert ah._vibe_scope_raw_base({}) is None
+
+
+def _removal_diff(*removed):
+    return {"domains_removed": [], "domains_added": [], "products_removed": list(removed), "products_added": [], "n_products_modified": 0,
+            "attributes_removed": [], "attributes_added": [], "fks_removed": 0, "fks_added": 0, "metric_views_delta": 0, "tags_added_estimate": 0}
+
+
+@pytest.mark.parametrize("summary,ok", [
+    ("Drops the order.return_line product from the order domain; returns are tracked at return_request level", True),
+    ("Removes the order.return_line product from the order domain", True),
+    ("drop product return_line", True),
+    ("Drops obsolete products from the order domain", False),
+    ("Adds a column to order.sales_order", False),
+])
+def test_a_drop_the_summary_names_is_in_scope_and_an_unnamed_one_is_not(summary, ok):
+    in_scope, _diag = ah.diff_within_summary_scope(_removal_diff(("order", "return_line")), summary)
+    assert in_scope is ok
+
+
+def test_a_corrective_drop_of_an_in_scope_product_is_an_explicit_change():
+    ah.vov_ledger_reset()
+    scoped = ah.build_vibe_scope_fence(ah.parse_vibe_scope("Some Domains", "order"), {"model": _model()}, "vibe modeling of version", _Log())
+    _d, p, _a, _mv = _flat(_model())
+    before = ah._vibe_scope_product_keys(p)
+    after_rows = [r for r in p if not (r["domain"] == "order" and r["product"] == "order_promotion") and not (r["domain"] == "customer" and r["product"] == "session")]
+    log = _Log()
+    noted = ah._vibe_scope_note_corrective_changes(scoped, before, after_rows, "corrective:drop:order_promotion", log)
+    assert noted == ["drop order.order_promotion"]
+    assert ah._vov_change_recorded("drop", (ah._vov285_san("order"), ah._vov285_san("order_promotion")))
+    assert not ah._vov_change_recorded("drop", (ah._vov285_san("customer"), ah._vov285_san("session")))
+    assert any("vibe-scope-corrective-ledger FIRED v5.1.8" in m for m in log.infos)
+
+
+def test_the_corrective_loop_records_its_changes_with_the_fence():
+    src = notebook_concat_source()
+    i = src.index("_vs_handled = _dispatch_generic_action(_vs_at, _vs_sc, _vs_nm, _vs_ts, _vs_rs, _vs_action, _vs_ctx)")
+    window = src[i - 400:i + 2600]
+    assert "_vs_before_keys = _vibe_scope_product_keys(products_data) if _VIBE_SCOPE_RUNTIME is not None else None" in window
+    assert "_vibe_scope_note_corrective_changes(_VIBE_SCOPE_RUNTIME, _vs_before_keys, products_data" in window

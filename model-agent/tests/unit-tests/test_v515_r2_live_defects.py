@@ -346,3 +346,24 @@ def test_an_attribute_rename_carries_the_cause_its_pass_recorded():
     hit = [e for e in changes["entries"] if e["kind"] == "attribute" and e["status"] == "renamed"]
     assert len(hit) == 1 and hit[0]["base_path"].endswith(f".{old}"), hit
     assert "pass:p016_ambiguous_fk_rename" in hit[0]["cause"], hit[0]
+
+
+def _one_product_model(description="Status of the SKU.", attr_type="STRING"):
+    return {"model": {"domains": [{"name": "product", "products": [{"name": "sku", "primary_key": "sku_id", "description": "A sellable item.",
+                                                                     "attributes": [{"name": "sku_id", "type": "STRING"},
+                                                                                    {"name": "sku_status", "type": attr_type, "description": description}]}]}]}}
+
+
+def test_a_description_rewrite_is_a_real_change_for_the_noop_guard():
+    diff = ah.diff_models_summary(_one_product_model(), _one_product_model("Allowed values: active, discontinued, seasonal."))
+    assert int(diff.get("n_products_modified", 0)) == 1, diff
+
+
+def test_a_type_change_is_a_real_change_for_the_noop_guard():
+    diff = ah.diff_models_summary(_one_product_model(), _one_product_model(attr_type="INT"))
+    assert int(diff.get("n_products_modified", 0)) == 1, diff
+
+
+def test_an_identity_mutator_is_still_a_noop():
+    diff = ah.diff_models_summary(_one_product_model(), _one_product_model())
+    assert int(diff.get("n_products_modified", 0)) == 0 and not diff.get("products_added"), diff

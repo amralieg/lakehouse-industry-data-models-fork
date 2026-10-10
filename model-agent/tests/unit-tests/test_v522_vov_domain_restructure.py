@@ -254,16 +254,17 @@ def _view(model, name):
 def test_a_domain_rename_carries_its_metric_views():
     model = _model_with_views()
     assert ah._v337_apply_rename_domain(model["model"], "vendor", "partner") is not None
-    mv = _view(model, "vendor_publisher")
+    mv = _view(model, "partner_publisher")
     assert (mv["owner_domain"], mv["owner_product"]) == ("partner", "publisher")
     assert "`cat`.`partner`.`publisher`" in mv["sql"] and "`cat`.`partner`.`supplier`" in mv["sql"] and "`vendor`" not in mv["sql"]
+    assert "`_metrics`.`partner_publisher`" in mv["sql"] and "vendor_publisher" not in mv["sql"]
     assert _view(model, "campaign_ad")["sql"] == _view(_model_with_views(), "campaign_ad")["sql"]
 
 
 def test_a_domain_merge_carries_its_metric_views():
     model = _model_with_views()
     assert ah._v337_apply_merge_domain(model["model"], "vendor", "media") is not None
-    mv = _view(model, "vendor_publisher")
+    mv = _view(model, "media_publisher")
     assert (mv["owner_domain"], mv["owner_product"]) == ("media", "publisher")
     assert "`cat`.`media`.`publisher`" in mv["sql"] and "`cat`.`media`.`supplier`" in mv["sql"]
 
@@ -271,7 +272,7 @@ def test_a_domain_merge_carries_its_metric_views():
 def test_a_product_move_carries_its_metric_view():
     model = _model_with_views()
     assert ah._v337_apply_move_product(model["model"], "performance", "tracking_pixel", "media") is not None
-    mv = _view(model, "performance_tracking_pixel")
+    mv = _view(model, "media_tracking_pixel")
     assert (mv["owner_domain"], mv["owner_product"]) == ("media", "tracking_pixel")
     assert "`cat`.`media`.`tracking_pixel`" in mv["sql"] and "`cat`.`campaign`.`ad`" in mv["sql"]
 
@@ -279,7 +280,7 @@ def test_a_product_move_carries_its_metric_view():
 def test_a_product_rename_carries_its_views_and_the_renamed_key():
     model = _model_with_views()
     assert ah._v337_apply_rename_product(model["model"], "campaign", "ad", "advert") is not None
-    own, joined = _view(model, "campaign_ad"), _view(model, "performance_tracking_pixel")
+    own, joined = _view(model, "campaign_advert"), _view(model, "performance_tracking_pixel")
     assert (own["owner_domain"], own["owner_product"]) == ("campaign", "advert")
     assert "`cat`.`campaign`.`advert`" in own["sql"] and "expr: advert_id" in own["sql"]
     assert "`cat`.`campaign`.`advert`" in joined["sql"] and "a.advert_id" in joined["sql"] and "source.ad_id" in joined["sql"]
@@ -288,7 +289,7 @@ def test_a_product_rename_carries_its_views_and_the_renamed_key():
 def test_an_attribute_rename_carries_the_column_into_metric_views():
     model = _model_with_views()
     assert ah._v337_apply_rename_attribute(model["model"], "campaign", "ad", "ad_id", "advert_key") is not None
-    assert "expr: advert_key" in _view(model, "campaign_ad")["sql"]
+    assert "expr: advert_key" in _view(model, "campaign_ad")["sql"] and _view(model, "campaign_ad")["owner_product"] == "ad"
     assert "a.advert_key" in _view(model, "performance_tracking_pixel")["sql"]
 
 
@@ -301,7 +302,7 @@ def test_a_frozen_metric_view_is_left_to_the_fence_p5():
         frozen_before = _view(model, "performance_tracking_pixel")["sql"]
         assert ah._v337_apply_rename_product(model["model"], "campaign", "ad", "advert") is not None
         assert _view(model, "performance_tracking_pixel")["sql"] == frozen_before
-        assert "`cat`.`campaign`.`advert`" in _view(model, "campaign_ad")["sql"]
+        assert "`cat`.`campaign`.`advert`" in _view(model, "campaign_advert")["sql"]
     finally:
         ah.set_vibe_scope_runtime(None)
 
@@ -497,3 +498,106 @@ def test_subdomains_of_a_deterministically_renamed_domain_cite_the_rename():
     sub = next(e for e in changes["entries"] if e["kind"] == "subdomain" and e["base_path"] == "vendor.vendor_core")
     assert sub["status"] == "renamed" and "VREQ-0007" in sub["cause"]
     ah.vov_ledger_reset()
+
+
+def test_a_renamed_product_metric_view_takes_the_new_name_once():
+    ah.vov_ledger_reset()
+    model = _model_with_views()
+    assert ah._v337_apply_rename_product(model["model"], "campaign", "ad", "advert") is not None
+    names = [mv["view_name"] for mv in model["model"]["metric_views"]]
+    assert names.count("campaign_advert") == 1 and "campaign_ad" not in names
+    assert ah._VOV_LEDGER["mv_renames"] == {"campaign_advert": "campaign_ad"}
+    ah.vov_ledger_reset()
+    assert ah._VOV_LEDGER["mv_renames"] == {}
+
+
+def test_a_metric_view_keeps_its_name_when_the_new_name_is_taken():
+    ah.vov_ledger_reset()
+    model = _model_with_views()
+    model["model"]["metric_views"].append(_mv("campaign_advert", "campaign", "advert", '  source: "`cat`.`campaign`.`advert`"'))
+    assert ah._v337_apply_rename_product(model["model"], "campaign", "ad", "advert") is not None
+    names = [mv["view_name"] for mv in model["model"]["metric_views"]]
+    assert names.count("campaign_advert") == 1 and "campaign_ad" in names
+    assert _view(model, "campaign_ad")["owner_product"] == "advert" and ah._VOV_LEDGER["mv_renames"] == {}
+
+
+@pytest.mark.parametrize("view,old,new,expected", [
+    ("campaign_ad", ("campaign", "ad"), ("campaign", "advert"), "campaign_advert"),
+    ("campaign_ad_spend", ("campaign", "ad"), ("campaign", "advert"), "campaign_advert_spend"),
+    ("campaign_adx", ("campaign", "ad"), ("campaign", "advert"), "campaign_adx"),
+    ("vendor_publisher_kpis", ("vendor", "publisher"), ("partner", "publisher"), "partner_publisher_kpis"),
+    ("vendor_rollup", ("vendor", "publisher"), ("partner", "publisher"), "partner_rollup"),
+    ("media_rollup", ("vendor", "publisher"), ("partner", "publisher"), "media_rollup"),
+    ("crew_member", ("crew", "member"), ("crew", "crew_member"), "crew_member"),
+    ("order_channel", ("order", "channel"), ("order", "order_channel"), "order_channel"),
+    ("crew_member_kpis", ("crew", "crew_member"), ("crew", "member"), "crew_member_kpis"),
+])
+def test_the_view_name_follows_only_its_own_owner_prefix(view, old, new, expected):
+    assert ah._v337_renamed_view_name(view, old, new) == expected
+
+
+def test_entity_changes_report_a_renamed_metric_view():
+    ah.vov_ledger_reset()
+    base = _model_with_views()
+    new = copy.deepcopy(base)
+    assert ah._v337_apply_rename_product(new["model"], "campaign", "ad", "advert") is not None
+    rows = [e for e in ah.vov_entity_changes(base, new)["entries"] if e["kind"] == "metric_view" and e["status"] != "unchanged"]
+    assert [(e["status"], e["path"], e["base_path"]) for e in rows if "campaign" in e["path"] + e["base_path"]] == [("renamed", "campaign_advert", "campaign_ad")]
+    ah.vov_ledger_reset()
+
+
+def _transient_fence():
+    import test_v514_vibe_scope_parse as PS
+    raw = copy.deepcopy(PS.RAW)
+    log = _Log()
+    fence = ah.build_vibe_scope_fence(ah.parse_vibe_scope("Some Domains", "crew"), copy.deepcopy(raw), "vibe modeling of version", log)
+    return fence, ah.model_to_widgets_flat(copy.deepcopy(raw)), log
+
+
+def _toggle_transient(flat):
+    d, p, a, _mv = copy.deepcopy(flat)
+    pks = {(r["domain"], r["product"]): r.get("primary_key") for r in p}
+    for row in a:
+        if pks.get((row["domain"], row["product"])) == row["attribute"]:
+            row["is_primary_key"] = not row.get("is_primary_key", False)
+        row["nullable"] = False
+        row["classification"] = "confidential"
+    for row in p:
+        row["row_estimate"] = "1000"
+    for row in d:
+        row["classification"] = "internal"
+    return d, p, a
+
+
+def test_working_fields_model_json_does_not_store_are_not_out_of_scope_changes():
+    fence, flat, log = _transient_fence()
+    d, p, a = _toggle_transient(flat)
+    issues = ah._vibe_scope_sa_issues(fence, d, p, a, log)
+    assert not [i for i in issues if i["category"] == "vibe_scope_out_of_scope_change"], issues
+    assert sum("[vibe-scope-transient-ignore FIRED v5.2.8]" in m for m in log.lines) == 1
+    assert fence.restore_flat(d, p, a, None, "test") == 0
+
+
+def test_a_real_frozen_change_is_still_an_out_of_scope_change():
+    fence, flat, log = _transient_fence()
+    d, p, a = _toggle_transient(flat)
+    victim = next(r for r in a if r["domain"] != "crew")
+    victim["description"] = "rewritten by a pass"
+    issues = ah._vibe_scope_sa_issues(fence, d, p, a, log)
+    found = [i for i in issues if i["category"] == "vibe_scope_out_of_scope_change"]
+    assert found and f"{victim['domain']}.{victim['product']}.{victim['attribute']}" in found[0]["message"] and "description" in found[0]["message"]
+    assert "is_primary_key" not in found[0]["message"] and "classification" not in found[0]["message"]
+    toggled = next(r for r in a if r["domain"] != "crew" and r is not victim and r.get("classification") == "confidential")
+    assert fence.restore_flat(d, p, a, None, "test") == 1
+    base_desc = next(r for r in flat[2] if (r["domain"], r["product"], r["attribute"]) == (victim["domain"], victim["product"], victim["attribute"]))["description"]
+    assert victim["description"] == base_desc and toggled["classification"] == "confidential"
+
+
+def test_a_base_that_stores_is_primary_key_is_not_flagged_when_the_working_rows_drop_it():
+    raw = __import__("json").loads((Path(__file__).resolve().parents[3] / "data-models" / "retail" / "v2" / "ecm" / "model.json").read_text())
+    log = _Log()
+    fence = ah.build_vibe_scope_fence(ah.parse_vibe_scope("Some Domains", raw["model"]["domains"][0]["name"]), copy.deepcopy(raw), "vibe modeling of version", log)
+    d, p, a, _mv = ah.model_to_widgets_flat(copy.deepcopy(raw))
+    for row in a:
+        row.pop("is_primary_key", None)
+    assert not [i for i in ah._vibe_scope_sa_issues(fence, d, p, a, log) if i["category"] == "vibe_scope_out_of_scope_change"]

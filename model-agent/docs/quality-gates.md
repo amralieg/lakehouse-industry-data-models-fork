@@ -323,7 +323,7 @@ Agent 5.1.4 adds six categories to `run_metamodel_static_analysis`. Five belong 
 
 | Category | Severity | Runs on | What it asserts | Repair | Rule |
 |---|---|---|---|---|---|
-| `vibe_scope_out_of_scope_change` | error | Scoped runs | Every out-of-scope domain, product, attribute and metric view, and the model-level metadata, equals the base model, apart from the permitted deltas P1 to P5 | Checkpoints restore the base record; the serialize gate splices the out-of-scope sections from the base model.json | QGATE-RUL-013 |
+| `vibe_scope_out_of_scope_change` | error | Scoped runs | Every out-of-scope domain, product, attribute and metric view, and the model-level metadata, equals the base model, apart from the permitted deltas P1 to P5. Only fields that model.json stores count: working fields such as `is_primary_key`, `nullable` or `classification` are ignored | Checkpoints restore the base record; the serialize gate splices the out-of-scope sections from the base model.json | QGATE-RUL-013 |
 | `vibe_scope_dependency_conflict` | warning | Scoped runs | No in-scope change breaks an out-of-scope artifact in a way P1 to P5 cannot repair, and no referenced in-scope table disappears without an explicit drop | The change is rejected or rolled back; an unrequested drop is restored from the base model | QGATE-RUL-014 |
 | `vibe_scope_dangling_boundary_fk` | info | Scoped runs | No out-of-scope FK still points at an in-scope target that an explicit rename, move or drop removed | The boundary reconciler re-points the FK (P1) or clears it (P2) | QGATE-RUL-015 |
 | `vibe_scope_subdomain_violation` | error | `Some Subdomains` runs | Every new product in a listed domain uses a listed subdomain | The product is removed with its references | QGATE-RUL-016 |

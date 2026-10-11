@@ -678,7 +678,9 @@ def load_install_harness(source=None):
     harness = (
         "def _install_harness(widgets_values, spark, data_model, deployment_catalog, _deploy_all_cats, _parsed_root,\n"
         "                     _vs_install, _thread_safe_print, _deploy_warn, _dlog, execute_ddl_statements,\n"
-        "                     execute_metric_views_in_parallel_no_halt, _check_physical_deployment_clash, w):\n"
+        "                     execute_metric_views_in_parallel_no_halt, _check_physical_deployment_clash, w,\n"
+        "                     _vs_precondition=None, _mm_root=None, business_name=None, _deploy_model_scope='mvm',\n"
+        "                     _deploy_resolver=None):\n"
         "    physical_result = {'success': False, 'domains': 0, 'tables': 0, 'fks': 0, 'tags': 0, 'metrics': 0, 'error': None}\n"
         "    _vw = None\n"
         "    max_concurrent_batches = 4\n"
@@ -694,8 +696,9 @@ def load_install_harness(source=None):
 
 
 class InstallRecorder:
-    def __init__(self):
+    def __init__(self, failed_views=()):
         self.phases = []
+        self.failed_views = tuple(failed_views)
 
     def execute_ddl_statements(self, spark, statements, mode="serial", logger=None, file_label="", max_workers=20, is_fk_file=False,
                                on_failure=None):
@@ -708,23 +711,28 @@ class InstallRecorder:
     def execute_metric_views(self, spark, statements, logger, max_workers=20, concurrency_manager=None, progress_callback=None, timeout_per_stmt=None):
         stmts = list(statements)
         self.phases.append(("metric_views", stmts))
+        failed = [(name, "UNRESOLVED_COLUMN") for name in self.failed_views]
         for stmt in stmts:
             spark.sql(stmt)
-        return {"succeeded": len(stmts), "failed": [], "total": len(stmts)}
+        return {"succeeded": len(stmts) - len(failed), "failed": failed, "total": len(stmts)}
 
     def phase(self, label):
         return next((s for name, s in self.phases if name == label), [])
 
 
-def run_install(model_root, spark, use_plan=True):
+def run_install(model_root, spark, use_plan=True, base_match=None, widgets=None, failed_views=(), workspace=None):
     data_model = copy.deepcopy(model_root["model"])
     data_model["_file_model_conventions"] = dict(data_model.get("model_conventions") or {})
-    recorder = InstallRecorder()
+    recorder = InstallRecorder(failed_views)
     plan = ah._vibe_scope_install_plan(model_root, data_model, False, LOG) if use_plan and hasattr(ah, "_vibe_scope_install_plan") else None
     harness = load_install_harness()
+    extra = {}
+    if base_match is not None:
+        extra = {"_vs_precondition": "base_match", "_mm_root": CATALOG, "business_name": "Skyline Air",
+                 "_deploy_resolver": ah.CatalogResolver(style="one_catalog", base_catalog=CATALOG, naming_convention="snake_case")}
     gen, run_phys, result = harness(
-        {"cataloging_style": "one_catalog"}, spark, data_model, CATALOG, [CATALOG], model_root,
+        dict({"cataloging_style": "one_catalog"}, **(widgets or {})), spark, data_model, CATALOG, [CATALOG], model_root,
         plan, lambda m: LOG.info(m), lambda m: LOG.warning(m), LOG, recorder.execute_ddl_statements,
-        recorder.execute_metric_views, lambda *a, **k: None, None)
+        recorder.execute_metric_views, lambda *a, **k: None, workspace, **extra)
     run_phys(copy.deepcopy(data_model))
     return recorder, result, plan

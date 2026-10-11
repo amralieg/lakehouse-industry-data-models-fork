@@ -12,11 +12,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import conftest  # noqa: F401,E402
 import agent_helpers as ah  # noqa: E402
+from published_models import published_json  # noqa: E402
 from notebook_source_util import notebook_concat_source  # noqa: E402
 
-REPO = Path(__file__).resolve().parents[3]
-AIRLINES = REPO / "data-models" / "airlines" / "v1" / "mvm" / "model.json"
-RAW = json.loads(AIRLINES.read_text())
+RAW = published_json()
 AIRLINES_DOMAINS = [d["name"] for d in RAW["model"]["domains"]]
 VOV = "vibe modeling of version"
 NEW_BASE = "new base model"

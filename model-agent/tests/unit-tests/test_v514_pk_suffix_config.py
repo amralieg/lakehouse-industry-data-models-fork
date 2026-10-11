@@ -21,10 +21,11 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import conftest  # noqa: E402
 import agent_helpers as ah  # noqa: E402
+from published_models import published_json  # noqa: E402
 
 BASE_COMMIT = "56ce1eb"
 REPO = Path(__file__).resolve().parents[3]
-RAW = json.loads((REPO / "data-models" / "airlines" / "v1" / "mvm" / "model.json").read_text())
+RAW = published_json()
 ID_NAME = re.compile(r"(?<![A-Za-z0-9])[a-z][a-z0-9_]*_id\b")
 PROMPTS = ["VIBE_CREATE_NEXT_PROMPT", "MODEL_ARCHITECT_REVIEW_PROMPT", "DOMAIN_METRICS_PROMPT", "PRODUCT_GENERATE_PROMPT",
            "PRODUCT_MERGE_SIMILAR_PROMPT", "ATTRIBUTE_GENERATE_PROMPT", "ATTRIBUTE_DEDUP_PROMPT", "FK_IN_DOMAIN_LINK_PROMPT",

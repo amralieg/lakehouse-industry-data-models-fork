@@ -3,14 +3,12 @@ right after them, so a relinked FK lands on its new parent instead of being kept
 ("already exists") or deleted by a late DROP. Unscoped plans run exactly as before.
 """
 import hashlib
-from pathlib import Path
 
 import pytest
 
 from installer_harness import (BASE_V1_TABLES, FakeUC, find_cell, load_pipeline, pipeline_cfg,
-                               scoped_folder)
+                               published_model_folder, scoped_folder)
 
-REPO = Path(__file__).resolve().parents[3]
 PRESERVED = "`demo`.`sales`.`order`"
 
 
@@ -172,8 +170,9 @@ GOLDEN_RESTAURANTS_V2_MVM = {
 def test_a_shipped_unscoped_model_plans_exactly_as_before():
     """The digest of the plan the installer builds for this folder; a change here is a
     change to every unscoped install."""
-    folder = REPO / "data-models" / "restaurants" / "v2" / "mvm"
+    folder = "data-models/restaurants/v2/mvm"
     ns = load_pipeline(FakeUC())
+    assert published_model_folder(ns, folder)
     cfg = dict(pipeline_cfg(folder), include_metrics=True, catalog="golden_cat")
     plan = ns["build_plan"](cfg)
     digest = {k: [len(v), hashlib.sha256("\n\0".join(v).encode()).hexdigest()[:16]]

@@ -23,6 +23,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import conftest  # noqa: F401,E402
 import agent_helpers as ah  # noqa: E402
+from published_models import published_json  # noqa: E402
 from notebook_source_util import notebook_concat_source  # noqa: E402
 from test_v515_mv_ref_integrity import _measure_names, _render  # noqa: E402
 
@@ -417,8 +418,7 @@ def test_every_files_upload_call_passes_a_stream_not_bytes():
 
 def test_an_attribute_rename_carries_the_cause_its_pass_recorded():
     import copy as _copy
-    repo = Path(__file__).resolve().parents[3]
-    raw = json.loads((repo / "data-models" / "airlines" / "v1" / "mvm" / "model.json").read_text())
+    raw = published_json()
     dom = raw["model"]["domains"][0]
     prod = dom["products"][0]
     old = prod["attributes"][1]["name"]

@@ -10,9 +10,9 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import conftest  # noqa: F401,E402
 import agent_helpers as ah  # noqa: E402
+from published_models import published_paths, published_text  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
-REPO = HERE.parents[2]
 VIBES = json.loads((HERE / "fixtures" / "v514_lostfixes_pc_vibes.json").read_text())
 VOV = "vibe modeling of version"
 LOG = logging.getLogger("test_v514_lostfixes_domain_ops")
@@ -173,14 +173,14 @@ def test_r4_hijack_lines_and_published_next_vibes_never_trigger_domain_or_bulk_o
     assert ah._v337_extract_domain_merge("Fold `claimfinancials` into `claims` as a subdomain.") == ("claimfinancials", "claims")
     lines = 0
     fires = []
-    for path in sorted(REPO.glob("data-models/**/next_vibes.txt")):
-        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+    for path in published_paths("data-models", "next_vibes.txt"):
+        for line in published_text(path).splitlines():
             if not line.strip():
                 continue
             lines += 1
             for fn in (ah._v337_extract_domain_rename, ah._v337_extract_domain_merge, ah._v337_extract_bulk_move):
                 if fn(line):
-                    fires.append((path.name, fn.__name__, line[:120]))
+                    fires.append((path, fn.__name__, line[:120]))
     assert lines > 1000
     assert fires == []
 

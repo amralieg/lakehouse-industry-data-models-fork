@@ -679,6 +679,18 @@ class FakeUC(FakeRegistry):
                                    % (name, name, self._name(m.group(3)), table["fks"][name], self._name(m.group(3))))
             table["fks"][name] = parent
             return True, None
+        m = re.match(r"DROP TABLE IF EXISTS (\S+?);?$", flat)
+        if m:
+            self.tables.pop(self._name(m.group(1)), None)
+            return True, None
+        m = re.match(r"SHOW TABLES IN `([^`]+)`\.`([^`]+)`$", flat)
+        if m:
+            prefix = "%s.%s." % (m.group(1).lower(), m.group(2).lower())
+            return True, FakeResult([(m.group(2), name.rsplit(".", 1)[1], False) for name in sorted(self.tables) if name.startswith(prefix)])
+        m = re.match(r"DROP SCHEMA IF EXISTS `([^`]+)`\.`([^`]+)`$", flat)
+        if m:
+            self.schemas.get(m.group(1), set()).discard(m.group(2))
+            return True, None
         m = re.match(r"ALTER TABLE (\S+) ALTER COLUMN (\S+) SET TAGS", flat)
         if m:
             table, col = self._table(self._name(m.group(1))), self._name(m.group(2))
@@ -749,6 +761,23 @@ def load_pipeline(spark, extra_cells=()):
     exec(compile(main_src[:-len("main()")], "<main-cell>", "exec"), namespace)
     namespace["_log_lines"] = lines
     return namespace
+
+
+def published_model_folder(namespace, folder):
+    """Serve a shipped model folder under data-models/ to build_plan from the git object store.
+
+    data-models/ is never checked out (repo CLAUDE.md, section -0), so the folder's SQL files are read with
+    `git show` into memory instead of from disk."""
+    import subprocess
+    root = HERE.parents[2]
+    listing = subprocess.check_output(["git", "ls-tree", "-r", "--name-only", "HEAD", folder], cwd=str(root)).decode("utf-8")
+    paths = sorted(x for x in listing.splitlines() if x.endswith(".sql"))
+    namespace["_resolve_local_base"] = lambda cfg: folder
+    namespace["_list_sql"] = lambda directory, local, cfg: [
+        (x.rsplit("/", 1)[1], x) for x in paths if x.startswith(directory.rstrip("/") + "/")]
+    namespace["_read_sql"] = lambda ref, cfg: subprocess.check_output(
+        ["git", "show", "HEAD:%s" % ref], cwd=str(root)).decode("utf-8")
+    return paths
 
 
 def registry_row(version, **overrides):

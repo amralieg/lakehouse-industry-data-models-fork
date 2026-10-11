@@ -22,10 +22,11 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import conftest  # noqa: F401,E402
 import agent_helpers as ah  # noqa: E402
+from published_models import published_json  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[3]
 NOTEBOOK = REPO / "model-agent" / "agent" / "dbx_vibe_modelling_agent.ipynb"
-RAW = json.loads((REPO / "data-models" / "airlines" / "v1" / "mvm" / "model.json").read_text())
+RAW = published_json()
 VOV = "vibe modeling of version"
 LOG = logging.getLogger("test_v514_scoreboard")
 _ENGINE = ah.widgets_flat_to_model(*ah.model_to_widgets_flat(RAW), agent_version=ah.__AGENT_VERSION__)

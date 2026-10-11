@@ -24,9 +24,9 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import conftest  # noqa: F401,E402
 import agent_helpers as ah  # noqa: E402
+from published_models import published_json  # noqa: E402
 
-REPO = Path(__file__).resolve().parents[3]
-RAW = json.loads((REPO / "data-models" / "airlines" / "v1" / "mvm" / "model.json").read_text())
+RAW = published_json()
 GOLDEN_PATH = Path(__file__).resolve().parent / "fixtures" / "v514_vibe_scope_pass_goldens.json"
 VOV = "vibe modeling of version"
 CAPTURE = os.environ.get("VIBE_SCOPE_CAPTURE_GOLDENS") == "1"

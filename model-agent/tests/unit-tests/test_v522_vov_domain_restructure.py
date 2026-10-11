@@ -22,6 +22,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import conftest  # noqa: F401,E402
 import agent_helpers as ah  # noqa: E402
+from published_models import published_json  # noqa: E402
 
 
 def _attr(name, fk=""):
@@ -594,7 +595,7 @@ def test_a_real_frozen_change_is_still_an_out_of_scope_change():
 
 
 def test_a_base_that_stores_is_primary_key_is_not_flagged_when_the_working_rows_drop_it():
-    raw = __import__("json").loads((Path(__file__).resolve().parents[3] / "data-models" / "retail" / "v2" / "ecm" / "model.json").read_text())
+    raw = published_json("data-models/retail/v2/ecm/model.json")
     log = _Log()
     fence = ah.build_vibe_scope_fence(ah.parse_vibe_scope("Some Domains", raw["model"]["domains"][0]["name"]), copy.deepcopy(raw), "vibe modeling of version", log)
     d, p, a, _mv = ah.model_to_widgets_flat(copy.deepcopy(raw))
